@@ -6,12 +6,12 @@
 
 ## 🎯 Core Value Proposition
 
-| Feature | Details |
-|---|---|
-| **Pay-as-you-go Labs** | ~$0.50/hour — only pay for what you use |
-| **Isolated Environments** | Each user gets their own EC2 instance |
-| **68% Cost Reduction** | vs. traditional fixed servers |
-| **Real-World Practice** | Actual AWS infrastructure, not simulations |
+| Feature                   | Details                                    |
+| ------------------------- | ------------------------------------------ |
+| **Pay-as-you-go Labs**    | ~$0.50/hour — only pay for what you use    |
+| **Isolated Environments** | Each user gets their own EC2 instance      |
+| **68% Cost Reduction**    | vs. traditional fixed servers              |
+| **Real-World Practice**   | Actual AWS infrastructure, not simulations |
 
 ---
 
@@ -23,14 +23,14 @@ User Request → Go (Gin) API → MongoDB → AWS EC2 (Phase 2) → Terminate
 
 ### Stack
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Go 1.25 + Gin framework |
-| **Auth** | JWT (`golang-jwt/jwt/v5`) + HTTP-only cookies |
-| **Database** | MongoDB (`mongo-driver/v2`) |
-| **Real-time** | WebSockets (`gorilla/websocket`) |
-| **Frontend** | React + Vite (`client/`) |
-| **Legacy API** | Node.js + Express (`server/`) |
+| Layer          | Technology                                    |
+| -------------- | --------------------------------------------- |
+| **Backend**    | Go 1.25 + Gin framework                       |
+| **Auth**       | JWT (`golang-jwt/jwt/v5`) + HTTP-only cookies |
+| **Database**   | MongoDB (`mongo-driver/v2`)                   |
+| **Real-time**  | WebSockets (`gorilla/websocket`)              |
+| **Frontend**   | React + Vite (`client/`)                      |
+| **Legacy API** | Node.js + Express (`server/`)                 |
 
 ---
 
@@ -41,21 +41,29 @@ xploitverse/
 ├── backend/                    # ✅ Go API Server (primary)
 │   ├── cmd/
 │   │   ├── server/main.go      # Entry point
-│   │   └── seed/main.go        # Database seeder
+│   │   ├── seed/main.go        # Database seeder
+│   │   └── seed_courses/       # Course/module/task seeder
 │   ├── internal/
 │   │   ├── config/             # Env & app config
 │   │   ├── database/           # MongoDB connection
-│   │   ├── handlers/           # HTTP handlers (auth, labs, users…)
+│   │   ├── handlers/           # HTTP handlers (auth, labs, courses, flags, leaderboard…)
 │   │   ├── middleware/         # Auth, rate-limit, error middleware
 │   │   ├── models/             # MongoDB document models
 │   │   ├── routes/             # Route registration (routes.go)
-│   │   ├── services/           # Business logic (email, AI…)
-│   │   ├── utils/              # JWT helpers, token utils
-│   │   └── ws/                 # WebSocket hub
+│   │   ├── services/           # Business logic (Docker CLI, email, EC2…)
+│   │   └── utils/              # JWT helpers
+│   ├── ws/
+│   │   └── handler.go          # Native WebSocket terminal → docker exec bridge
 │   ├── go.mod
 │   └── .env.example
 ├── client/                     # React + Vite Frontend
-└── server/                     # Express + Node Legacy Backend
+│   ├── src/
+│   │   ├── pages/              # Landing, Dashboard, Courses, Leaderboard, LabWorkspace…
+│   │   ├── components/         # UI primitives, Navbar, TerminalWindow, ChatWidget
+│   │   ├── services/           # Axios API wrappers (auth, labs, courses, flags, leaderboard)
+│   │   └── context/            # AuthContext
+│   └── .env.example
+└── server/                     # Express + Node Legacy Backend (kept for reference)
 ```
 
 ---
@@ -148,6 +156,9 @@ AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_REGION=us-east-1
 
+# Frontend — add to client/.env
+VITE_API_BASE=http://localhost:5000/api   # backend base URL (strips /api for WS)
+
 # AI APIs (Phase 2+)
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
@@ -183,29 +194,30 @@ curl -X GET http://localhost:5000/api/auth/me \
 
 **Expected responses:**
 
-| Status | Body | Meaning |
-|---|---|---|
-| `200 OK` | `{ "success": true, "data": { "user": {...} } }` | ✅ Authenticated |
-| `401` | `Access denied. No token provided.` | No token sent |
-| `401` | `Token expired. Please log in again.` | JWT expired |
-| `401` | `Invalid token.` | Bad signature / malformed |
-| `401` | `User no longer exists.` | User deleted from DB |
-| `401` | `Password recently changed. Please log in again.` | Token issued before password change |
-| `401` | `User account has been deactivated.` | Account suspended |
+| Status   | Body                                              | Meaning                             |
+| -------- | ------------------------------------------------- | ----------------------------------- |
+| `200 OK` | `{ "success": true, "data": { "user": {...} } }`  | ✅ Authenticated                    |
+| `401`    | `Access denied. No token provided.`               | No token sent                       |
+| `401`    | `Token expired. Please log in again.`             | JWT expired                         |
+| `401`    | `Invalid token.`                                  | Bad signature / malformed           |
+| `401`    | `User no longer exists.`                          | User deleted from DB                |
+| `401`    | `Password recently changed. Please log in again.` | Token issued before password change |
+| `401`    | `User account has been deactivated.`              | Account suspended                   |
 
 **2. Test rate limiting** — auth endpoints are throttled to **10 requests / 15 minutes** per IP via `NewRateLimiter` middleware.
 
 ### Middleware Stack
 
-| Middleware | File | Purpose |
-|---|---|---|
-| `VerifyToken` | `middleware/auth.go` | JWT validation + user lookup |
-| `CheckRole(roles...)` | `middleware/auth.go` | RBAC — validates user role |
-| `IsAdmin()` | `middleware/auth.go` | Shortcut: admin only |
-| `IsInstructor()` | `middleware/auth.go` | Shortcut: admin **or** instructor |
-| `OptionalAuth` | `middleware/auth.go` | Attaches user if token exists, never blocks |
-| `NewRateLimiter` | `middleware/ratelimit.go` | IP-based request throttling |
-| `AbortWithError` | `middleware/error.go` | Standardised JSON error response |
+| Middleware                       | File                      | Purpose                                          |
+| -------------------------------- | ------------------------- | ------------------------------------------------ |
+| `VerifyToken`                    | `middleware/auth.go`      | JWT validation + user lookup                     |
+| `CheckRole(roles...)`            | `middleware/auth.go`      | RBAC — validates user role                       |
+| `IsAdmin()`                      | `middleware/auth.go`      | Shortcut: admin only                             |
+| `IsInstructor()`                 | `middleware/auth.go`      | Shortcut: admin **or** instructor                |
+| `OptionalAuth`                   | `middleware/auth.go`      | Attaches user if token exists, never blocks      |
+| `NewRateLimiter`                 | `middleware/ratelimit.go` | IP-based request throttling                      |
+| `FlagHandler.checkFlagRateLimit` | `handlers/flag.go`        | Per-user-per-task flag attempt throttle (5/60 s) |
+| `AbortWithError`                 | `middleware/error.go`     | Standardised JSON error response                 |
 
 ---
 
@@ -213,57 +225,106 @@ curl -X GET http://localhost:5000/api/auth/me \
 
 ### Auth Routes (`/api/auth`)
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/register` | Public | Register a new user |
-| `POST` | `/login` | Public | Login + receive JWT |
-| `POST` | `/logout` | Public | Clear JWT cookie |
-| `GET` | `/me` | 🔒 Required | Get current user profile |
-| `PUT` | `/update-password` | 🔒 Required | Change password |
-| `POST` | `/refresh-token` | 🔒 Required | Refresh JWT |
-| `POST` | `/forgot-password` | Public | Trigger password reset email |
-| `POST` | `/reset-password/:token` | Public | Reset password with token |
+| Method | Path                     | Auth        | Description                  |
+| ------ | ------------------------ | ----------- | ---------------------------- |
+| `POST` | `/register`              | Public      | Register a new user          |
+| `POST` | `/login`                 | Public      | Login + receive JWT          |
+| `POST` | `/logout`                | Public      | Clear JWT cookie             |
+| `GET`  | `/me`                    | 🔒 Required | Get current user profile     |
+| `PUT`  | `/update-password`       | 🔒 Required | Change password              |
+| `POST` | `/refresh-token`         | 🔒 Required | Refresh JWT                  |
+| `POST` | `/forgot-password`       | Public      | Trigger password reset email |
+| `POST` | `/reset-password/:token` | Public      | Reset password with token    |
 
 ### User Routes (`/api/users`) — 🔒 Auth Required
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| `PUT` | `/profile` | Any | Update own profile |
-| `GET` | `/stats` | Instructor+ | View aggregate user stats |
-| `GET` | `/` | Admin | List all users |
-| `GET` | `/:id` | Admin | Get user by ID |
-| `PUT` | `/:id/role` | Admin | Change user role |
-| `PUT` | `/:id/deactivate` | Admin | Deactivate user |
-| `PUT` | `/:id/reactivate` | Admin | Reactivate user |
+| Method | Path              | Role        | Description               |
+| ------ | ----------------- | ----------- | ------------------------- |
+| `PUT`  | `/profile`        | Any         | Update own profile        |
+| `GET`  | `/stats`          | Instructor+ | View aggregate user stats |
+| `GET`  | `/`               | Admin       | List all users            |
+| `GET`  | `/:id`            | Admin       | Get user by ID            |
+| `PUT`  | `/:id/role`       | Admin       | Change user role          |
+| `PUT`  | `/:id/deactivate` | Admin       | Deactivate user           |
+| `PUT`  | `/:id/reactivate` | Admin       | Reactivate user           |
+
+### User Progress (`/api/users`) — 🔒 Auth Required (additions)
+
+| Method | Path           | Role | Description                         |
+| ------ | -------------- | ---- | ----------------------------------- |
+| `GET`  | `/me/progress` | Any  | All task completions + total points |
 
 ### Lab Routes (`/api/labs`)
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/` | Public | List all labs |
-| `GET` | `/:id` | Public | Get lab details |
-| `POST` | `/start` | 🔒 Required | Start a lab session |
-| `POST` | `/stop` | 🔒 Required | Stop active session |
-| `GET` | `/active-session` | 🔒 Required | Get current session |
-| `GET` | `/history` | 🔒 Required | Past sessions |
+| Method | Path              | Auth        | Description         |
+| ------ | ----------------- | ----------- | ------------------- |
+| `GET`  | `/`               | Public      | List all labs       |
+| `GET`  | `/:id`            | Public      | Get lab details     |
+| `POST` | `/start`          | 🔒 Required | Start a lab session |
+| `POST` | `/stop`           | 🔒 Required | Stop active session |
+| `GET`  | `/active-session` | 🔒 Required | Get current session |
+| `GET`  | `/history`        | 🔒 Required | Past sessions       |
+
+### Course Content Routes
+
+| Method | Path                 | Auth   | Description                             |
+| ------ | -------------------- | ------ | --------------------------------------- |
+| `GET`  | `/api/courses`       | Public | List all courses (with search + filter) |
+| `GET`  | `/api/courses/:slug` | Public | Course detail with modules              |
+| `GET`  | `/api/modules/:id`   | Public | Module detail with tasks                |
+| `GET`  | `/api/tasks/:id`     | Public | Task detail                             |
+
+### Admin Content Routes (`/api/admin`) — 🔒 Instructor+
+
+| Method | Path                         | Description          |
+| ------ | ---------------------------- | -------------------- |
+| `POST` | `/courses`                   | Create course        |
+| `PUT`  | `/courses/:id`               | Update course        |
+| `POST` | `/courses/:courseId/modules` | Add module to course |
+| `PUT`  | `/modules/:id`               | Update module        |
+| `POST` | `/modules/:moduleId/tasks`   | Add task to module   |
+| `PUT`  | `/tasks/:id`                 | Update task          |
+
+### Flag / Scoring Routes (`/api/flags`) — 🔒 Auth Required
+
+| Method | Path      | Description                                                         |
+| ------ | --------- | ------------------------------------------------------------------- |
+| `POST` | `/submit` | Submit a flag — rate-limited to **5 attempts / 60 s** per user+task |
+
+### Leaderboard Routes (`/api/leaderboard`)
+
+| Method | Path  | Auth        | Description                    |
+| ------ | ----- | ----------- | ------------------------------ |
+| `GET`  | `/`   | Public      | Top-100 board (5-minute cache) |
+| `GET`  | `/me` | 🔒 Required | Current user's rank + points   |
+
+### WebSocket Terminal
+
+| Endpoint                                      | Auth            | Description                                                    |
+| --------------------------------------------- | --------------- | -------------------------------------------------------------- |
+| `GET /ws/terminal?sessionId=<id>&token=<jwt>` | JWT query param | Bidirectional shell inside the lab container via `docker exec` |
+
+The WS handler looks up the `LabSession` for the given `sessionId`, verifies it belongs to the authenticated user, then spawns `docker exec -i <containerID> /bin/sh` and pipes stdin/stdout bidirectionally. For local development without Docker, IDs prefixed `mock_` fall back to a local shell.
 
 ### User Roles
 
-| Role | Capabilities |
-|---|---|
-| `student` | Launch labs, view own sessions |
+| Role         | Capabilities                                   |
+| ------------ | ---------------------------------------------- |
+| `student`    | Launch labs, view own sessions                 |
 | `instructor` | All student access + monitor users, view stats |
-| `admin` | Full access including user management |
+| `admin`      | Full access including user management          |
 
 ---
 
 ## 🏅 Backend Best Practices (from Awesome Go)
 
 ### ✅ Project Structure
+
 - Code is split into `handlers/`, `middleware/`, `models/`, `services/`, and `utils/` — keeping separation of concerns
 - `cmd/server/main.go` is the entry point; all business logic is in `internal/`
 
 ### ✅ Authentication & Security
+
 - JWT secrets are loaded from env vars — **never hardcoded**
 - Passwords are hashed using `bcrypt` (`golang.org/x/crypto`)
 - Password reset tokens are stored as **SHA-256 hashes** in MongoDB (raw token never persisted)
@@ -272,27 +333,33 @@ curl -X GET http://localhost:5000/api/auth/me \
 - `changedPasswordAfter` invalidates old JWTs on password change
 
 ### ✅ Error Handling
+
 - Centralized `AbortWithError` helper returns consistent `{ success, message }` JSON
 - Sensitive info (e.g., email enumeration) is hidden — forgot-password always returns `200`
 
 ### ✅ HTTP Design
+
 - No verbs in URLs — HTTP methods convey the action (`POST /start` not `/startLab`)
 - Correct HTTP status codes (`201` for creation, `401` for auth, `403` for forbidden, `404` for not found)
 - Request body validation via Gin's `binding` tags before any DB access
 
 ### ✅ Middleware
+
 - Cross-cutting concerns (auth, rate-limiting, logging) handled via Gin middleware chains
 - `OptionalAuth` for routes that work with or without authentication
 
 ### ✅ Configuration
+
 - All secrets and URLs are environment-variable driven via `.env` + `godotenv`
 - `NODE_ENV=development` enables dev-only response fields (e.g., password reset tokens in body)
 
 ### ✅ Database
+
 - MongoDB indexed queries via `bson.M` filter objects
 - Connection managed in `internal/database/` — single reusable `*mongo.Database` instance
 
 ### ✅ Testing Checklist
+
 - Unit test handlers with mock DB
 - Integration tests against a test MongoDB instance
 - Test rate limiter edge cases
@@ -302,12 +369,15 @@ curl -X GET http://localhost:5000/api/auth/me \
 
 ## 📅 Roadmap
 
-| Phase | Status | Scope |
-|---|---|---|
-| **Phase 1** | ✅ Complete | Auth, Database, Role-Based Access, Frontend Shell |
-| **Phase 2** | 🔜 Planned | AWS EC2 Integration — Auto Scaling, Lab Provisioning |
-| **Phase 3** | 🔜 Planned | AI Integration — Claude/OpenAI for hints & analysis |
-| **Phase 4** | 🔜 Planned | Team Battles, Leaderboards, Certifications |
+| Phase                                  | Status      | Scope                                                                                   |
+| -------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| **Phase 0 — Foundation**               | ✅ Complete | Auth, Database, RBAC, Frontend shell, Base UI components                                |
+| **Phase 1.1 — Course UI**              | ✅ Complete | Course/Module/Task pages, search + filter, difficulty badges                            |
+| **Phase 1.2 — Docker + Scoring**       | ✅ Complete | Docker CLI service, flag submission, progress endpoint                                  |
+| **Phase 1.3 — Terminal + Leaderboard** | ✅ Complete | WS terminal → `docker exec`, per-task rate limiting, leaderboard, completion indicators |
+| **Phase 2 — AWS EC2**                  | 🔜 Planned  | EC2 auto-provisioning, isolated VPCs, lab auto-termination                              |
+| **Phase 3 — AI Integration**           | 🔜 Planned  | Claude/OpenAI hint engine, vulnerability analysis                                       |
+| **Phase 4 — Social**                   | 🔜 Planned  | Team battles, certifications, Redis leaderboard, WebSocket live updates                 |
 
 ---
 

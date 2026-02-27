@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Ubuntu', 'Source Sans Pro', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #d0d4db;
+  background-color: #151c2b;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #151c2b;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2839;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d4555;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4e576a;
+}
+
+/* Subtle shadow utilities */
+.cyber-glow {
+  box-shadow: 0 1px 3px rgba(136, 204, 20, 0.12);
+}
+
+.cyber-glow-red {
+  box-shadow: 0 1px 3px rgba(193, 17, 17, 0.15);
+}
+
+.cyber-glow-blue {
+  box-shadow: 0 1px 3px rgba(47, 128, 237, 0.15);
+}
+
+/* Text glow — barely visible, tasteful */
+.text-glow {
+  text-shadow: none;
+}
+
+/* Gradient text */
+.gradient-text {
+  color: rgba(11, 190, 14, 0.745);
+}
+
+/* Button styles */
+.btn-cyber {
+  @apply px-6 py-3 font-medium rounded-lg transition-colors duration-200;
+  @apply bg-green-500 text-white hover:bg-green-600;
+  @apply focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:ring-offset-2 focus:ring-offset-gray-900;
+}
+
+.btn-cyber-outline {
+  @apply px-6 py-3 font-medium rounded-lg transition-colors duration-200;
+  @apply border border-green-500 text-green-400;
+  @apply hover:bg-green-500 hover:text-white;
+  @apply focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:ring-offset-2 focus:ring-offset-gray-900;
+}
+
+/* Card styles */
+.card-cyber {
+  @apply bg-gray-800 border border-gray-700 rounded-xl;
+  @apply hover:border-gray-600 transition-colors duration-200;
+}
+
+/* Input styles */
+.input-cyber {
+  @apply w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg;
+  @apply text-white placeholder-gray-500;
+  @apply focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/40;
+  @apply transition-colors duration-200;
+}
+
+/* Animation classes */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+}

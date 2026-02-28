@@ -1,6 +1,6 @@
 # XploitVerse: Current State vs Production Architecture
 
-**Last Updated:** 2026-07-04
+**Last Updated:** 2026-02-27
 
 This document compares our current implementation against the production-grade architecture outlined in `advance.md` and provides a phased roadmap to bridge the gap.
 
@@ -85,11 +85,29 @@ Production:     ░░░░░░░░░░░░░░░░░░░░   0
 - [x] **Course content browsing (MVP)**
   - Backend: course/module/task read endpoints wired
   - Frontend: `/courses` → course → module → task pages
-- [x] **Flag submission (MVP)**
-  - Backend: `POST /api/flags/submit`
+  - Course catalog — search + difficulty filter + color badges + tag chips
+  - Course detail — difficulty badge, tags, module count
+  - Module page — task type badges (Flag/Quiz/Lab) + points total
+- [x] **Flag submission & scoring (MVP+)**
+  - Backend: `POST /api/flags/submit`, SHA-256 hashing
   - MongoDB: `user_task_progress` persistence
-  - Seed: includes a demo `flag` task for testing
-  - Frontend: flag submission form shown for `task.type === "flag"`
+  - Anti-cheat: 5 attempts/60 s per user+task (in-memory on `FlagHandler`)
+  - `GET /api/users/me/progress` — completion summary endpoint
+  - Frontend: flag form, toast feedback, completion banner (hides form after solve)
+- [x] **Leaderboard (MVP)**
+  - `GET /api/leaderboard` — MongoDB aggregation pipeline, 5-min in-memory cache
+  - `GET /api/leaderboard/me` — current user rank
+  - `Leaderboard.jsx` — trophy/medal icons, current-user highlight, 30 s auto-refresh
+  - Navbar link added (all roles)
+- [x] **WebSocket terminal (MVP)**
+  - `backend/ws/handler.go` — native WS → `docker exec -i <cid> /bin/sh`
+  - JWT auth via `?token=` query param; mock fallback for `mock_*` container IDs
+  - `LabWorkspace.jsx` — auto-reconnect every 3 s, echoes input immediately
+- [x] **Docker lab spawning (CLI-based)**
+  - `DockerService` — spawn/stop containers via `docker` CLI, no SDK dependency
+  - Mock-fallback if Docker daemon unavailable
+  - Auto-termination service on TTL expiry
+  - `VITE_API_BASE` env var for Terraform-injectable API URL
 
 ---
 
@@ -167,46 +185,48 @@ _Estimated: 2-3 weeks_
 
 ### 1.3 Flag Submission & Scoring
 
-**Status:** 🟡 Partially Done (MVP working)  
+**Status:** � Done (MVP+)  
 **Priority:** High
 
 - [x] **Scoring Service (Monolith First)**
   - `POST /api/flags/submit` endpoint
   - SHA-256 flag hashing
   - Flag validation against task flag_hash
-- [ ] **Anti-cheat**
-  - Per-task rate limit (e.g., 5 attempts/min per user per task)
+- [x] **Anti-cheat**
+  - Per-task rate limit — 5 attempts/60 s per user per task (in-memory `FlagHandler.rateMap`)
 - [ ] **Points rules**
   - Apply hint-penalty logic (currently awards base points on correct)
-- [x] **Progress Tracking (MVP)**
+- [x] **Progress Tracking**
   - `user_task_progress` collection in MongoDB
   - Track: task_id, completed_at, attempts, points_earned
-- [ ] **Progress API**
-  - `GET /api/users/me/progress` - Get user's completion status
-- [x] **Frontend (MVP)**
+- [x] **Progress API**
+  - `GET /api/users/me/progress` — all completions + summary
+- [x] **Frontend**
   - Flag submission form in task page
   - Toast feedback on success/error
+  - Completion banner (date + points earned); flag form hidden after solve
 - [ ] **Polish**
-  - Progress indicator update in UI
+  - Hint-penalty deduction logic
   - Success animation (optional)
 
 ---
 
 ### 1.4 Leaderboard (Basic)
 
-**Status:** 🔴 Not Started  
+**Status:** � Done (MVP)  
 **Priority:** Medium
 
-- [ ] **Backend**
-  - Aggregate total points per user (MongoDB aggregation)
-  - Cache leaderboard in-memory (rebuild every 5 min)
-  - `GET /api/leaderboard` - Top 100 users
-  - `GET /api/leaderboard/me` - Current user's rank
-- [ ] **Frontend**
-  - Leaderboard page (table view)
+- [x] **Backend**
+  - MongoDB aggregation pipeline (group by userId, sort by points desc, limit 100)
+  - 5-minute in-memory cache on `LeaderboardHandler`
+  - `GET /api/leaderboard` — top 100 users (public)
+  - `GET /api/leaderboard/me` — current user's rank (auth required)
+- [x] **Frontend**
+  - `Leaderboard.jsx` page — table view, auto-refresh every 30 s
   - Rank, username, points columns
-  - Highlight current user
-  - Auto-refresh every 30s
+  - Trophy/medal icons for top 3
+  - Current user row highlighted in green
+  - Navbar link (Trophy icon, all roles)
 
 ---
 
@@ -231,13 +251,14 @@ _Estimated: 2-3 weeks_
 
 ### 2.2 WebSockets (Real-time Updates)
 
-**Status:** 🟡 Shell exists (`ws/handler.go`)  
+**Status:** 🟡 Terminal done; live leaderboard/lab-status not started  
 **Priority:** Medium
 
-- [ ] **Lab Terminal Access**
-  - WebSocket endpoint for terminal input/output
-  - Forward commands to Docker container via `docker exec`
-  - Stream stdout/stderr back to client
+- [x] **Lab Terminal Access**
+  - `GET /ws/terminal?sessionId=<id>&token=<jwt>` — native WS terminal
+  - Bridges browser to `docker exec -i <containerID> /bin/sh`
+  - JWT auth via query param; mock fallback for dev
+  - Client auto-reconnects every 3 s
 - [ ] **Leaderboard Live Updates**
   - Redis Pub/Sub on flag capture events
   - Broadcast rank changes to all connected clients
@@ -497,17 +518,17 @@ _Estimated: 2-3 weeks_
 
 ## 🗓️ Recommended Timeline (16-Week Semester)
 
-| Week  | Phase         | Focus                                     |
-| ----- | ------------- | ----------------------------------------- |
-| 1-2   | Phase 0       | ✅ **Done:** Foundation, UI, Basic Auth   |
-| 3-4   | Phase 1.1     | Course/Module system                      |
-| 5-6   | Phase 1.2     | Docker lab spawning (local)               |
-| 7-8   | Phase 1.3-1.4 | Flag submission + Leaderboard             |
-| 9-10  | Phase 2       | Redis + WebSockets + Real-time            |
-| 11-12 | Phase 3       | Profiles + Stripe subscriptions           |
-| 13-14 | Phase 4       | Kubernetes (minikube) + Lab orchestration |
-| 15    | Phase 2/3/4   | Buffer week (finish features)             |
-| 16    | Phase 6       | **AWS deployment** (if time permits)      |
+| Week  | Phase         | Focus                                                    |
+| ----- | ------------- | -------------------------------------------------------- |
+| 1-2   | Phase 0       | ✅ **Done:** Foundation, UI, Basic Auth                  |
+| 3-4   | Phase 1.1     | ✅ **Done:** Course/Module/Task system                   |
+| 5-6   | Phase 1.2     | ✅ **Done:** Docker lab spawning (CLI)                   |
+| 7-8   | Phase 1.3-1.4 | ✅ **Done:** Flag submission + Leaderboard + WS terminal |
+| 9-10  | Phase 2       | Redis + live leaderboard WS + quiz task type             |
+| 11-12 | Phase 3       | Profiles + Stripe subscriptions                          |
+| 13-14 | Phase 4       | Kubernetes (minikube) + Lab orchestration                |
+| 15    | Phase 2/3/4   | Buffer week (finish features)                            |
+| 16    | Phase 6       | **AWS deployment** (if time permits)                     |
 
 **Key Decision Points:**
 
@@ -555,18 +576,18 @@ This shows you **understand** production systems without spending weeks implemen
 
 ## 📊 Feature Comparison: Current vs Production
 
-| Feature           | Current Status           | Phase 1-4 Target | Production (advance.md)      |
-| ----------------- | ------------------------ | ---------------- | ---------------------------- |
-| **Auth**          | JWT + cookies            | + OAuth2 + MFA   | + Session mgmt + audit logs  |
-| **Database**      | MongoDB                  | + Redis cache    | + PostgreSQL + sharding      |
-| **Labs**          | Model only               | Docker local     | Kubernetes + VM pools        |
-| **Scoring**       | Anti-cheat rate-limit ✅ | + Dynamic flags  | + Anti-cheat + dynamic flags |
-| **Leaderboard**   | Basic API + UI ✅        | Redis cache      | Redis sorted set + WebSocket |
-| **Subscriptions** | Not impl.                | Stripe test      | + Usage tracking + billing   |
-| **Monitoring**    | Logs only                | Basic metrics    | Prometheus + Grafana + Loki  |
-| **Networking**    | N/A                      | Local VPN        | WireGuard + isolated VPCs    |
-| **Deployment**    | Local dev                | Docker Compose   | EKS + multi-AZ + ArgoCD      |
-| **Scaling**       | Single instance          | Vertical         | Horizontal + autoscaling     |
+| Feature           | Current Status           | Phase 1-4 Target     | Production (advance.md)      |
+| ----------------- | ------------------------ | -------------------- | ---------------------------- |
+| **Auth**          | JWT + cookies            | + OAuth2 + MFA       | + Session mgmt + audit logs  |
+| **Database**      | MongoDB                  | + Redis cache        | + PostgreSQL + sharding      |
+| **Labs**          | Docker CLI ✅            | WS terminal ✅ / k8s | Kubernetes + VM pools        |
+| **Scoring**       | Anti-cheat rate-limit ✅ | + Dynamic flags      | + Anti-cheat + dynamic flags |
+| **Leaderboard**   | Basic API + UI ✅        | Redis cache          | Redis sorted set + WebSocket |
+| **Subscriptions** | Not impl.                | Stripe test          | + Usage tracking + billing   |
+| **Monitoring**    | Logs only                | Basic metrics        | Prometheus + Grafana + Loki  |
+| **Networking**    | N/A                      | Local VPN            | WireGuard + isolated VPCs    |
+| **Deployment**    | Local dev                | Docker Compose       | EKS + multi-AZ + ArgoCD      |
+| **Scaling**       | Single instance          | Vertical             | Horizontal + autoscaling     |
 
 ---
 

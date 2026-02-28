@@ -14,6 +14,7 @@ type Config struct {
 	NodeEnv string
 
 	MongoURI string
+	RedisURL string
 
 	JWT JWTConfig
 
@@ -71,6 +72,7 @@ func Load() *Config {
 		Port:     getEnv("PORT", "5000"),
 		NodeEnv:  getEnv("NODE_ENV", "development"),
 		MongoURI: getEnv("MONGODB_URI", "mongodb://localhost:27017/xploitverse"),
+		RedisURL: getEnv("REDIS_URL", ""),
 		JWT: JWTConfig{
 			Secret:          getEnv("JWT_SECRET", "default-secret-change-me"),
 			ExpiresIn:       getEnv("JWT_EXPIRES_IN", "7d"),

@@ -39,12 +39,19 @@ type Lab struct {
 	Tools             []string          `bson:"tools,omitempty" json:"tools,omitempty"`
 	Tags              []string          `bson:"tags,omitempty" json:"tags,omitempty"`
 	EnvironmentConfig EnvironmentConfig `bson:"environmentConfig" json:"environmentConfig"`
-	IsActive          bool              `bson:"isActive" json:"isActive"`
-	IsPublished       bool              `bson:"isPublished" json:"isPublished"`
-	TimesCompleted    int               `bson:"timesCompleted" json:"timesCompleted"`
-	AverageRating     float64           `bson:"averageRating" json:"averageRating"`
-	CreatedAt         time.Time         `bson:"createdAt" json:"createdAt"`
-	UpdatedAt         time.Time         `bson:"updatedAt" json:"updatedAt"`
+
+	// Docker image to be used for this lab's container environment.
+	// Defaults to "ubuntu:latest" if empty.
+	DockerImage string `bson:"dockerImage,omitempty" json:"dockerImage,omitempty"`
+	// Memory limit for the container in MB (default 512).
+	MemoryMB int64 `bson:"memoryMb,omitempty" json:"memoryMb,omitempty"`
+
+	IsActive       bool    `bson:"isActive" json:"isActive"`
+	IsPublished    bool    `bson:"isPublished" json:"isPublished"`
+	TimesCompleted int     `bson:"timesCompleted" json:"timesCompleted"`
+	AverageRating  float64 `bson:"averageRating" json:"averageRating"`
+	CreatedAt      time.Time `bson:"createdAt" json:"createdAt"`
+	UpdatedAt      time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
 // DurationFormatted returns a human-readable duration string.

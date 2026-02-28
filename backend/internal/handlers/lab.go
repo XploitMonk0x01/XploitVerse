@@ -271,13 +271,30 @@ func (h *LabHandler) CompleteProvisioning(c *gin.Context) {
 	}
 	containerName := fmt.Sprintf("xv-lab-%s", objID.Hex())
 
+	// Determine memory limit (default 512 MB)
+	memMB := int64(512)
+	if md, ok := session.Metadata.(bson.M); ok {
+		if labID, ok := md["labId"]; ok {
+			var lab models.Lab
+			labCol := h.DB.Collection("labs")
+			if err := labCol.FindOne(c.Request.Context(), bson.M{"_id": labID}).Decode(&lab); err == nil {
+				if lab.DockerImage != "" {
+					labImage = lab.DockerImage
+				}
+				if lab.MemoryMB > 0 {
+					memMB = lab.MemoryMB
+				}
+			}
+		}
+	}
+
 	// Spawn Docker container (falls back to mock if Docker daemon unavailable)
 	containerID, containerIP, spawnErr := h.DockerSvc.SpawnContainer(
 		c.Request.Context(),
 		labImage,
 		containerName,
-		512, // memMB
-		512, // cpuShares
+		memMB, // memMB
+		512,   // cpuShares
 	)
 	if spawnErr != nil {
 		middleware.AbortWithError(c, http.StatusInternalServerError, "Failed to start lab container: "+spawnErr.Error())

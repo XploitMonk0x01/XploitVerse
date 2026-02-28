@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,6 +14,7 @@ import (
 	"github.com/xploitverse/backend/internal/config"
 	"github.com/xploitverse/backend/internal/middleware"
 	"github.com/xploitverse/backend/internal/models"
+	"github.com/xploitverse/backend/internal/services"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -25,10 +28,11 @@ type flagAttemptRecord struct {
 
 // FlagHandler holds dependencies for flag submission endpoints.
 type FlagHandler struct {
-	DB      *mongo.Database
-	Cfg     *config.Config
-	rateMu  sync.Mutex
-	rateMap map[string]*flagAttemptRecord // key: userID+":"+taskID
+	DB       *mongo.Database
+	Cfg      *config.Config
+	RedisSvc *services.RedisService
+	rateMu   sync.Mutex
+	rateMap  map[string]*flagAttemptRecord // key: userID+":"+taskID
 }
 
 // flagRateKey builds a composite key for per-user-per-task rate limiting.
@@ -36,10 +40,19 @@ func flagRateKey(userID, taskID string) string { return userID + ":" + taskID }
 
 // checkFlagRateLimit returns true if the submission should be blocked.
 // Allows at most 5 attempts per 60 seconds per user+task.
-func (h *FlagHandler) checkFlagRateLimit(userID, taskID string) bool {
+// Uses Redis sliding window when available, falls back to in-memory.
+func (h *FlagHandler) checkFlagRateLimit(ctx context.Context, userID, taskID string) bool {
 	const maxAttempts = 5
 	const window = 60 * time.Second
 
+	// Try Redis first
+	if h.RedisSvc != nil && h.RedisSvc.Available() {
+		key := fmt.Sprintf("xv:ratelimit:flag:%s:%s", userID, taskID)
+		allowed, _, _ := h.RedisSvc.RateLimit(ctx, key, maxAttempts, window)
+		return !allowed
+	}
+
+	// Fallback: in-memory rate limiting
 	key := flagRateKey(userID, taskID)
 	now := time.Now()
 
@@ -82,7 +95,7 @@ func (h *FlagHandler) SubmitFlag(c *gin.Context) {
 	}
 
 	// Per-user-per-task anti-cheat: max 5 attempts/minute
-	if h.checkFlagRateLimit(user.ID.Hex(), body.TaskID) {
+	if h.checkFlagRateLimit(c.Request.Context(), user.ID.Hex(), body.TaskID) {
 		middleware.AbortWithError(c, http.StatusTooManyRequests, "Too many flag attempts. Please wait a minute before trying again.")
 		return
 	}
@@ -161,6 +174,13 @@ func (h *FlagHandler) SubmitFlag(c *gin.Context) {
 	if !isCorrect {
 		middleware.AbortWithError(c, http.StatusBadRequest, "Incorrect flag")
 		return
+	}
+
+	// Update Redis leaderboard score on correct submission
+	if h.RedisSvc != nil && h.RedisSvc.Available() {
+		_, _ = h.RedisSvc.IncrementScore(c.Request.Context(), user.ID.Hex(), float64(task.Points))
+		// Mark as submitted for fast dedup
+		_, _ = h.RedisSvc.MarkFlagSubmitted(c.Request.Context(), user.ID.Hex(), body.TaskID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

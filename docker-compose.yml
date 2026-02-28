@@ -1,0 +1,48 @@
+# XploitVerse Development Stack
+# Usage: docker compose up -d
+# Then run the Go backend and Vite dev server locally.
+
+services:
+  # ── MongoDB ────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: xv-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: xploitverse
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: xv-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ── Lab Network (created separately by DockerService) ────────────
+# The xploitverse-labs network (172.30.0.0/16) is created by the
+# Go backend's DockerService.ensureNetwork() at startup.
+# Lab containers are attached to that network, NOT this compose stack.

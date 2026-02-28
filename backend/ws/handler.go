@@ -38,7 +38,7 @@ var upgrader = websocket.Upgrader{
 // LabSessionDoc is the minimal projection we need from MongoDB.
 type LabSessionDoc struct {
 	ID          bson.ObjectID `bson:"_id"`
-	UserID      bson.ObjectID `bson:"userId"`
+	UserID      bson.ObjectID `bson:"user"`
 	ContainerID string        `bson:"containerId"`
 	Status      string        `bson:"status"`
 }
@@ -94,7 +94,7 @@ func TerminalHandler(db *mongo.Database, cfg *config.Config) gin.HandlerFunc {
 		var session LabSessionDoc
 		err = db.Collection("labsessions").FindOne(ctx, bson.M{
 			"_id":    sessionObjID,
-			"userId": userObjID,
+			"user":   userObjID,
 			"status": bson.M{"$in": []string{"running"}},
 		}).Decode(&session)
 		if err != nil {

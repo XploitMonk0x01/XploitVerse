@@ -14,7 +14,7 @@ import (
 )
 
 // RegisterRoutes wires all API route groups onto the Gin engine.
-func RegisterRoutes(r *gin.Engine, db *mongo.Database, cfg *config.Config) {
+func RegisterRoutes(r *gin.Engine, db *mongo.Database, cfg *config.Config, dockerSvc *services.DockerService, redisSvc *services.RedisService) {
 	// Auth rate limiter: 10 requests per 15 minutes
 	authLimiter := middleware.NewRateLimiter(10, 15*time.Minute)
 
@@ -31,15 +31,14 @@ func RegisterRoutes(r *gin.Engine, db *mongo.Database, cfg *config.Config) {
 	// Create handler instances
 	authHandler := &handlers.AuthHandler{DB: db, Cfg: cfg, EmailService: emailService}
 	userHandler := &handlers.UserHandler{DB: db, Cfg: cfg}
-	dockerSvc := services.NewDockerService()
 	labHandler := &handlers.LabHandler{DB: db, Cfg: cfg, DockerSvc: dockerSvc}
 	labSessionHandler := &handlers.LabSessionHandler{DB: db, Cfg: cfg}
 	chatHandler := &handlers.ChatHandler{DB: db, Cfg: cfg}
 	courseHandler := &handlers.CourseHandler{DB: db, Cfg: cfg}
 	moduleHandler := &handlers.ModuleHandler{DB: db, Cfg: cfg}
 	taskHandler := &handlers.TaskHandler{DB: db, Cfg: cfg}
-	flagHandler := &handlers.FlagHandler{DB: db, Cfg: cfg}
-	leaderboardHandler := &handlers.LeaderboardHandler{DB: db, Cfg: cfg}
+	flagHandler := &handlers.FlagHandler{DB: db, Cfg: cfg, RedisSvc: redisSvc}
+	leaderboardHandler := &handlers.LeaderboardHandler{DB: db, Cfg: cfg, RedisSvc: redisSvc}
 
 	// Auth middleware shortcut
 	auth := middleware.VerifyToken(cfg, db)

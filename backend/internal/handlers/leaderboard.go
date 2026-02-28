@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/xploitverse/backend/internal/config"
 	"github.com/xploitverse/backend/internal/middleware"
+	"github.com/xploitverse/backend/internal/services"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -16,6 +17,7 @@ import (
 type LeaderboardHandler struct {
 	DB       *mongo.Database
 	Cfg      *config.Config
+	RedisSvc *services.RedisService
 	cache    []leaderboardEntry
 	cachedAt time.Time
 }
@@ -95,10 +97,32 @@ func (h *LeaderboardHandler) refreshCache(ctx context.Context) error {
 }
 
 func (h *LeaderboardHandler) ensureCache(ctx context.Context) error {
+	// In-memory cache still valid
 	if time.Since(h.cachedAt) < 5*time.Minute && len(h.cache) > 0 {
 		return nil
 	}
-	return h.refreshCache(ctx)
+
+	// Try Redis cache
+	if h.RedisSvc != nil && h.RedisSvc.Available() {
+		var cached []leaderboardEntry
+		hit, _ := h.RedisSvc.Get(ctx, "xv:leaderboard:cache", &cached)
+		if hit && len(cached) > 0 {
+			h.cache = cached
+			h.cachedAt = time.Now()
+			return nil
+		}
+	}
+
+	// Rebuild from MongoDB
+	if err := h.refreshCache(ctx); err != nil {
+		return err
+	}
+
+	// Store in Redis for other instances
+	if h.RedisSvc != nil && h.RedisSvc.Available() {
+		_ = h.RedisSvc.Set(ctx, "xv:leaderboard:cache", h.cache, 5*time.Minute)
+	}
+	return nil
 }
 
 // GetLeaderboard handles GET /api/leaderboard

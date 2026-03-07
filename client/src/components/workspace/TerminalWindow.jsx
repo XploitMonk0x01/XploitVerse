@@ -5,18 +5,18 @@ import { Terminal, Maximize2, Minimize2, X, Copy, Trash2 } from "lucide-react";
  * Log type to color mapping for Matrix-style terminal
  */
 const LOG_COLORS = {
-    system: "text-gray-400",
-    kernel: "text-gray-300",
-    network: "text-cyber-blue",
-    service: "text-gray-300",
-    tool: "text-cyber-orange",
-    ready: "text-green-400 font-semibold",
-    prompt: "text-green-400",
-    input: "text-white",
-    output: "text-gray-300",
-    alert: "text-red-400",
-    error: "text-red-500",
-    info: "text-gray-400",
+    system: "text-muted",
+    kernel: "text-muted opacity-80",
+    network: "text-info",
+    service: "text-muted",
+    tool: "text-warning",
+    ready: "text-success font-bold",
+    prompt: "text-success font-bold",
+    input: "text-ink",
+    output: "text-muted",
+    alert: "text-error font-bold",
+    error: "text-error font-bold",
+    info: "text-info",
 };
 
 const TerminalWindow = ({
@@ -86,31 +86,31 @@ const TerminalWindow = ({
 
     return (
         <div
-            className={`flex flex-col bg-black rounded-lg border border-gray-800 overflow-hidden ${isMaximized ? "fixed inset-4 z-50" : "h-full"
+            className={`flex flex-col bg-paper border-2 border-border shadow-[4px_4px_0px_rgba(0,0,0,1)] overflow-hidden font-mono ${isMaximized ? "fixed inset-4 z-50" : "h-full"
                 }`}
         >
             {/* Terminal Header */}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-3 bg-surface border-b-2 border-border">
+                <div className="flex items-center gap-3">
                     {/* Traffic light buttons */}
-                    <div className="flex items-center gap-1.5">
-                        <button className="w-3 h-3 rounded-full bg-cyber-red hover:bg-cyber-red/80 transition-colors" />
-                        <button className="w-3 h-3 rounded-full bg-cyber-orange hover:bg-cyber-orange/80 transition-colors" />
-                        <button className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors" />
+                    <div className="flex items-center gap-2">
+                        <button className="w-3 h-3 border border-border bg-error hover:bg-error/80 transition-colors" />
+                        <button className="w-3 h-3 border border-border bg-warning hover:bg-warning/80 transition-colors" />
+                        <button className="w-3 h-3 border border-border bg-success hover:bg-success/80 transition-colors" />
                     </div>
-                    <Terminal className="w-4 h-4 text-green-400 ml-2" />
-                    <span className="text-sm text-gray-400 font-mono">{title}</span>
+                    <Terminal className="w-4 h-4 text-ink ml-2" />
+                    <span className="text-xs text-ink font-bold uppercase tracking-widest">{title}</span>
                     {isConnected && (
-                        <span className="flex items-center gap-1 text-xs text-green-400">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            Connected
+                        <span className="flex items-center gap-2 text-[10px] text-success font-bold uppercase tracking-widest ml-2 border border-success/30 px-2 py-0.5 bg-success/10">
+                            <span className="w-1.5 h-1.5 bg-success animate-pulse" />
+                            LINK_ESTABLISHED
                         </span>
                     )}
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleCopy}
-                        className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                        className="p-1.5 text-muted hover:text-ink hover:bg-surface border border-transparent hover:border-border transition-all"
                         title="Copy logs"
                     >
                         <Copy className="w-4 h-4" />
@@ -118,7 +118,7 @@ const TerminalWindow = ({
                     {onClear && (
                         <button
                             onClick={onClear}
-                            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                            className="p-1.5 text-muted hover:text-error hover:bg-error/10 border border-transparent hover:border-error/30 transition-all"
                             title="Clear terminal"
                         >
                             <Trash2 className="w-4 h-4" />
@@ -126,7 +126,7 @@ const TerminalWindow = ({
                     )}
                     <button
                         onClick={() => setIsMaximized(!isMaximized)}
-                        className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                        className="p-1.5 text-muted hover:text-ink hover:bg-surface border border-transparent hover:border-border transition-all"
                         title={isMaximized ? "Minimize" : "Maximize"}
                     >
                         {isMaximized ? (
@@ -142,13 +142,13 @@ const TerminalWindow = ({
             <div
                 ref={terminalRef}
                 onClick={handleTerminalClick}
-                className="flex-1 overflow-y-auto p-4 font-mono text-sm leading-relaxed cursor-text min-h-0 bg-black"
+                className="flex-1 overflow-y-auto p-5 font-mono text-sm leading-relaxed cursor-text min-h-0 bg-paper"
             >
                 {/* Log entries */}
                 {logs.map((log, index) => (
                     <div
                         key={index}
-                        className={`${LOG_COLORS[log.type] || "text-green-400"} ${log.type === "prompt" ? "" : "mb-0.5"
+                        className={`${LOG_COLORS[log.type] || "text-success font-bold"} ${log.type === "prompt" ? "" : "mb-0.5"
                             }`}
                     >
                         {log.type === "prompt" ? (
@@ -163,16 +163,16 @@ const TerminalWindow = ({
 
                 {/* Command input */}
                 {onCommand && (
-                    <form onSubmit={handleSubmit} className="flex items-center mt-1">
-                        <span className="text-green-400">$&nbsp;</span>
+                    <form onSubmit={handleSubmit} className="flex items-center mt-2">
+                        <span className="text-success font-bold">root@xploitverse:~#&nbsp;</span>
                         <input
                             ref={inputRef}
                             type="text"
                             value={command}
                             onChange={(e) => setCommand(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            className="flex-1 bg-transparent text-green-400 outline-none font-mono caret-green-400"
-                            placeholder={isConnected ? "Enter command..." : "Connecting..."}
+                            className="flex-1 bg-transparent text-ink outline-none font-mono caret-ink"
+                            placeholder={isConnected ? "_" : "AWAITING_CONNECTION..."}
                             disabled={!isConnected}
                             autoFocus
                         />
@@ -181,16 +181,16 @@ const TerminalWindow = ({
 
                 {/* Blinking cursor for inactive state */}
                 {!onCommand && (
-                    <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" />
+                    <span className="inline-block w-2.5 h-4 bg-ink animate-pulse ml-1 align-middle" />
                 )}
             </div>
 
             {/* Terminal Footer / Status Bar */}
-            <div className="px-4 py-1.5 bg-gray-900 border-t border-gray-800 flex items-center justify-between text-xs text-gray-500 font-mono">
+            <div className="px-4 py-2 bg-surface border-t-2 border-border flex items-center justify-between text-[10px] font-bold text-muted uppercase tracking-widest">
                 <span>
-                    {logs.length} lines | {isConnected ? "SSH Connected" : "Connecting..."}
+                    LINES: {logs.length} | STATUS: {isConnected ? "SECURE_LINK" : "OFFLINE"}
                 </span>
-                <span>UTF-8 | bash</span>
+                <span>ENCODING: UTF-8 | SHELL: BASH</span>
             </div>
         </div>
     );

@@ -1,64 +1,134 @@
-const Button = ({
-    children,
-    variant = 'primary',
-    size = 'md',
-    isLoading = false,
-    disabled = false,
-    className = '',
-    ...props
-}) => {
-    const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed';
+import React from 'react';
 
-    const variants = {
-        primary: 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500/40',
-        secondary: 'bg-gray-700 text-white hover:bg-gray-600 focus:ring-gray-500/40',
-        outline: 'border border-green-500 text-green-400 hover:bg-green-500 hover:text-white focus:ring-green-500/40',
-        danger: 'bg-cyber-red text-white hover:bg-cyber-red/90 focus:ring-cyber-red/40',
-        ghost: 'text-gray-400 hover:text-white hover:bg-gray-800 focus:ring-gray-500/40',
-    };
+// Industrial Utilitarian Button Component
+const styles = `
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.75rem var(--space-4);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--ease-out);
+    white-space: nowrap;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .btn:disabled { 
+    opacity: 0.5; 
+    cursor: not-allowed; 
+    pointer-events: none; 
+    filter: grayscale(1);
+  }
 
-    const sizes = {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-4 py-2 text-base',
-        lg: 'px-6 py-3 text-lg',
-        xl: 'px-8 py-4 text-xl',
-    };
+  /* Primary Action */
+  .btn-primary {
+    background: var(--color-accent);
+    color: var(--color-paper);
+    border-color: var(--color-accent);
+  }
+  .btn-primary:hover { 
+    background: var(--color-accent-hover); 
+    border-color: var(--color-accent-hover);
+    box-shadow: 4px 4px 0px rgba(255, 69, 0, 0.2);
+    transform: translate(-2px, -2px);
+  }
+  .btn-primary:active { 
+    transform: translate(0, 0);
+    box-shadow: none;
+  }
 
-    return (
-        <button
-            className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
-            disabled={disabled || isLoading}
-            {...props}
-        >
-            {isLoading ? (
-                <>
-                    <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                    </svg>
-                    Loading...
-                </>
-            ) : (
-                children
-            )}
-        </button>
-    );
-};
+  /* Secondary Action */
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-ink);
+    border-color: var(--color-border);
+  }
+  .btn-secondary:hover { 
+    background: var(--color-ink); 
+    color: var(--color-paper);
+    border-color: var(--color-ink); 
+  }
+
+  /* Ghost/Subtle Action */
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-muted);
+    border-color: transparent;
+  }
+  .btn-ghost:hover { 
+    color: var(--color-ink); 
+    background: var(--color-subtle); 
+  }
+
+  /* Danger/Error Action */
+  .btn-danger {
+    background: transparent;
+    color: var(--color-error);
+    border-color: var(--color-error);
+  }
+  .btn-danger:hover {
+    background: var(--color-error);
+    color: var(--color-paper);
+  }
+
+  /* Sizes */
+  .btn-sm { font-size: var(--text-xs); padding: 0.5rem var(--space-3); }
+  .btn-lg { font-size: var(--text-base); padding: 1rem var(--space-6); }
+  .btn-full { width: 100%; }
+
+  /* Loading state spinner */
+  .btn-spinner {
+    width: 1em; 
+    height: 1em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+  }
+  @keyframes btn-spin { to { transform: rotate(360deg); } }
+`;
+
+export function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
+  isLoading = false,
+  disabled = false,
+  className = '',
+  onClick,
+  type = 'button',
+  as: Tag = 'button',
+}) {
+  return (
+    <>
+      <style>{styles}</style>
+      <Tag
+        type={Tag === 'button' ? type : undefined}
+        className={[
+          'btn',
+          `btn-${variant}`,
+          size !== 'md' && `btn-${size}`,
+          className,
+          className.includes('w-full') && 'btn-full'
+        ].filter(Boolean).join(' ')}
+        disabled={disabled || isLoading}
+        onClick={onClick}
+      >
+        {isLoading && <span className="btn-spinner" />}
+        {isLoading ? 'WORKING...' : children}
+      </Tag>
+    </>
+  );
+}
 
 export default Button;

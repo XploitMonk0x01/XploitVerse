@@ -4,6 +4,7 @@ import { Button } from "../../components/ui";
 import { labService, labSessionService } from "../../services";
 import LabCard from "../../components/labs/LabCard";
 import ActiveSession from "../../components/labs/ActiveSession";
+import { LoadingSpinner, ErrorState, EmptyState } from "../../components/ui";
 import {
     Clock,
     DollarSign,
@@ -45,29 +46,29 @@ const Dashboard = () => {
             label: "Total Lab Time",
             value: `${user?.totalLabTime || 0} min`,
             icon: Clock,
-            color: "text-cyber-blue",
-            bg: "bg-cyber-blue/10",
+            color: "text-ink",
+            bg: "bg-surface",
         },
         {
             label: "Total Spent",
             value: `$${(user?.totalSpent || 0).toFixed(2)}`,
             icon: DollarSign,
-            color: "text-green-400",
-            bg: "bg-green-500/10",
+            color: "text-accent",
+            bg: "bg-surface",
         },
         {
             label: "Sessions",
             value: "0",
             icon: Terminal,
-            color: "text-cyber-blue",
-            bg: "bg-cyber-blue/10",
+            color: "text-info",
+            bg: "bg-surface",
         },
         {
             label: "Active Labs",
             value: activeSession ? "1" : "0",
             icon: Server,
-            color: "text-orange-400",
-            bg: "bg-orange-500/10",
+            color: "text-warning",
+            bg: "bg-surface",
         },
     ];
 
@@ -221,11 +222,8 @@ const Dashboard = () => {
     // Render loading state
     if (dashboardState === DASHBOARD_STATE.LOADING_LABS) {
         return (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="w-12 h-12 text-green-400 animate-spin mb-4" />
-                    <p className="text-gray-400">Loading your lab environment...</p>
-                </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[60vh] flex items-center justify-center">
+                <LoadingSpinner />
             </div>
         );
     }
@@ -238,60 +236,52 @@ const Dashboard = () => {
     ].includes(dashboardState);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-mono">
             {/* Welcome Header */}
-            <div className="mb-8">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">
-                            Welcome back,{" "}
-                            <span className="gradient-text">{user?.username}</span>
-                        </h1>
-                        <p className="text-gray-400 mt-1">
-                            {hasActiveSession
-                                ? "You have an active lab session running."
-                                : "Ready to sharpen your skills? Launch a lab to get started."}
-                        </p>
-                    </div>
-                    {!hasActiveSession && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={fetchLabs}
-                            className="flex items-center gap-2"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            Refresh
-                        </Button>
-                    )}
+            <div className="mb-8 border-b border-dashed border-border pb-6 flex items-end justify-between">
+                <div>
+                    <h1 className="text-3xl font-display font-bold text-ink mb-2 uppercase tracking-wide">
+                        OPERATOR_ID: {" "}
+                        <span className="text-accent">{user?.username}</span>
+                    </h1>
+                    <p className="text-muted text-sm tracking-widest uppercase">
+                        {hasActiveSession
+                            ? "[ SYSTEM: ACTIVE SESSION DETECTED ]"
+                            : "[ SYSTEM: AWAITING COMMAND ]"}
+                    </p>
                 </div>
+                {!hasActiveSession && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fetchLabs}
+                        className="flex items-center gap-2 font-mono text-xs shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        SYNC
+                    </Button>
+                )}
             </div>
 
             {/* Error Banner */}
             {error && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-400" />
-                    <span className="text-red-400">{error}</span>
-                    <button
-                        onClick={() => setError(null)}
-                        className="ml-auto text-red-400 hover:text-red-300"
-                    >
-                        ✕
-                    </button>
+                <div className="mb-6">
+                    <ErrorState message={error} onRetry={() => setError(null)} />
                 </div>
             )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {stats.map((stat) => (
-                    <div key={stat.label} className="card-cyber p-5">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className={`p-2 rounded-lg ${stat.bg}`}>
-                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                    <div key={stat.label} className="bg-surface border border-border p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,0.2)]">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-border" />
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={`p-2 border border-border ${stat.bg}`}>
+                                <stat.icon className={`w-4 h-4 ${stat.color}`} />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-white">{stat.value}</p>
-                        <p className="text-sm text-gray-400">{stat.label}</p>
+                        <p className="text-2xl font-display font-bold text-ink leading-none mb-1">{stat.value}</p>
+                        <p className="text-xs text-muted uppercase tracking-widest">{stat.label}</p>
                     </div>
                 ))}
             </div>
@@ -310,26 +300,21 @@ const Dashboard = () => {
                 <>
                     {/* Available Labs */}
                     <div className="mb-8">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Sparkles className="w-5 h-5 text-green-400" />
-                            <h2 className="text-xl font-semibold text-white">
-                                Available Labs
+                        <div className="flex items-center gap-3 mb-6 border-b border-border pb-2">
+                            <Sparkles className="w-4 h-4 text-accent" />
+                            <h2 className="text-lg font-display font-bold text-ink uppercase tracking-wider">
+                                DEPLOYABLE_TARGETS
                             </h2>
-                            <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-xs rounded-full">
-                                {labs.length} labs
+                            <span className="ml-auto px-2 py-1 bg-surface border border-border text-ink text-xs font-bold tracking-widest">
+                                AMT: {labs.length}
                             </span>
                         </div>
 
                         {labs.length === 0 ? (
-                            <div className="card-cyber p-8 text-center">
-                                <Server className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-gray-400 mb-2">
-                                    No Labs Available
-                                </h3>
-                                <p className="text-gray-500">
-                                    Check back later or contact an administrator.
-                                </p>
-                            </div>
+                            <EmptyState
+                                title="TARGET_DB_EMPTY"
+                                description="No deployable templates found. Await system admin provisioning."
+                            />
                         ) : (
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {labs.map((lab) => (
@@ -352,52 +337,48 @@ const Dashboard = () => {
 
             {/* Recent Activity */}
             <div>
-                <h2 className="text-xl font-semibold text-white mb-4">
-                    Recent Activity
+                <h2 className="text-lg font-display font-bold text-ink mb-4 uppercase tracking-wider border-b border-border pb-2">
+                    EXECUTION_LOG
                 </h2>
-                <div className="card-cyber overflow-hidden">
+                <div className="bg-surface border border-border shadow-[4px_4px_0px_rgba(0,0,0,0.1)]">
                     {historyLoading ? (
-                        <div className="p-6 space-y-3">
-                            {[...Array(3)].map((_, i) => (
-                                <div key={i} className="h-10 bg-gray-800/60 rounded-lg animate-pulse" />
-                            ))}
+                        <div className="p-6">
+                            <LoadingSpinner />
                         </div>
                     ) : sessionHistory.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <Clock className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                            <p className="text-gray-400">No recent activity yet.</p>
-                            <p className="text-gray-500 text-sm">
-                                Launch a lab to see your history here.
-                            </p>
-                        </div>
+                        <EmptyState
+                            icon={<Clock className="w-8 h-8 text-muted" />}
+                            title="NO_PRIOR_EXECUTIONS"
+                            description="Boot a lab to populate trace tables."
+                        />
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-gray-800">
-                                        {['Lab', 'Status', 'Duration', 'Cost', 'Date'].map((h) => (
+                                    <tr className="border-b border-border bg-paper">
+                                        {['TARGET', 'STATUS', 'UPTIME', 'BURN_RATE', 'TIMESTAMP'].map((h) => (
                                             <th
                                                 key={h}
-                                                className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                                className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-widest"
                                             >
                                                 {h}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800/50">
+                                <tbody className="divide-y divide-border">
                                     {sessionHistory.map((s) => {
                                         const statusColor = {
-                                            COMPLETED: 'text-green-400 bg-green-500/10',
-                                            RUNNING: 'text-cyber-blue bg-cyber-blue/10',
-                                            TERMINATED: 'text-red-400 bg-red-500/10',
-                                            INITIALIZING: 'text-cyber-orange bg-cyber-orange/10',
-                                        }[s.status] || 'text-gray-400 bg-gray-500/10';
+                                            COMPLETED: 'text-success bg-success/10 border-success/30',
+                                            RUNNING: 'text-info bg-info/10 border-info/30',
+                                            TERMINATED: 'text-error bg-error/10 border-error/30',
+                                            INITIALIZING: 'text-warning bg-warning/10 border-warning/30',
+                                        }[s.status] || 'text-muted bg-surface/50 border-border';
 
                                         const labName =
                                             s.lab?.name ||
                                             s.labName ||
-                                            'Unknown Lab';
+                                            'UNKNOWN_TARGET';
 
                                         const duration =
                                             s.duration != null
@@ -416,30 +397,30 @@ const Dashboard = () => {
 
                                         const date = s.createdAt
                                             ? new Date(s.createdAt).toLocaleDateString('en-US', {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                year: 'numeric',
-                                            })
+                                                month: '2-digit',
+                                                day: '2-digit',
+                                                year: '2-digit',
+                                            }).replace(/\//g, '.')
                                             : '—';
 
                                         return (
                                             <tr
                                                 key={s._id || s.id}
-                                                className="hover:bg-gray-800/30 transition-colors"
+                                                className="hover:bg-paper transition-colors"
                                             >
-                                                <td className="px-5 py-3 text-white font-medium">
+                                                <td className="px-5 py-4 text-ink font-bold font-mono text-xs uppercase">
                                                     {labName}
                                                 </td>
-                                                <td className="px-5 py-3">
+                                                <td className="px-5 py-4">
                                                     <span
-                                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}
+                                                        className={`px-2 py-1 border text-xs font-bold tracking-widest uppercase ${statusColor}`}
                                                     >
                                                         {s.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3 text-gray-400">{duration}</td>
-                                                <td className="px-5 py-3 text-gray-400">{cost}</td>
-                                                <td className="px-5 py-3 text-gray-400">{date}</td>
+                                                <td className="px-5 py-4 text-muted font-mono">{duration}</td>
+                                                <td className="px-5 py-4 text-muted font-mono">{cost}</td>
+                                                <td className="px-5 py-4 text-muted font-mono">{date}</td>
                                             </tr>
                                         );
                                     })}
@@ -451,17 +432,15 @@ const Dashboard = () => {
             </div>
 
             {/* Week 2 Status Notice */}
-            <div className="mt-8 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <div className="flex items-start space-x-3">
-                    <Sparkles className="w-5 h-5 text-green-400 mt-0.5" />
+            <div className="mt-8 p-4 bg-paper border-[2px] border-dashed border-accent">
+                <div className="flex items-start space-x-4">
+                    <Sparkles className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
                     <div>
-                        <h3 className="text-green-400 font-medium">
-                            Week 2: Lab Management Active
+                        <h3 className="text-accent font-bold font-mono text-xs uppercase tracking-widest">
+                            [ NOTICE: WEEK_2_PROTOCOL_ACTIVE ]
                         </h3>
-                        <p className="text-gray-400 text-sm mt-1">
-                            Mock Cloud Service is enabled. Labs will simulate a 3-second
-                            provisioning delay and assign fake instance IPs. This provides a
-                            realistic AWS-like experience for development and testing.
+                        <p className="text-muted font-mono text-xs mt-2 leading-relaxed max-w-2xl">
+                            Simulated Provisioning System operational. Target environments will broadcast a 3-second build latency. Virtualized AWS-analog endpoints will be assigned for penetration testing workflows.
                         </p>
                     </div>
                 </div>

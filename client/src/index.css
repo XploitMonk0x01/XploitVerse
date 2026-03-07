@@ -3,20 +3,90 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Ubuntu', 'Source Sans Pro', system-ui, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* ── Spacing (8px grid) */
+  --space-1: 0.25rem;
+  /* 4px  */
+  --space-2: 0.5rem;
+  /* 8px  */
+  --space-3: 0.75rem;
+  /* 12px */
+  --space-4: 1rem;
+  /* 16px */
+  --space-6: 1.5rem;
+  /* 24px */
+  --space-8: 2rem;
+  /* 32px */
+  --space-12: 3rem;
+  /* 48px */
+  --space-16: 4rem;
+  /* 64px */
 
-  color-scheme: dark;
-  color: #d0d4db;
-  background-color: #151c2b;
+  /* ── Typography */
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'Space Mono', 'Courier New', monospace;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.75rem;
+
+  --leading-tight: 1.15;
+  --leading-base: 1.6;
+  --leading-loose: 1.8;
+
+  /* ── Color Palette (Industrial Utilitarian) */
+  --color-ink: #f0ece6;
+  /* Primary text — warm off-white */
+  --color-paper: #0b0c10;
+  /* Background — deep charcoal */
+  --color-surface: #12141a;
+  /* Card/input surface — slightly lifted */
+  --color-muted: #706c68;
+  /* Secondary text */
+  --color-subtle: #2a2c33;
+  /* Disables / subtle backgrounds */
+  --color-border: #333640;
+  /* Default borders */
+  --color-border-focus: #f0ece6;
+  /* Highlight borders */
+
+  --color-accent: #ff4500;
+  /* ONE accent — intense industrial orange */
+  --color-accent-hover: #cc3700;
+
+  --color-success: #66fcf1;
+  /* Cyans for positive actions / success */
+  --color-error: #ff2a2a;
+  /* Pure red for errors */
+  --color-warning: #f2a900;
+  /* Industrial yellow */
+  --color-info: #45a29e;
+  /* Deep cyan for info */
+
+  /* ── Shape */
+  --radius-sm: 0px;
+  --radius-base: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-pill: 0px;
+  /* Everything is sharp in this aesthetic */
+
+  /* ── Motion */
+  --ease-default: 150ms cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out: 100ms linear;
+
+  /* ── Shadow — Stark, off-set shadows only */
+  --shadow-sm: 2px 2px 0px rgba(255, 69, 0, 0.1);
+  --shadow-md: 4px 4px 0px rgba(255, 69, 0, 0.1);
 }
 
+/* Base Restarts */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -24,106 +94,47 @@
 }
 
 body {
-  min-height: 100vh;
-  background-color: #151c2b;
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  line-height: var(--leading-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: color var(--ease-default);
+}
+
+/* Scrollbar rules adapted for the technical vibe */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2839;
+  background: var(--color-paper);
+  border-left: 1px solid var(--color-border);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3d4555;
-  border-radius: 3px;
+  background: var(--color-border);
+  border-radius: 0px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4e576a;
-}
-
-/* Subtle shadow utilities */
-.cyber-glow {
-  box-shadow: 0 1px 3px rgba(136, 204, 20, 0.12);
-}
-
-.cyber-glow-red {
-  box-shadow: 0 1px 3px rgba(193, 17, 17, 0.15);
-}
-
-.cyber-glow-blue {
-  box-shadow: 0 1px 3px rgba(47, 128, 237, 0.15);
-}
-
-/* Text glow — barely visible, tasteful */
-.text-glow {
-  text-shadow: none;
-}
-
-/* Gradient text */
-.gradient-text {
-  color: rgba(11, 190, 14, 0.745);
-}
-
-/* Button styles */
-.btn-cyber {
-  @apply px-6 py-3 font-medium rounded-lg transition-colors duration-200;
-  @apply bg-green-500 text-white hover:bg-green-600;
-  @apply focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:ring-offset-2 focus:ring-offset-gray-900;
-}
-
-.btn-cyber-outline {
-  @apply px-6 py-3 font-medium rounded-lg transition-colors duration-200;
-  @apply border border-green-500 text-green-400;
-  @apply hover:bg-green-500 hover:text-white;
-  @apply focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:ring-offset-2 focus:ring-offset-gray-900;
-}
-
-/* Card styles */
-.card-cyber {
-  @apply bg-gray-800 border border-gray-700 rounded-xl;
-  @apply hover:border-gray-600 transition-colors duration-200;
-}
-
-/* Input styles */
-.input-cyber {
-  @apply w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg;
-  @apply text-white placeholder-gray-500;
-  @apply focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/40;
-  @apply transition-colors duration-200;
-}
-
-/* Animation classes */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes scan {
-  0% {
-    transform: translateY(-100%);
-  }
-
-  100% {
-    transform: translateY(100%);
-  }
-}
-
-.animate-scan {
-  animation: scan 2s linear infinite;
+  background: var(--color-accent);
 }

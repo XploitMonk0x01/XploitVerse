@@ -2,251 +2,435 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Menu,
-    X,
-    LayoutDashboard,
-    BookOpen,
-    Shield,
-    Trophy,
-    LogOut,
-    Terminal,
-    Bell,
-    UserCircle,
-    ChevronDown,
+  Menu,
+  X,
+  LayoutDashboard,
+  BookOpen,
+  Shield,
+  Trophy,
+  LogOut,
+  Terminal,
+  Bell,
+  UserCircle,
+  ChevronDown,
 } from 'lucide-react';
 
+const styles = `
+  .nav-root {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--color-surface);
+    border-bottom: 1.5px solid var(--color-border);
+  }
+  .nav-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+  }
+  @media (min-width: 640px) { .nav-container { padding: 0 var(--space-6); } }
+  @media (min-width: 1024px) { .nav-container { padding: 0 var(--space-8); } }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-decoration: none;
+  }
+  .nav-logo-box {
+    width: 32px;
+    height: 32px;
+    background: var(--color-ink);
+    border-radius: var(--radius-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-paper);
+  }
+  .nav-brand-text {
+    font-size: var(--text-lg);
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    letter-spacing: 0.1em;
+  }
+
+  .nav-links {
+    display: none;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  @media (min-width: 768px) { .nav-links { display: flex; } }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.75rem var(--space-3);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+    text-decoration: none;
+    transition: all var(--ease-out);
+    border-bottom: 2px solid transparent;
+  }
+  .nav-link:hover {
+    color: var(--color-ink);
+    background: var(--color-surface);
+  }
+  .nav-link.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+  }
+
+  .nav-actions {
+    display: none;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  @media (min-width: 768px) { .nav-actions { display: flex; } }
+
+  .nav-icon-btn {
+    padding: var(--space-2);
+    color: var(--color-muted);
+    border-radius: 0;
+    transition: all var(--ease-out);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    position: relative;
+  }
+  .nav-icon-btn:hover {
+    color: var(--color-ink);
+    background: var(--color-surface);
+  }
+  .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    background: var(--color-accent);
+    border-radius: 0;
+  }
+
+  .nav-user-menu {
+    position: relative;
+  }
+  .nav-user-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding-left: var(--space-4);
+    border-left: 1px dotted var(--color-border);
+    background: transparent;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    cursor: pointer;
+    transition: opacity var(--ease-out);
+  }
+  .nav-user-trigger:hover {
+    opacity: 0.8;
+  }
+  .nav-avatar {
+    width: 36px;
+    height: 36px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--color-ink);
+  }
+  .nav-user-info {
+    display: none;
+    text-align: left;
+  }
+  @media (min-width: 1024px) { .nav-user-info { display: block; } }
+
+  .nav-user-name {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-ink);
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+  .nav-user-role {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-dropdown {
+    position: absolute;
+    top: calc(100% + var(--space-4));
+    right: 0;
+    width: 240px;
+    background: var(--color-paper);
+    border: 1px solid var(--color-border);
+    padding: var(--space-2);
+    box-shadow: var(--shadow-md);
+    transform-origin: top right;
+    animation: drop-in var(--ease-out);
+    z-index: 100;
+  }
+  @keyframes drop-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .nav-dropdown-header {
+    padding: var(--space-3);
+    border-bottom: 1px dotted var(--color-border);
+    margin-bottom: var(--space-2);
+  }
+  .nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: 0.75rem var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: left;
+    transition: all var(--ease-out);
+  }
+  .nav-dropdown-item:hover {
+    background: var(--color-surface);
+    color: var(--color-accent);
+  }
+  .nav-dropdown-item.danger {
+    color: var(--color-error);
+    margin-top: var(--space-2);
+    border-top: 1px dotted var(--color-border);
+  }
+  .nav-dropdown-item.danger:hover {
+    background: rgba(255, 42, 42, 0.1);
+    color: var(--color-error);
+  }
+
+  .nav-mobile-btn {
+    display: flex;
+    padding: var(--space-2);
+    color: var(--color-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  @media (min-width: 768px) { .nav-mobile-btn { display: none; } }
+
+  .nav-mobile-menu {
+    border-top: 1px dashed var(--color-border);
+    background: var(--color-paper);
+  }
+  @media (min-width: 768px) { .nav-mobile-menu { display: none; } }
+
+  .nav-mobile-inner {
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .nav-mobile-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    margin-bottom: var(--space-4);
+  }
+`;
+
 const Navbar = () => {
-    const [isOpen, setIsOpen] = useState(false);          // mobile menu
-    const [dropdownOpen, setDropdownOpen] = useState(false); // profile dropdown
-    const dropdownRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-    const { user, logout, hasRole } = useAuth();
-    const location = useLocation();
+  const { user, logout, hasRole } = useAuth();
+  const location = useLocation();
 
-    /* Close dropdown on outside click */
-    useEffect(() => {
-        const handler = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-                setDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    /* Close mobile menu on route change */
-    useEffect(() => {
-        setIsOpen(false);
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
-    }, [location]);
-
-    const handleLogout = async () => {
-        setDropdownOpen(false);
-        await logout();
+      }
     };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
-    const navLinks = [
-        {
-            to: '/dashboard',
-            label: 'Dashboard',
-            icon: LayoutDashboard,
-            roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
-        },
-        {
-            to: '/courses',
-            label: 'Courses',
-            icon: BookOpen,
-            roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
-        },
-        {
-            to: '/leaderboard',
-            label: 'Leaderboard',
-            icon: Trophy,
-            roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
-        },
-        {
-            to: '/admin',
-            label: 'Admin Panel',
-            icon: Shield,
-            roles: ['INSTRUCTOR', 'ADMIN'],
-        },
-    ];
+  useEffect(() => {
+    setIsOpen(false);
+    setDropdownOpen(false);
+  }, [location]);
 
-    const isActive = (path) => location.pathname === path;
+  const handleLogout = async () => {
+    setDropdownOpen(false);
+    await logout();
+  };
 
-    /* Avatar initials */
-    const initials =
-        user?.firstName && user?.lastName
-            ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-            : (user?.username?.[0] || 'U').toUpperCase();
+  const navLinks = [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/courses', label: 'Courses', icon: BookOpen, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/leaderboard', label: 'Leaderboard', icon: Trophy, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/admin', label: 'Admin Panel', icon: Shield, roles: ['INSTRUCTOR', 'ADMIN'] },
+  ];
 
-    return (
-        <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16">
+  const isActive = (path) => location.pathname === path;
 
-                    {/* Logo */}
-                    <Link to="/dashboard" className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center">
-                            <Terminal className="w-5 h-5 text-green-400" />
-                        </div>
-                        <span className="text-xl font-bold gradient-text">XploitVerse</span>
-                    </Link>
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+      : (user?.username?.[0] || 'U').toUpperCase();
 
-                    {/* Desktop nav links */}
-                    <div className="hidden md:flex items-center space-x-1">
-                        {navLinks.map(
-                            (link) =>
-                                hasRole(link.roles) && (
-                                    <Link
-                                        key={link.to}
-                                        to={link.to}
-                                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${isActive(link.to)
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                                            }`}
-                                    >
-                                        <link.icon className="w-4 h-4" />
-                                        <span>{link.label}</span>
-                                    </Link>
-                                )
-                        )}
-                    </div>
+  return (
+    <>
+      <style>{styles}</style>
+      <nav className="nav-root">
+        <div className="nav-container">
+          <div className="nav-inner">
+            {/* Logo */}
+            <Link to="/dashboard" className="nav-brand">
+              <div className="nav-logo-box">
+                <Terminal size={18} />
+              </div>
+              <span className="nav-brand-text">XploitVerse</span>
+            </Link>
 
-                    {/* Desktop right section */}
-                    <div className="hidden md:flex items-center space-x-2">
-                        {/* Notification bell */}
-                        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                            <Bell className="w-5 h-5" />
-                        </button>
-
-                        {/* Profile dropdown */}
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setDropdownOpen((v) => !v)}
-                                className="flex items-center gap-2 pl-4 border-l border-gray-700 hover:opacity-80 transition-opacity"
-                            >
-                                {/* Avatar */}
-                                <div className="w-8 h-8 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold text-green-400">{initials}</span>
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-sm font-medium text-white leading-tight">
-                                        {user?.username}
-                                    </p>
-                                    <p className="text-xs text-gray-500 leading-tight">{user?.role}</p>
-                                </div>
-                                <ChevronDown
-                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''
-                                        }`}
-                                />
-                            </button>
-
-                            {/* Dropdown menu */}
-                            {dropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
-                                    <div className="px-4 py-3 border-b border-gray-800">
-                                        <p className="text-sm font-medium text-white truncate">
-                                            {user?.firstName
-                                                ? `${user.firstName} ${user.lastName || ''}`.trim()
-                                                : user?.username}
-                                        </p>
-                                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                                    </div>
-
-                                    <Link
-                                        to="/profile"
-                                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
-                                        onClick={() => setDropdownOpen(false)}
-                                    >
-                                        <UserCircle className="w-4 h-4" />
-                                        My Profile
-                                    </Link>
-
-                                    <div className="border-t border-gray-800 my-1" />
-
-                                    <button
-                                        onClick={handleLogout}
-                                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 transition-colors"
-                                    >
-                                        <LogOut className="w-4 h-4" />
-                                        Logout
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Mobile hamburger */}
-                    <button
-                        className="md:hidden p-2 text-gray-400 hover:text-white"
-                        onClick={() => setIsOpen((v) => !v)}
-                    >
-                        {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                    </button>
-                </div>
+            {/* Desktop Nav */}
+            <div className="nav-links">
+              {navLinks.map((link) =>
+                hasRole(link.roles) && (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`nav-link ${isActive(link.to) ? 'active' : ''}`}
+                  >
+                    <link.icon size={16} />
+                    <span>{link.label}</span>
+                  </Link>
+                )
+              )}
             </div>
 
-            {/* Mobile menu */}
-            {isOpen && (
-                <div className="md:hidden border-t border-gray-800">
-                    <div className="px-4 py-4 space-y-1">
-                        {/* User info header */}
-                        <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-800/50 rounded-lg">
-                            <div className="w-9 h-9 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center shrink-0">
-                                <span className="text-sm font-bold text-green-400">{initials}</span>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-white">{user?.username}</p>
-                                <p className="text-xs text-gray-500">{user?.role}</p>
-                            </div>
-                        </div>
+            {/* Desktop Right */}
+            <div className="nav-actions">
+              <button className="nav-icon-btn" aria-label="Notifications">
+                <Bell size={20} />
+                <span className="nav-badge"></span>
+              </button>
 
-                        {/* Nav links */}
-                        {navLinks.map(
-                            (link) =>
-                                hasRole(link.roles) && (
-                                    <Link
-                                        key={link.to}
-                                        to={link.to}
-                                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${isActive(link.to)
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                                            }`}
-                                    >
-                                        <link.icon className="w-5 h-5" />
-                                        <span>{link.label}</span>
-                                    </Link>
-                                )
-                        )}
+              <div className="nav-user-menu" ref={dropdownRef}>
+                <button
+                  onClick={() => setDropdownOpen((v) => !v)}
+                  className="nav-user-trigger"
+                >
+                  <div className="nav-avatar">
+                    {initials}
+                  </div>
+                  <div className="nav-user-info">
+                    <p className="nav-user-name">{user?.username || 'Guest'}</p>
+                    <p className="nav-user-role">{user?.role?.toLowerCase() || 'Role'}</p>
+                  </div>
+                  <ChevronDown size={14} style={{ color: 'var(--color-muted)', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--ease-default)' }} />
+                </button>
 
-                        {/* Profile */}
-                        <Link
-                            to="/profile"
-                            className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${isActive('/profile')
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                                }`}
-                        >
-                            <UserCircle className="w-5 h-5" />
-                            <span>My Profile</span>
-                        </Link>
-
-                        <hr className="border-gray-800 my-2" />
-
-                        {/* Logout */}
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center space-x-3 w-full px-3 py-2.5 text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                        >
-                            <LogOut className="w-5 h-5" />
-                            <span>Logout</span>
-                        </button>
+                {dropdownOpen && (
+                  <div className="nav-dropdown">
+                    <div className="nav-dropdown-header">
+                      <p className="nav-user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.username}
+                      </p>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user?.email}
+                      </p>
                     </div>
+                    <Link to="/profile" className="nav-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                      <UserCircle size={16} />
+                      My Profile
+                    </Link>
+                    <button onClick={handleLogout} className="nav-dropdown-item danger">
+                      <LogOut size={16} />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button className="nav-mobile-btn" onClick={() => setIsOpen((v) => !v)}>
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Nav */}
+        {isOpen && (
+          <div className="nav-mobile-menu">
+            <div className="nav-mobile-inner">
+              <div className="nav-mobile-profile">
+                <div className="nav-avatar">
+                  {initials}
                 </div>
-            )}
-        </nav>
-    );
+                <div>
+                  <p className="nav-user-name">{user?.username}</p>
+                  <p className="nav-user-role">{user?.role?.toLowerCase()}</p>
+                </div>
+              </div>
+
+              {navLinks.map((link) =>
+                hasRole(link.roles) && (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`nav-link ${isActive(link.to) ? 'active' : ''}`}
+                    style={{ padding: '0.75rem var(--space-3)' }}
+                  >
+                    <link.icon size={18} />
+                    <span>{link.label}</span>
+                  </Link>
+                )
+              )}
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--space-2) 0' }} />
+
+              <button onClick={handleLogout} className="nav-dropdown-item danger" style={{ padding: '0.75rem var(--space-3)' }}>
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+      </nav>
+    </>
+  );
 };
 
 export default Navbar;

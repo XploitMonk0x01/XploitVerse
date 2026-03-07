@@ -1,386 +1,199 @@
-# 🛡️ XploitVerse — Cybersecurity Metaverse
+# XploitVerse
 
-> A cloud-native cybersecurity training platform where Red/Blue teams practice on real, isolated AWS environments.
+XploitVerse is an advanced, cybersecurity-themed educational platform. It provides an immersive, real-world terminal and lab-based environment where students can master cybersecurity techniques through practical application.
 
----
+## Key Features
 
-## 🎯 Core Value Proposition
-
-| Feature                   | Details                                    |
-| ------------------------- | ------------------------------------------ |
-| **Pay-as-you-go Labs**    | ~$0.50/hour — only pay for what you use    |
-| **Isolated Environments** | Each user gets their own EC2 instance      |
-| **68% Cost Reduction**    | vs. traditional fixed servers              |
-| **Real-World Practice**   | Actual AWS infrastructure, not simulations |
+- **Interactive Training Labs**: On-demand Dockerized lab environments that isolate interactive learning exercises.
+- **Cybersecurity Terminal Interface**: A premium "green-on-black" glassmorphism design system inspired by professional hacking terminals.
+- **Real-Time Execution**: WebSockets provide instantaneous terminal output and interaction directly in the browser.
+- **Role-Based Access Control**: Differentiated dashboards and capabilities for Students, Instructors, and Administrators.
 
 ---
 
-## 🏗️ Architecture Overview
+## Tech Stack
 
+### Backend
+- **Language**: Go 1.25+
+- **Framework**: Gin (HTTP Web Framework)
+- **Database**: MongoDB (via official Go driver)
+- **Caching & Pub/Sub**: Redis
+- **Real-Time Communication**: Gorilla WebSockets
+- **Containerization**: Docker (dynamic container provisioning for labs)
+- **Authentication**: JWT (JSON Web Tokens)
+
+### Frontend
+- **Framework**: React 18.2
+- **Build Tool**: Vite 5
+- **Routing**: React Router DOM 6
+- **Styling**: TailwindCSS 3.3 (Custom XploitVerse Dark Theme)
+- **State Management**: React Context (`AuthContext`)
+- **HTTP/API Client**: Axios
+- **Real-Time UI**: `socket.io-client`
+
+---
+
+## Prerequisites
+
+Ensure you have the following installed before starting local development:
+- **Go 1.25** or higher
+- **Node.js 18** or higher (with `npm`)
+- **Docker** and **Docker Compose**
+- Git
+
+---
+
+## Getting Started
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/smwlc/xploitverse.git
+cd xploitverse
 ```
-User Request → Go (Gin) API → MongoDB → AWS EC2 (Phase 2) → Terminate
+
+### 2. Start Core Infrastructure (Databases)
+The project ships with a `docker-compose.yml` that provisions MongoDB and Redis.
+```bash
+docker compose up -d
+```
+You can verify the containers are healthy with `docker ps`.
+
+### 3. Backend Setup
+Navigate to the backend directory and install dependencies:
+```bash
+cd backend
+go mod download
 ```
 
-### Stack
+Copy the example environment file and configure it:
+```bash
+cp .env.example .env
+```
 
-| Layer          | Technology                                    |
-| -------------- | --------------------------------------------- |
-| **Backend**    | Go 1.25 + Gin framework                       |
-| **Auth**       | JWT (`golang-jwt/jwt/v5`) + HTTP-only cookies |
-| **Database**   | MongoDB (`mongo-driver/v2`)                   |
-| **Real-time**  | WebSockets (`gorilla/websocket`)              |
-| **Frontend**   | React + Vite (`client/`)                      |
-| **Legacy API** | Node.js + Express (`server/`)                 |
+Start the Go server:
+```bash
+# Depending on your main.go location, usually:
+go run cmd/api/main.go
+# Alternatively, if you have a pre-built binary:
+# ./server.exe
+```
+The backend API will run on `http://localhost:5000`.
+
+### 4. Frontend Setup
+Open a new terminal session, navigate to the frontend directory, and install dependencies:
+```bash
+cd client
+npm install
+```
+
+Start the Vite development server:
+```bash
+npm run dev
+```
+Open `http://localhost:5173` in your browser to view the XploitVerse platform.
 
 ---
 
-## 📁 Project Structure
+## Architecture Overview
 
+### Directory Structure
 ```
 xploitverse/
-├── backend/                    # ✅ Go API Server (primary)
-│   ├── cmd/
-│   │   ├── server/main.go      # Entry point
-│   │   ├── seed/main.go        # Database seeder
-│   │   └── seed_courses/       # Course/module/task seeder
-│   ├── internal/
-│   │   ├── config/             # Env & app config
-│   │   ├── database/           # MongoDB connection
-│   │   ├── handlers/           # HTTP handlers (auth, labs, courses, flags, leaderboard…)
-│   │   ├── middleware/         # Auth, rate-limit, error middleware
-│   │   ├── models/             # MongoDB document models
-│   │   ├── routes/             # Route registration (routes.go)
-│   │   ├── services/           # Business logic (Docker CLI, email, EC2…)
-│   │   └── utils/              # JWT helpers
-│   ├── ws/
-│   │   └── handler.go          # Native WebSocket terminal → docker exec bridge
-│   ├── go.mod
-│   └── .env.example
-├── client/                     # React + Vite Frontend
-│   ├── src/
-│   │   ├── pages/              # Landing, Dashboard, Courses, Leaderboard, LabWorkspace…
-│   │   ├── components/         # UI primitives, Navbar, TerminalWindow, ChatWidget
-│   │   ├── services/           # Axios API wrappers (auth, labs, courses, flags, leaderboard)
-│   │   └── context/            # AuthContext
-│   └── .env.example
-└── server/                     # Express + Node Legacy Backend (kept for reference)
+├── backend/                  # Go Backend Application
+│   ├── cmd/                  # Entry points (main.go)
+│   ├── internal/             # Private application code (Handlers, Services, Repos)
+│   ├── ws/                   # WebSocket logic and connection managers
+│   ├── .env.example          # Template environment config
+│   ├── go.mod                # Go dependencies
+│   └── server.exe            # Compiled Windows binary (optional usage)
+├── client/                   # React Frontend Application
+│   ├── src/                  
+│   │   ├── components/       # Reusable UI (ui/, layout/, workspace/)
+│   │   ├── context/          # React Context (AuthContext)
+│   │   ├── pages/            # View components matching routes
+│   │   ├── services/         # Axios API clients
+│   │   ├── App.jsx           # Root layout and Router
+│   │   ├── main.jsx          # React DOM mounting
+│   │   └── index.css         # Tailwind directives and custom UI classes
+│   ├── tailwind.config.js    # XploitVerse custom dark theme palette
+│   └── vite.config.js        # Vite bundler config
+└── docker-compose.yml        # Infrastructure (Mongo, Redis) definition
 ```
+
+### Request Lifecycle & Data Flow
+
+1. **Authentication:** User logs in via the React frontend. Axios makes a `POST` request to `/api/auth/login`.
+2. **Backend Auth:** The Gin Go router forwards the request to the auth handler. The user is verified against MongoDB, and a JWT is issued (often via HTTP-only cookie).
+3. **Frontend State:** `AuthContext` hydrates the user session and selectively renders private routes like `/dashboard` based on RBAC (Role-Based Access Control).
+4. **Lab Initialization:** When a user launches a lab, a request is sent to the Go backend, which invokes Docker via the host daemon to spin up a new isolated container connected to the internal `xploitverse-labs` network.
+5. **Real-Time I/O:** The frontend initiates a WebSocket connection (`socket.io-client`). The Go backend bridges this WebSocket directly to the Docker container's TTY over the `xploitverse-labs` network, providing instantaneous feedback.
 
 ---
 
-## 🚀 Running the Go Server
+## Environment Variables
 
-### Prerequisites
+### Backend (`backend/.env`)
 
-- [Go 1.21+](https://go.dev/dl/)
-- [MongoDB](https://www.mongodb.com/try/download/community) (local or Atlas)
-- `git`
+| Variable | Description | Example |
+| -------- | ----------- | ------- |
+| `PORT` | API Server Port | `5000` |
+| `NODE_ENV` | Environment Type | `development` / `production` |
+| `MONGODB_URI` | Mongo Connection String | `mongodb://localhost:27017/xploitverse` |
+| `REDIS_URL` | Redis Connection String | `redis://localhost:6379` |
+| `JWT_SECRET` | Secret key for signing tokens | `super-secret-key` |
+| `JWT_EXPIRES_IN` | Token Lifespan | `7d` |
+| `CLIENT_URL` | Frontend URL for CORS | `http://localhost:5173` |
 
-### 1. Clone & Configure
-
-```bash
-git clone <repo-url>
-cd xploitverse/backend
-
-# Copy environment file
-cp .env.example .env
-# Open .env and fill in your values (see Environment Variables below)
-```
-
-### 2. Install Dependencies
-
-```bash
-go mod tidy
-```
-
-### 3. Run the Server
-
-```bash
-# Development (from backend/ directory)
-go run ./cmd/server
-
-# Or build & run the binary
-go build -o xploitverse-server ./cmd/server
-./xploitverse-server
-```
-
-> The server starts on **`http://localhost:5000`** by default (configurable via `PORT`).
-
-### 4. (Optional) Seed the Database
-
-```bash
-go run ./cmd/seed
-```
-
-### 5. Run the Frontend
-
-```bash
-cd ../client
-npm install
-npm run dev
-# Frontend runs on http://localhost:5173
-```
+*(Note: Additional AWS, LLM API, and SMTP variables can be set for Phase 2+ features).*
 
 ---
 
-## ⚙️ Environment Variables
+## Available Scripts
 
-Copy `backend/.env.example` → `backend/.env` and set:
+### Frontend (`client/package.json`)
+| Command | Description |
+| ------- | ----------- |
+| `npm run dev` | Starts Vite dev server with Hot Module Replacement |
+| `npm run build` | Compiles and optimizes assets for production |
+| `npm run preview` | Locally serves the production build |
+| `npm run lint` | Runs ESLint against project files |
 
-```env
-# Server
-PORT=5000
-NODE_ENV=development          # "development" enables debug helpers
-
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/xploitverse
-
-# JWT
-JWT_SECRET=change-me-in-production
-JWT_EXPIRES_IN=7d
-JWT_COOKIE_EXPIRES_IN=7       # days
-
-# CORS
-CLIENT_URL=http://localhost:5173
-
-# SMTP (optional — password reset emails)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-SMTP_FROM=your-email@gmail.com
-SMTP_FROM_NAME=XploitVerse
-
-# AWS (Phase 2+)
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION=us-east-1
-
-# Frontend — add to client/.env
-VITE_API_BASE=http://localhost:5000/api   # backend base URL (strips /api for WS)
-
-# AI APIs (Phase 2+)
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-```
+### Backend
+| Command | Description |
+| ------- | ----------- |
+| `go run main.go` | Boots the development server |
+| `go build -o server` | Compiles a production binary |
+| `go test ./...` | Runs the test suite across all internal packages |
 
 ---
 
-## 🔐 Middleware & Authentication Status
+## UI Design Guidelines (Frontend)
 
-### How Auth Works
+XploitVerse uses a stringent **Cybersecurity Terminal** aesthetic. When contributing to the frontend, abide by the following design system rules:
 
-The `VerifyToken` middleware (in `internal/middleware/auth.go`) protects routes by:
-
-1. Extracting JWT from `Authorization: Bearer <token>` header **or** `jwt` HTTP-only cookie
-2. Verifying signature & expiry using `JWT_SECRET`
-3. Confirming the user still exists and is active in MongoDB
-4. Checking if the password was changed after the token was issued (forces re-login)
-5. Attaching `user` and `userId` to the Gin context for downstream handlers
-
-### Checking Authentication Status
-
-**1. Verify your token is valid** — call the `GET /api/auth/me` endpoint:
-
-```bash
-# With Bearer token
-curl -X GET http://localhost:5000/api/auth/me \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
-
-# With cookie (browser / httpie)
-curl -X GET http://localhost:5000/api/auth/me \
-  --cookie "jwt=<YOUR_JWT_TOKEN>"
-```
-
-**Expected responses:**
-
-| Status   | Body                                              | Meaning                             |
-| -------- | ------------------------------------------------- | ----------------------------------- |
-| `200 OK` | `{ "success": true, "data": { "user": {...} } }`  | ✅ Authenticated                    |
-| `401`    | `Access denied. No token provided.`               | No token sent                       |
-| `401`    | `Token expired. Please log in again.`             | JWT expired                         |
-| `401`    | `Invalid token.`                                  | Bad signature / malformed           |
-| `401`    | `User no longer exists.`                          | User deleted from DB                |
-| `401`    | `Password recently changed. Please log in again.` | Token issued before password change |
-| `401`    | `User account has been deactivated.`              | Account suspended                   |
-
-**2. Test rate limiting** — auth endpoints are throttled to **10 requests / 15 minutes** per IP via `NewRateLimiter` middleware.
-
-### Middleware Stack
-
-| Middleware                       | File                      | Purpose                                          |
-| -------------------------------- | ------------------------- | ------------------------------------------------ |
-| `VerifyToken`                    | `middleware/auth.go`      | JWT validation + user lookup                     |
-| `CheckRole(roles...)`            | `middleware/auth.go`      | RBAC — validates user role                       |
-| `IsAdmin()`                      | `middleware/auth.go`      | Shortcut: admin only                             |
-| `IsInstructor()`                 | `middleware/auth.go`      | Shortcut: admin **or** instructor                |
-| `OptionalAuth`                   | `middleware/auth.go`      | Attaches user if token exists, never blocks      |
-| `NewRateLimiter`                 | `middleware/ratelimit.go` | IP-based request throttling                      |
-| `FlagHandler.checkFlagRateLimit` | `handlers/flag.go`        | Per-user-per-task flag attempt throttle (5/60 s) |
-| `AbortWithError`                 | `middleware/error.go`     | Standardised JSON error response                 |
+1. **Colors**: Native components use `bg-gray-950` or `bg-gray-900` for backgrounds. Interactive elements use `green-500` accents. Never use generic Tailwind palettes without consulting `tailwind.config.js`.
+2. **Components**: Use global component classes defined in `index.css`:
+   - `.card-glass`: Background-blurred layered panels for elevated UI.
+   - `.btn-primary`, `.btn-danger`, `.btn-ghost`: Standardized button interactions.
+   - `.input-cyber`: Branded inputs that glow green on focus.
+3. **Typography**: Always rely on the `Inter` stack for layout, and the `JetBrains Mono` or `Fira Code` stack for terminal outputs and raw data visualization.
 
 ---
 
-## 📡 API Reference
+## Troubleshooting
 
-### Auth Routes (`/api/auth`)
+### `Connection refused` (MongoDB or Redis)
+- **Cause**: The docker containers are either not running or failed to expose ports.
+- **Fix**: Run `docker compose up -d` in the root directory. Use `docker logs xv-mongo` to diagnose boot failures.
 
-| Method | Path                     | Auth        | Description                  |
-| ------ | ------------------------ | ----------- | ---------------------------- |
-| `POST` | `/register`              | Public      | Register a new user          |
-| `POST` | `/login`                 | Public      | Login + receive JWT          |
-| `POST` | `/logout`                | Public      | Clear JWT cookie             |
-| `GET`  | `/me`                    | 🔒 Required | Get current user profile     |
-| `PUT`  | `/update-password`       | 🔒 Required | Change password              |
-| `POST` | `/refresh-token`         | 🔒 Required | Refresh JWT                  |
-| `POST` | `/forgot-password`       | Public      | Trigger password reset email |
-| `POST` | `/reset-password/:token` | Public      | Reset password with token    |
+### Frontend `CORS Error` on Login
+- **Cause**: The backend's `CLIENT_URL` doesn't match the Vite address.
+- **Fix**: Open `backend/.env` and ensure `CLIENT_URL=http://localhost:5173`. Restart the Go server.
 
-### User Routes (`/api/users`) — 🔒 Auth Required
+### State Lost on Refresh
+- **Cause**: The browser isn't sending the JWT cookie.
+- **Fix**: Ensure your Axios configurations uniformly set `withCredentials: true`.
 
-| Method | Path              | Role        | Description               |
-| ------ | ----------------- | ----------- | ------------------------- |
-| `PUT`  | `/profile`        | Any         | Update own profile        |
-| `GET`  | `/stats`          | Instructor+ | View aggregate user stats |
-| `GET`  | `/`               | Admin       | List all users            |
-| `GET`  | `/:id`            | Admin       | Get user by ID            |
-| `PUT`  | `/:id/role`       | Admin       | Change user role          |
-| `PUT`  | `/:id/deactivate` | Admin       | Deactivate user           |
-| `PUT`  | `/:id/reactivate` | Admin       | Reactivate user           |
-
-### User Progress (`/api/users`) — 🔒 Auth Required (additions)
-
-| Method | Path           | Role | Description                         |
-| ------ | -------------- | ---- | ----------------------------------- |
-| `GET`  | `/me/progress` | Any  | All task completions + total points |
-
-### Lab Routes (`/api/labs`)
-
-| Method | Path              | Auth        | Description         |
-| ------ | ----------------- | ----------- | ------------------- |
-| `GET`  | `/`               | Public      | List all labs       |
-| `GET`  | `/:id`            | Public      | Get lab details     |
-| `POST` | `/start`          | 🔒 Required | Start a lab session |
-| `POST` | `/stop`           | 🔒 Required | Stop active session |
-| `GET`  | `/active-session` | 🔒 Required | Get current session |
-| `GET`  | `/history`        | 🔒 Required | Past sessions       |
-
-### Course Content Routes
-
-| Method | Path                 | Auth   | Description                             |
-| ------ | -------------------- | ------ | --------------------------------------- |
-| `GET`  | `/api/courses`       | Public | List all courses (with search + filter) |
-| `GET`  | `/api/courses/:slug` | Public | Course detail with modules              |
-| `GET`  | `/api/modules/:id`   | Public | Module detail with tasks                |
-| `GET`  | `/api/tasks/:id`     | Public | Task detail                             |
-
-### Admin Content Routes (`/api/admin`) — 🔒 Instructor+
-
-| Method | Path                         | Description          |
-| ------ | ---------------------------- | -------------------- |
-| `POST` | `/courses`                   | Create course        |
-| `PUT`  | `/courses/:id`               | Update course        |
-| `POST` | `/courses/:courseId/modules` | Add module to course |
-| `PUT`  | `/modules/:id`               | Update module        |
-| `POST` | `/modules/:moduleId/tasks`   | Add task to module   |
-| `PUT`  | `/tasks/:id`                 | Update task          |
-
-### Flag / Scoring Routes (`/api/flags`) — 🔒 Auth Required
-
-| Method | Path      | Description                                                         |
-| ------ | --------- | ------------------------------------------------------------------- |
-| `POST` | `/submit` | Submit a flag — rate-limited to **5 attempts / 60 s** per user+task |
-
-### Leaderboard Routes (`/api/leaderboard`)
-
-| Method | Path  | Auth        | Description                    |
-| ------ | ----- | ----------- | ------------------------------ |
-| `GET`  | `/`   | Public      | Top-100 board (5-minute cache) |
-| `GET`  | `/me` | 🔒 Required | Current user's rank + points   |
-
-### WebSocket Terminal
-
-| Endpoint                                      | Auth            | Description                                                    |
-| --------------------------------------------- | --------------- | -------------------------------------------------------------- |
-| `GET /ws/terminal?sessionId=<id>&token=<jwt>` | JWT query param | Bidirectional shell inside the lab container via `docker exec` |
-
-The WS handler looks up the `LabSession` for the given `sessionId`, verifies it belongs to the authenticated user, then spawns `docker exec -i <containerID> /bin/sh` and pipes stdin/stdout bidirectionally. For local development without Docker, IDs prefixed `mock_` fall back to a local shell.
-
-### User Roles
-
-| Role         | Capabilities                                   |
-| ------------ | ---------------------------------------------- |
-| `student`    | Launch labs, view own sessions                 |
-| `instructor` | All student access + monitor users, view stats |
-| `admin`      | Full access including user management          |
-
----
-
-## 🏅 Backend Best Practices (from Awesome Go)
-
-### ✅ Project Structure
-
-- Code is split into `handlers/`, `middleware/`, `models/`, `services/`, and `utils/` — keeping separation of concerns
-- `cmd/server/main.go` is the entry point; all business logic is in `internal/`
-
-### ✅ Authentication & Security
-
-- JWT secrets are loaded from env vars — **never hardcoded**
-- Passwords are hashed using `bcrypt` (`golang.org/x/crypto`)
-- Password reset tokens are stored as **SHA-256 hashes** in MongoDB (raw token never persisted)
-- HTTP-only cookies prevent XSS token theft
-- Rate limiting on all auth endpoints prevents brute-force attacks
-- `changedPasswordAfter` invalidates old JWTs on password change
-
-### ✅ Error Handling
-
-- Centralized `AbortWithError` helper returns consistent `{ success, message }` JSON
-- Sensitive info (e.g., email enumeration) is hidden — forgot-password always returns `200`
-
-### ✅ HTTP Design
-
-- No verbs in URLs — HTTP methods convey the action (`POST /start` not `/startLab`)
-- Correct HTTP status codes (`201` for creation, `401` for auth, `403` for forbidden, `404` for not found)
-- Request body validation via Gin's `binding` tags before any DB access
-
-### ✅ Middleware
-
-- Cross-cutting concerns (auth, rate-limiting, logging) handled via Gin middleware chains
-- `OptionalAuth` for routes that work with or without authentication
-
-### ✅ Configuration
-
-- All secrets and URLs are environment-variable driven via `.env` + `godotenv`
-- `NODE_ENV=development` enables dev-only response fields (e.g., password reset tokens in body)
-
-### ✅ Database
-
-- MongoDB indexed queries via `bson.M` filter objects
-- Connection managed in `internal/database/` — single reusable `*mongo.Database` instance
-
-### ✅ Testing Checklist
-
-- Unit test handlers with mock DB
-- Integration tests against a test MongoDB instance
-- Test rate limiter edge cases
-- Validate JWT expiry and role-based access for every protected route
-
----
-
-## 📅 Roadmap
-
-| Phase                                  | Status      | Scope                                                                                   |
-| -------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
-| **Phase 0 — Foundation**               | ✅ Complete | Auth, Database, RBAC, Frontend shell, Base UI components                                |
-| **Phase 1.1 — Course UI**              | ✅ Complete | Course/Module/Task pages, search + filter, difficulty badges                            |
-| **Phase 1.2 — Docker + Scoring**       | ✅ Complete | Docker CLI service, flag submission, progress endpoint                                  |
-| **Phase 1.3 — Terminal + Leaderboard** | ✅ Complete | WS terminal → `docker exec`, per-task rate limiting, leaderboard, completion indicators |
-| **Phase 2 — AWS EC2**                  | 🔜 Planned  | EC2 auto-provisioning, isolated VPCs, lab auto-termination                              |
-| **Phase 3 — AI Integration**           | 🔜 Planned  | Claude/OpenAI hint engine, vulnerability analysis                                       |
-| **Phase 4 — Social**                   | 🔜 Planned  | Team battles, certifications, Redis leaderboard, WebSocket live updates                 |
-
----
-
-## 📝 License
-
-MIT License — See [LICENSE](LICENSE) for details.
+### WebSocket Disconnects
+- **Cause**: Container networking gap, or the Gin router closed the WS handshake due to invalid origins.
+- **Fix**: Ensure the Gorilla WebSocket `CheckOrigin` configuration permits traffic from `http://localhost:5173`.

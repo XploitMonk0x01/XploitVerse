@@ -2,47 +2,78 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    extend: {
-      colors: {
-        // TryHackMe-inspired palette
-        green: {
-          400: "#88cc14",
-          500: "#6ABF15",
-          600: "#549a10",
-        },
-        gray: {
-          300: "#d0d4db",
-          400: "#9ea4b0",
-          500: "#6c7280",
-          600: "#3d4555",
-          700: "#2a3244",
-          800: "#1f2839",
-          900: "#151c2b",
-          950: "#101624",
-        },
-        primary: {
-          400: "#88cc14",
-          500: "#6ABF15",
-          600: "#549a10",
-        },
-        cyber: {
-          dark: "#151c2b",
-          darker: "#101624",
-          accent: "#88cc14",
-          red: "#C11111",
-          orange: "#EF8D4C",
-          blue: "#2f80ed",
-        },
-      },
-      fontFamily: {
-        sans: ["Ubuntu", "Source Sans Pro", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
-        display: ["Bungee", "Ubuntu", "sans-serif"],
-      },
-      animation: {
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-      },
+    // We are overriding Tailwind defaults to use ONLY our CSS variables
+    // as defined in the minimal design system (index.css).
+    colors: {
+      transparent: 'transparent',
+      current: 'currentColor',
+      ink: 'var(--color-ink)',
+      paper: 'var(--color-paper)',
+      surface: 'var(--color-surface)',
+      muted: 'var(--color-muted)',
+      subtle: 'var(--color-subtle)',
+      border: 'var(--color-border)',
+      'border-focus': 'var(--color-border-focus)',
+      accent: 'var(--color-accent)',
+      'accent-hover': 'var(--color-accent-hover)',
+      success: 'var(--color-success)',
+      error: 'var(--color-error)',
+      warning: 'var(--color-warning)',
+      info: 'var(--color-info)',
     },
+    spacing: {
+      0: '0px',
+      1: 'var(--space-1)',
+      2: 'var(--space-2)',
+      3: 'var(--space-3)',
+      4: 'var(--space-4)',
+      5: 'calc(var(--space-4) + var(--space-1))',
+      6: 'var(--space-6)',
+      8: 'var(--space-8)',
+      10: 'calc(var(--space-8) + var(--space-2))',
+      12: 'var(--space-12)',
+      16: 'var(--space-16)',
+    },
+    fontFamily: {
+      sans: 'var(--font-sans)',
+      serif: 'var(--font-serif)',
+      mono: 'var(--font-mono)',
+      display: 'var(--font-display)',
+    },
+    fontSize: {
+      xs: 'var(--text-xs)',
+      sm: 'var(--text-sm)',
+      base: 'var(--text-base)',
+      lg: 'var(--text-lg)',
+      xl: 'var(--text-xl)',
+      '2xl': 'var(--text-2xl)',
+      '3xl': 'var(--text-3xl)',
+      '4xl': 'var(--text-4xl)',
+    },
+    lineHeight: {
+      tight: 'var(--leading-tight)',
+      base: 'var(--leading-base)',
+      loose: 'var(--leading-loose)',
+    },
+    borderRadius: {
+      none: '0',
+      sm: 'var(--radius-sm)',
+      DEFAULT: 'var(--radius-base)',
+      md: 'var(--radius-md)',
+      lg: 'var(--radius-lg)',
+      full: 'var(--radius-pill)',
+    },
+    boxShadow: {
+      none: 'none',
+      sm: 'var(--shadow-sm)',
+      md: 'var(--shadow-md)',
+    },
+    transitionTimingFunction: {
+      DEFAULT: 'var(--ease-default)',
+      spring: 'var(--ease-spring)',
+      out: 'var(--ease-out)',
+    },
+    extend: {},
   },
   plugins: [],
 };

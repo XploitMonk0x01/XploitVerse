@@ -2,174 +2,308 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Input } from '../../components/ui';
-import { Mail, Lock, Terminal, ArrowRight } from 'lucide-react';
-import toast from 'react-hot-toast';
+
+const styles = `
+  .auth-root {
+    min-height: 100vh;
+    background: var(--color-paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  
+  .auth-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: var(--space-8);
+    position: relative;
+    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
+  }
+  
+  .auth-card::before {
+    content: '[ SYS_AUTH ]';
+    position: absolute;
+    top: -12px;
+    left: var(--space-6);
+    background: var(--color-paper);
+    padding: 0 var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-muted);
+    letter-spacing: 0.1em;
+  }
+  
+  .auth-header {
+    margin-bottom: var(--space-8);
+    border-bottom: 1px dashed var(--color-border);
+    padding-bottom: var(--space-6);
+  }
+  
+  .auth-title {
+    font-family: var(--font-display);
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-ink);
+    margin-bottom: var(--space-2);
+    text-transform: uppercase;
+  }
+  
+  .auth-subtitle {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .auth-form { display: flex; flex-direction: column; gap: var(--space-6); }
+  
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+  
+  .checkbox-row input[type=checkbox] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px; 
+    height: 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper);
+    cursor: pointer;
+    position: relative;
+  }
+  
+  .checkbox-row input[type=checkbox]:checked {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  
+  .checkbox-row input[type=checkbox]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--color-paper);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  
+  .auth-forgot {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color var(--ease-out);
+  }
+  
+  .auth-forgot:hover { 
+    color: var(--color-ink); 
+    text-decoration: underline;
+    text-decoration-style: dashed;
+  }
+  
+  .auth-footer {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    border-top: 1px dashed var(--color-border);
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    text-transform: uppercase;
+  }
+  
+  .auth-link {
+    color: var(--color-accent);
+    font-weight: 700;
+    text-decoration: none;
+    transition: all var(--ease-out);
+    padding: 0 var(--space-1);
+  }
+  
+  .auth-link:hover { 
+    background: var(--color-accent);
+    color: var(--color-paper);
+  }
+  
+  .form-error-banner {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-error);
+    padding: var(--space-3);
+    border: 1px solid var(--color-error);
+    background: rgba(255, 42, 42, 0.05);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  
+  .form-error-banner::before {
+    content: '[!]';
+    font-weight: 700;
+  }
+`;
 
 const Login = () => {
-    // Check for saved email from "Remember Me"
-    const savedEmail = localStorage.getItem('rememberedEmail') || '';
-    const wasRemembered = Boolean(savedEmail);
+  const savedEmail = localStorage.getItem('rememberedEmail') || '';
+  const wasRemembered = Boolean(savedEmail);
 
-    const [formData, setFormData] = useState({
-        email: savedEmail,
-        password: '',
-    });
-    const [errors, setErrors] = useState({});
-    const [isLoading, setIsLoading] = useState(false);
-    const [rememberMe, setRememberMe] = useState(wasRemembered);
+  const [formData, setFormData] = useState({
+    email: savedEmail,
+    password: '',
+  });
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(wasRemembered);
 
-    const { login } = useAuth();
-    const navigate = useNavigate();
-    const location = useLocation();
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    // Get redirect path from state or default to dashboard
-    const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/dashboard';
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-        // Clear error when user types
-        if (errors[name]) {
-            setErrors((prev) => ({ ...prev, [name]: '' }));
-        }
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
 
-    const validateForm = () => {
-        const newErrors = {};
+  const validateForm = () => {
+    const newErrors = {};
 
-        if (!formData.email) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email';
-        }
+    if (!formData.email) {
+      newErrors.email = 'Identifier required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Invalid format';
+    }
 
-        if (!formData.password) {
-            newErrors.password = 'Password is required';
-        }
+    if (!formData.password) {
+      newErrors.password = 'Passkey required';
+    }
 
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        if (!validateForm()) return;
+    if (!validateForm()) return;
 
-        setIsLoading(true);
+    setIsLoading(true);
 
-        const result = await login(formData);
+    const result = await login(formData);
 
-        setIsLoading(false);
+    setIsLoading(false);
 
-        if (result.success) {
-            // Handle Remember Me - save or remove email from localStorage
-            if (rememberMe) {
-                localStorage.setItem('rememberedEmail', formData.email);
-            } else {
-                localStorage.removeItem('rememberedEmail');
-            }
-            toast.success('Welcome back!');
-            navigate(from, { replace: true });
-        } else {
-            toast.error(result.error);
-        }
-    };
+    if (result.success) {
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', formData.email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+      navigate(from, { replace: true });
+    } else {
+      setErrors((prev) => ({ ...prev, form: result.error }));
+    }
+  };
 
-    return (
-        <div className="min-h-screen bg-cyber-dark flex">
-            {/* Left Panel - Form */}
-            <div className="flex-1 flex items-center justify-center px-4 py-12">
-                <div className="w-full max-w-md">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center space-x-2 mb-8">
-                        <div className="w-10 h-10 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center">
-                            <Terminal className="w-6 h-6 text-green-400" />
-                        </div>
-                        <span className="text-2xl font-bold gradient-text">XploitVerse</span>
-                    </Link>
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="auth-root">
+        <div className="auth-card">
+          <div className="auth-header">
+            <h1 className="auth-title">Authenticate</h1>
+            <p className="auth-subtitle">{'>'} Identify yourself to access systems</p>
+          </div>
 
-                    <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
-                    <p className="text-gray-400 mb-8">
-                        Sign in to continue your training journey
-                    </p>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            {errors.form && (
+              <div className="form-error-banner">
+                {errors.form}
+              </div>
+            )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <Input
-                            label="Email"
-                            type="email"
-                            name="email"
-                            placeholder="you@example.com"
-                            value={formData.email}
-                            onChange={handleChange}
-                            error={errors.email}
-                            icon={Mail}
-                        />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <Input
+                label="Identity (Email)"
+                type="email"
+                name="email"
+                placeholder="you@domain.com"
+                value={formData.email}
+                onChange={handleChange}
+                error={errors.email}
+                required
+              />
 
-                        <Input
-                            label="Password"
-                            type="password"
-                            name="password"
-                            placeholder="••••••••"
-                            value={formData.password}
-                            onChange={handleChange}
-                            error={errors.password}
-                            icon={Lock}
-                        />
-
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-green-500 focus:ring-green-500 cursor-pointer"
-                                />
-                                <span className="ml-2 text-sm text-gray-400">Remember me</span>
-                            </label>
-                            <Link to="/forgot-password" className="text-sm text-green-400 hover:text-green-300">
-                                Forgot password?
-                            </Link>
-                        </div>
-
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            size="lg"
-                            className="w-full"
-                            isLoading={isLoading}
-                        >
-                            Sign In
-                            <ArrowRight className="ml-2 w-5 h-5" />
-                        </Button>
-                    </form>
-
-                    <p className="mt-8 text-center text-gray-400">
-                        Don't have an account?{' '}
-                        <Link to="/register" className="text-green-400 hover:text-green-300 font-medium">
-                            Sign up
-                        </Link>
-                    </p>
-                </div>
+              <Input
+                label="Passkey (Password)"
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                required
+              />
             </div>
 
-            {/* Right Panel - Decoration */}
-            <div className="hidden lg:flex flex-1 bg-gray-900 border-l border-gray-800 items-center justify-center p-12">
-                <div className="max-w-lg text-center">
-                    <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse-slow">
-                        <Terminal className="w-16 h-16 text-green-400" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-white mb-4">
-                        Practice. Learn. Secure.
-                    </h2>
-                    <p className="text-gray-400">
-                        Access real AWS environments for hands-on cybersecurity training.
-                        Your isolated lab is just a login away.
-                    </p>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>CACHE_SESSION</span>
+              </label>
+
+              <Link to="/forgot-password" className="auth-forgot">
+                RECOVER_ACCESS?
+              </Link>
             </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              isLoading={isLoading}
+            >
+              INITIATE CONNECT
+            </Button>
+          </form>
+
+          <div className="auth-footer">
+            REQUIRE CLEARANCE?{' '}
+            <Link to="/register" className="auth-link">
+              REQUEST_ACCESS
+            </Link>
+          </div>
         </div>
-    );
+      </div>
+    </>
+  );
 };
 
 export default Login;

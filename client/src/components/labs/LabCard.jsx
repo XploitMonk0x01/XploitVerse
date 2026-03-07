@@ -11,30 +11,30 @@ import {
 
 const difficultyConfig = {
     Easy: {
-        color: "bg-green-500/20 text-green-400 border-green-500/30",
+        color: "text-info border-info",
         icon: Zap,
     },
     Medium: {
-        color: "bg-cyber-orange/15 text-cyber-orange border-cyber-orange/30",
+        color: "text-accent border-accent",
         icon: Shield,
     },
     Hard: {
-        color: "bg-cyber-red/15 text-cyber-red border-cyber-red/30",
+        color: "text-error border-error",
         icon: Target,
     },
 };
 
 const categoryConfig = {
     "Red Team": {
-        color: "bg-cyber-red/10 text-red-300 border-cyber-red/30",
+        color: "text-error border-error",
         icon: Target,
     },
     "Blue Team": {
-        color: "bg-cyber-blue/10 text-gray-200 border-cyber-blue/30",
+        color: "text-info border-info",
         icon: Shield,
     },
     Mixed: {
-        color: "bg-gray-700/30 text-gray-200 border-gray-600/30",
+        color: "text-muted border-muted",
         icon: Terminal,
     },
 };
@@ -46,29 +46,31 @@ const LabCard = ({ lab, onStartLab, isStarting, disabled }) => {
     const CategoryIcon = category.icon;
 
     return (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 hover:border-gray-600 transition-colors duration-200 group">
+        <div className="bg-surface border border-border p-6 hover:-translate-y-1 hover:shadow-[4px_4px_0px_rgba(0,0,0,0.2)] transition-all duration-300 group flex flex-col h-full font-mono relative">
+            <div className="absolute top-0 right-0 p-2 text-[10px] text-muted font-bold opacity-30">
+                L-{lab._id.slice(-4).toUpperCase()}
+            </div>
+
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white group-hover:text-green-400 transition-colors">
-                        {lab.title}
-                    </h3>
-                    <p className="text-gray-400 text-sm mt-1 line-clamp-2">
-                        {lab.description}
-                    </p>
-                </div>
+            <div className="mb-4 pr-6">
+                <h3 className="text-base font-bold text-ink group-hover:text-accent transition-colors uppercase tracking-wider mb-2 line-clamp-1">
+                    {lab.title}
+                </h3>
+                <p className="text-muted text-xs leading-relaxed line-clamp-2">
+                    {lab.description}
+                </p>
             </div>
 
             {/* Badges */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-6">
                 <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${difficulty.color}`}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border border-dashed ${difficulty.color}`}
                 >
                     <DifficultyIcon className="w-3 h-3" />
                     {lab.difficulty}
                 </span>
                 <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${category.color}`}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border border-dashed ${category.color}`}
                 >
                     <CategoryIcon className="w-3 h-3" />
                     {lab.category}
@@ -76,72 +78,37 @@ const LabCard = ({ lab, onStartLab, isStarting, disabled }) => {
             </div>
 
             {/* Duration and Tools */}
-            <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
-                <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{lab.estimatedDuration} min</span>
+            <div className="flex items-center gap-6 text-xs text-muted mb-6 font-bold uppercase tracking-widest border-t border-border pt-4">
+                <div className="flex items-center gap-2">
+                    <Clock className="w-3 h-3" />
+                    <span>{lab.estimatedDuration}m</span>
                 </div>
-                <div className="flex items-center gap-1">
-                    <Terminal className="w-4 h-4" />
-                    <span>{lab.tools?.length || 0} tools</span>
+                <div className="flex items-center gap-2">
+                    <Terminal className="w-3 h-3" />
+                    <span>{lab.tools?.length || 0} tls</span>
                 </div>
             </div>
 
-            {/* Objectives Preview */}
-            {lab.objectives && lab.objectives.length > 0 && (
-                <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-2">Objectives:</p>
-                    <ul className="space-y-1">
-                        {lab.objectives.slice(0, 2).map((objective, index) => (
-                            <li
-                                key={index}
-                                className="text-xs text-gray-400 flex items-start gap-2"
-                            >
-                                <span className="text-green-400 mt-0.5">•</span>
-                                <span className="line-clamp-1">{objective}</span>
-                            </li>
-                        ))}
-                        {lab.objectives.length > 2 && (
-                            <li className="text-xs text-gray-500">
-                                +{lab.objectives.length - 2} more objectives
-                            </li>
-                        )}
-                    </ul>
-                </div>
-            )}
-
-            {/* Tags */}
-            {lab.tags && lab.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-4">
-                    {lab.tags.slice(0, 4).map((tag, index) => (
-                        <span
-                            key={index}
-                            className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded"
-                        >
-                            #{tag}
-                        </span>
-                    ))}
-                </div>
-            )}
+            <div className="flex-grow" />
 
             {/* Start Button */}
             <button
                 onClick={() => onStartLab(lab._id)}
                 disabled={isStarting || disabled}
-                className={`w-full py-3 px-4 rounded-lg font-medium duration-200 flex items-center justify-center gap-2 ${isStarting || disabled
-                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    : "bg-green-500 hover:bg-green-600 text-white transition-colors"
+                className={`w-full py-3 px-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 border ${isStarting || disabled
+                    ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
+                    : "bg-paper text-ink border-border hover:bg-ink hover:text-paper shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
                     }`}
             >
                 {isStarting ? (
                     <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Starting...
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        INITIATING...
                     </>
                 ) : (
                     <>
-                        <Play className="w-4 h-4" />
-                        Start Lab
+                        <Play className="w-3 h-3" />
+                        EXECUTE_LAB
                     </>
                 )}
             </button>

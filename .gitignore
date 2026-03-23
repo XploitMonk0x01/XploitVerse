@@ -7,8 +7,6 @@ node_modules/
 server/
 advance.md
 current.md
-package.json
-package-lock.json
 
 # Environment files
 .env

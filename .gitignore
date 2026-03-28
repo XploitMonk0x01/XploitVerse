@@ -4,7 +4,6 @@ node_modules/
 .pnp.js
 
 #server - node
-server/
 advance.md
 current.md
 

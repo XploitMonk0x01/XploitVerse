@@ -1,4 +1,4 @@
-import express from "express";
+import express from 'express'
 import {
   register,
   login,
@@ -6,44 +6,48 @@ import {
   getMe,
   updatePassword,
   refreshToken,
-} from "../controllers/auth.controller.js";
-import { verifyToken } from "../middleware/auth.middleware.js";
+  forgotPassword,
+  resetPassword,
+} from '../controllers/auth.controller.js'
+import { verifyToken } from '../middleware/auth.middleware.js'
 import {
   registerValidation,
   loginValidation,
   changePasswordValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
   validate,
-} from "../validators/index.js";
+} from '../validators/index.js'
 
-const router = express.Router();
+const router = express.Router()
 
 /**
  * @route   POST /api/auth/register
  * @desc    Register a new user
  * @access  Public
  */
-router.post("/register", registerValidation, validate, register);
+router.post('/register', registerValidation, validate, register)
 
 /**
  * @route   POST /api/auth/login
  * @desc    Login user
  * @access  Public
  */
-router.post("/login", loginValidation, validate, login);
+router.post('/login', loginValidation, validate, login)
 
 /**
  * @route   POST /api/auth/logout
  * @desc    Logout user
  * @access  Private
  */
-router.post("/logout", verifyToken, logout);
+router.post('/logout', verifyToken, logout)
 
 /**
  * @route   GET /api/auth/me
  * @desc    Get current user
  * @access  Private
  */
-router.get("/me", verifyToken, getMe);
+router.get('/me', verifyToken, getMe)
 
 /**
  * @route   PUT /api/auth/update-password
@@ -51,18 +55,42 @@ router.get("/me", verifyToken, getMe);
  * @access  Private
  */
 router.put(
-  "/update-password",
+  '/update-password',
   verifyToken,
   changePasswordValidation,
   validate,
-  updatePassword
-);
+  updatePassword,
+)
 
 /**
  * @route   POST /api/auth/refresh-token
  * @desc    Refresh JWT token
  * @access  Private
  */
-router.post("/refresh-token", verifyToken, refreshToken);
+router.post('/refresh-token', verifyToken, refreshToken)
 
-export default router;
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post(
+  '/forgot-password',
+  forgotPasswordValidation,
+  validate,
+  forgotPassword,
+)
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password with reset token
+ * @access  Public
+ */
+router.post(
+  '/reset-password/:token',
+  resetPasswordValidation,
+  validate,
+  resetPassword,
+)
+
+export default router

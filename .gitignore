@@ -6,6 +6,7 @@ node_modules/
 #server - node
 advance.md
 current.md
+server/*.md
 
 # Environment files
 .env
@@ -16,6 +17,7 @@ current.md
 server/.env
 client/.env
 backend/.env
+backend/
 
 # Build outputs
 dist/

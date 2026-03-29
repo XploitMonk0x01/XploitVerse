@@ -7,7 +7,7 @@ import LoadingSpinner from '../ui/LoadingSpinner';
  * Redirects to login if user is not authenticated
  */
 const PrivateRoute = () => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, user } = useAuth();
     const location = useLocation();
 
     // Show loading spinner while checking auth
@@ -23,6 +23,19 @@ const PrivateRoute = () => {
     if (!isAuthenticated) {
         // Save the attempted URL for redirecting after login
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    // Require OTP email verification before allowing access to app routes
+    if (isAuthenticated && !loading) {
+        if (user && user.isEmailVerified === false) {
+            return (
+                <Navigate
+                    to="/verify-email-otp"
+                    state={{ from: location }}
+                    replace
+                />
+            );
+        }
     }
 
     // Render child routes

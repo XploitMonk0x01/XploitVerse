@@ -222,6 +222,15 @@ const Login = () => {
       } else {
         localStorage.removeItem('rememberedEmail');
       }
+
+      if (result.requiresEmailVerification) {
+        navigate('/verify-email-otp', {
+          replace: true,
+          state: { from: { pathname: from }, email: formData.email },
+        });
+        return;
+      }
+
       navigate(from, { replace: true });
     } else {
       setErrors((prev) => ({ ...prev, form: result.error }));

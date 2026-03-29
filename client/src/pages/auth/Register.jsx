@@ -201,6 +201,16 @@ export function Register() {
     setLoading(false);
 
     if (result.success) {
+      if (result.requiresEmailVerification) {
+        navigate('/verify-email-otp', {
+          state: {
+            from: { pathname: '/dashboard' },
+            email: form.email,
+          },
+        });
+        return;
+      }
+
       navigate('/dashboard');
     } else {
       setErrors({ form: result.error });

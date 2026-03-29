@@ -8,6 +8,9 @@ import {
   refreshToken,
   forgotPassword,
   resetPassword,
+  sendEmailOtp,
+  verifyEmailOtp,
+  resendEmailOtp,
 } from '../controllers/auth.controller.js'
 import { verifyToken } from '../middleware/auth.middleware.js'
 import {
@@ -16,6 +19,7 @@ import {
   changePasswordValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
+  verifyEmailOtpValidation,
   validate,
 } from '../validators/index.js'
 
@@ -91,6 +95,33 @@ router.post(
   resetPasswordValidation,
   validate,
   resetPassword,
+)
+
+/**
+ * @route   POST /api/auth/send-email-otp
+ * @desc    Send verification OTP
+ * @access  Private
+ */
+router.post('/send-email-otp', verifyToken, sendEmailOtp)
+
+/**
+ * @route   POST /api/auth/resend-email-otp
+ * @desc    Resend verification OTP
+ * @access  Private
+ */
+router.post('/resend-email-otp', verifyToken, resendEmailOtp)
+
+/**
+ * @route   POST /api/auth/verify-email-otp
+ * @desc    Verify email using OTP
+ * @access  Private
+ */
+router.post(
+  '/verify-email-otp',
+  verifyToken,
+  verifyEmailOtpValidation,
+  validate,
+  verifyEmailOtp,
 )
 
 export default router

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { userService, authService } from '../../services';
 import toast from 'react-hot-toast';
@@ -20,16 +20,16 @@ import {
 
 /* ─── helpers ────────────────────────────────────────────────── */
 const roleBadge = {
-    ADMIN: 'bg-red-500/20 text-red-400 border border-red-500/30',
-    INSTRUCTOR: 'bg-cyber-blue/10 text-cyber-blue border border-cyber-blue/30',
-    STUDENT: 'bg-green-500/20 text-green-400 border border-green-500/30',
+    ADMIN: 'text-error bg-error/10 border-error/40',
+    INSTRUCTOR: 'text-info bg-info/10 border-info/40',
+    STUDENT: 'text-success bg-success/10 border-success/40',
 };
 
 const SectionCard = ({ title, icon: Icon, children }) => (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-5">
-            <Icon className="w-5 h-5 text-green-400" />
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
+    <div className="bg-surface border border-border p-6 shadow-[4px_4px_0px_rgba(0,0,0,0.22)]">
+        <div className="flex items-center gap-2 mb-5 border-b border-border pb-3">
+            <Icon className="w-4 h-4 text-accent" />
+            <h2 className="text-sm font-mono font-bold tracking-[0.16em] text-ink uppercase">{title}</h2>
         </div>
         {children}
     </div>
@@ -37,13 +37,13 @@ const SectionCard = ({ title, icon: Icon, children }) => (
 
 const Field = ({ label, children }) => (
     <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-gray-400">{label}</label>
+        <label className="text-xs font-mono font-bold tracking-[0.12em] text-muted uppercase">{label}</label>
         {children}
     </div>
 );
 
 const inputCls =
-    'w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-green-500/60 focus:ring-1 focus:ring-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    'w-full bg-surface border border-border px-4 py-2.5 text-ink text-sm font-mono placeholder:text-muted focus:outline-none focus:border-border-focus focus:bg-paper transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:border-dashed';
 
 /* ─── component ─────────────────────────────────────────────── */
 const Profile = () => {
@@ -55,6 +55,13 @@ const Profile = () => {
         lastName: user?.lastName || '',
     });
     const [profileSaving, setProfileSaving] = useState(false);
+
+    useEffect(() => {
+        setProfileForm({
+            firstName: user?.firstName || '',
+            lastName: user?.lastName || '',
+        });
+    }, [user?.firstName, user?.lastName]);
 
     /* --- password form --- */
     const [pwForm, setPwForm] = useState({
@@ -97,13 +104,23 @@ const Profile = () => {
             setPwError('New password must be at least 8 characters.');
             return;
         }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(pwForm.newPassword)) {
+            setPwError('Password must include lowercase, uppercase, and a number.');
+            return;
+        }
 
         try {
             setPwSaving(true);
-            await authService.updatePassword({
+            const { data } = await authService.updatePassword({
                 currentPassword: pwForm.currentPassword,
                 newPassword: pwForm.newPassword,
+                confirmNewPassword: pwForm.confirmPassword,
             });
+
+            if (data?.data?.token) {
+                localStorage.setItem('token', data.data.token);
+            }
+
             toast.success('Password changed successfully!');
             setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err) {
@@ -125,20 +142,25 @@ const Profile = () => {
 
     const joinedDate = user?.createdAt
         ? new Date(user.createdAt).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-          })
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        })
         : 'N/A';
 
     /* ── render ── */
     return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-mono">
 
             {/* ── Page header ── */}
-            <h1 className="text-3xl font-bold text-white mb-8">
-                My <span className="text-green-400">Profile</span>
-            </h1>
+            <div className="mb-8 border-b border-dashed border-border pb-6">
+                <h1 className="text-3xl font-display font-bold text-ink uppercase tracking-wide">
+                    Operator <span className="text-accent">Profile</span>
+                </h1>
+                <p className="text-xs text-muted uppercase tracking-[0.2em] mt-2">
+                    Identity matrix, security credentials, and account telemetry.
+                </p>
+            </div>
 
             <div className="grid lg:grid-cols-3 gap-6">
 
@@ -146,13 +168,13 @@ const Profile = () => {
                 <div className="lg:col-span-1 space-y-4">
 
                     {/* Avatar */}
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col items-center text-center">
-                        <div className="w-24 h-24 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mb-4">
-                            <span className="text-3xl font-bold text-green-400">{initials}</span>
+                    <div className="bg-surface border border-border p-6 flex flex-col items-center text-center shadow-[4px_4px_0px_rgba(0,0,0,0.22)]">
+                        <div className="w-24 h-24 bg-paper border border-border flex items-center justify-center mb-4 shadow-[3px_3px_0px_rgba(255,69,0,0.15)]">
+                            <span className="text-3xl font-display font-bold text-accent">{initials}</span>
                         </div>
-                        <h2 className="text-xl font-semibold text-white">{user?.username}</h2>
-                        <p className="text-gray-400 text-sm mt-0.5">{user?.email}</p>
-                        <span className={`mt-3 px-3 py-1 rounded-full text-xs font-medium ${roleBadge[user?.role] || roleBadge.STUDENT}`}>
+                        <h2 className="text-xl font-display font-bold text-ink uppercase tracking-wide">{user?.username}</h2>
+                        <p className="text-muted text-xs mt-1 tracking-widest uppercase">{user?.email}</p>
+                        <span className={`mt-4 px-3 py-1 border text-xs font-mono font-bold tracking-widest ${roleBadge[user?.role] || roleBadge.STUDENT}`}>
                             {user?.role}
                         </span>
                     </div>
@@ -161,34 +183,34 @@ const Profile = () => {
                     <SectionCard title="Account Info" icon={Shield}>
                         <div className="space-y-3">
 
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">
+                            <div className="flex items-center justify-between text-sm border border-border bg-paper px-3 py-2">
+                                <span className="flex items-center gap-2 text-muted uppercase tracking-wider text-xs">
                                     <Mail className="w-4 h-4" /> Email
                                 </span>
-                                <span className="flex items-center gap-1 text-green-400 font-medium">
-                                    <CheckCircle className="w-3.5 h-3.5" /> Verified
+                                <span className={`flex items-center gap-1 font-bold tracking-wider text-xs uppercase ${user?.isEmailVerified ? 'text-success' : 'text-warning'}`}>
+                                    <CheckCircle className="w-3.5 h-3.5" /> {user?.isEmailVerified ? 'Verified' : 'Pending'}
                                 </span>
                             </div>
 
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">
+                            <div className="flex items-center justify-between text-sm border border-border bg-paper px-3 py-2">
+                                <span className="flex items-center gap-2 text-muted uppercase tracking-wider text-xs">
                                     <Calendar className="w-4 h-4" /> Joined
                                 </span>
-                                <span className="text-gray-300">{joinedDate}</span>
+                                <span className="text-ink text-xs font-bold tracking-wide">{joinedDate}</span>
                             </div>
 
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">
+                            <div className="flex items-center justify-between text-sm border border-border bg-paper px-3 py-2">
+                                <span className="flex items-center gap-2 text-muted uppercase tracking-wider text-xs">
                                     <Clock className="w-4 h-4" /> Lab Time
                                 </span>
-                                <span className="text-gray-300">{user?.totalLabTime || 0} min</span>
+                                <span className="text-ink text-xs font-bold tracking-wide">{user?.totalLabTime || 0} min</span>
                             </div>
 
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">
+                            <div className="flex items-center justify-between text-sm border border-border bg-paper px-3 py-2">
+                                <span className="flex items-center gap-2 text-muted uppercase tracking-wider text-xs">
                                     <DollarSign className="w-4 h-4" /> Total Spent
                                 </span>
-                                <span className="text-gray-300">
+                                <span className="text-ink text-xs font-bold tracking-wide">
                                     ${(user?.totalSpent || 0).toFixed(2)}
                                 </span>
                             </div>
@@ -252,7 +274,7 @@ const Profile = () => {
                                 <button
                                     type="submit"
                                     disabled={profileSaving}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-green-500 hover:bg-green-400 disabled:bg-green-500/50 text-gray-900 font-semibold rounded-lg text-sm transition-colors"
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover border border-accent hover:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed text-paper font-mono font-bold text-xs uppercase tracking-widest transition-colors shadow-[3px_3px_0px_rgba(255,69,0,0.18)]"
                                 >
                                     {profileSaving ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -270,7 +292,7 @@ const Profile = () => {
                         <form onSubmit={handlePasswordSave} className="space-y-4">
 
                             {pwError && (
-                                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                                <div className="flex items-center gap-2 p-3 bg-error/10 border border-error text-error text-xs font-mono font-bold tracking-wider uppercase">
                                     <AlertCircle className="w-4 h-4 shrink-0" />
                                     {pwError}
                                 </div>
@@ -296,7 +318,7 @@ const Profile = () => {
                                         <button
                                             type="button"
                                             onClick={() => toggle(key)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
                                         >
                                             {showPw[key] ? (
                                                 <EyeOff className="w-4 h-4" />
@@ -308,15 +330,15 @@ const Profile = () => {
                                 </Field>
                             ))}
 
-                            <p className="text-xs text-gray-500">
-                                Password must be at least 8 characters long.
+                            <p className="text-xs text-muted tracking-wide uppercase">
+                                Password must be 8+ chars with uppercase, lowercase, and number.
                             </p>
 
                             <div className="pt-2 flex justify-end">
                                 <button
                                     type="submit"
                                     disabled={pwSaving}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-400 disabled:bg-blue-500/50 text-white font-semibold rounded-lg text-sm transition-colors"
+                                    className="flex items-center gap-2 px-5 py-2.5 border border-border bg-paper hover:bg-surface disabled:opacity-60 disabled:cursor-not-allowed text-ink font-mono font-bold text-xs uppercase tracking-widest transition-colors"
                                 >
                                     {pwSaving ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />

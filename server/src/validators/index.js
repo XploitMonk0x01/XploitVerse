@@ -31,4 +31,5 @@ export {
   changePasswordValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
+  verifyEmailOtpValidation,
 } from './auth.validator.js'

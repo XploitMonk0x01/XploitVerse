@@ -45,12 +45,17 @@ export const AuthProvider = ({ children }) => {
         try {
             setError(null);
             const response = await api.post('/auth/register', userData);
-            const { user, token } = response.data.data;
+            const { user, token, emailVerification } = response.data.data;
 
             localStorage.setItem('token', token);
             setUser(user);
 
-            return { success: true, user };
+            return {
+                success: true,
+                user,
+                requiresEmailVerification: !user?.isEmailVerified,
+                emailVerification,
+            };
         } catch (err) {
             const message = err.response?.data?.message || 'Registration failed';
             setError(message);
@@ -68,9 +73,50 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('token', token);
             setUser(user);
 
-            return { success: true, user };
+            return {
+                success: true,
+                user,
+                requiresEmailVerification: !user?.isEmailVerified,
+            };
         } catch (err) {
             const message = err.response?.data?.message || 'Login failed';
+            setError(message);
+            return { success: false, error: message };
+        }
+    };
+
+    const sendEmailOtp = async () => {
+        try {
+            setError(null);
+            const response = await api.post('/auth/send-email-otp');
+            return { success: true, data: response.data.data, message: response.data.message };
+        } catch (err) {
+            const message = err.response?.data?.message || 'Failed to send OTP';
+            setError(message);
+            return { success: false, error: message, status: err.response?.status };
+        }
+    };
+
+    const resendEmailOtp = async () => {
+        try {
+            setError(null);
+            const response = await api.post('/auth/resend-email-otp');
+            return { success: true, data: response.data.data, message: response.data.message };
+        } catch (err) {
+            const message = err.response?.data?.message || 'Failed to resend OTP';
+            setError(message);
+            return { success: false, error: message, status: err.response?.status };
+        }
+    };
+
+    const verifyEmailOtp = async (otp) => {
+        try {
+            setError(null);
+            const response = await api.post('/auth/verify-email-otp', { otp });
+            await checkAuth();
+            return { success: true, data: response.data.data, message: response.data.message };
+        } catch (err) {
+            const message = err.response?.data?.message || 'Failed to verify OTP';
             setError(message);
             return { success: false, error: message };
         }
@@ -113,6 +159,9 @@ export const AuthProvider = ({ children }) => {
         updateUser,
         hasRole,
         checkAuth,
+        sendEmailOtp,
+        resendEmailOtp,
+        verifyEmailOtp,
     };
 
     return (

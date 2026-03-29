@@ -165,6 +165,15 @@ export const resetPasswordValidation = [
     }),
 ]
 
+export const verifyEmailOtpValidation = [
+  body('otp')
+    .trim()
+    .notEmpty()
+    .withMessage('OTP is required')
+    .matches(/^\d{6}$/)
+    .withMessage('OTP must be a 6-digit code'),
+]
+
 export default {
   registerValidation,
   loginValidation,
@@ -172,4 +181,5 @@ export default {
   changePasswordValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
+  verifyEmailOtpValidation,
 }

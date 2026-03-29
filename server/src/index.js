@@ -43,9 +43,6 @@ const io = new Server(httpServer, {
 // Initialize Socket handlers
 initializeSocketHandlers(io)
 
-// Connect to MongoDB
-connectDB()
-
 // Security Middleware
 app.use(helmet())
 app.use(
@@ -140,10 +137,14 @@ app.get('/api', (req, res) => {
 app.use(notFound)
 app.use(errorHandler)
 
-// Start server
+// Start server after DB connection succeeds
 const PORT = config.port
-httpServer.listen(PORT, () => {
-  console.log(`
+
+const startServer = async () => {
+  await connectDB()
+
+  httpServer.listen(PORT, () => {
+    console.log(`
 🛡️  XploitVerse API Server
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🚀 Server running on port ${PORT}
@@ -153,7 +154,10 @@ httpServer.listen(PORT, () => {
 🏥 Health Check: http://localhost:${PORT}/health
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `)
-})
+  })
+}
+
+startServer()
 
 export { io }
 export default app

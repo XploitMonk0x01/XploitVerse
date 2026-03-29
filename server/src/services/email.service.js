@@ -51,6 +51,45 @@ const renderResetEmail = (resetURL, userName = 'there') => `<!DOCTYPE html>
 </body>
 </html>`
 
+const renderOtpEmail = (otp, userName = 'there') => `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#1a1a2e;border-radius:12px;overflow:hidden;border:1px solid #2a2a4e;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#00ff88 0%,#3b82f6 100%);padding:30px;text-align:center;">
+              <h1 style="margin:0;color:#0a0a1a;font-size:28px;font-weight:bold;">XploitVerse</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 30px;">
+              <h2 style="color:#ffffff;margin:0 0 10px;font-size:22px;">Email Verification Code</h2>
+              <p style="color:#9ca3af;margin:0 0 25px;font-size:15px;line-height:1.6;">
+                Hi ${userName}, use this OTP to verify your email address. This code is valid for <strong style="color:#00ff88;">10 minutes</strong>.
+              </p>
+              <div style="text-align:center;margin:20px 0 30px;">
+                <span style="display:inline-block;background:#0f0f23;color:#00ff88;border:1px solid #2a2a4e;padding:14px 26px;border-radius:8px;font-size:28px;letter-spacing:8px;font-weight:700;">
+                  ${otp}
+                </span>
+              </div>
+              <p style="color:#6b7280;font-size:12px;margin:0;line-height:1.5;">
+                If you did not create this account, you can ignore this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
 class EmailService {
   constructor() {
     this.transporter = null
@@ -86,6 +125,24 @@ class EmailService {
       to: toEmail,
       subject: 'Reset Your XploitVerse Password',
       html: renderResetEmail(resetURL, userName),
+    })
+
+    return true
+  }
+
+  async sendEmailVerificationOtp(toEmail, otp, userName) {
+    if (!this.transporter) {
+      return false
+    }
+
+    const fromName = config.smtp.fromName || 'XploitVerse'
+    const fromAddress = config.smtp.from || config.smtp.username
+
+    await this.transporter.sendMail({
+      from: `${fromName} <${fromAddress}>`,
+      to: toEmail,
+      subject: 'Your XploitVerse Email Verification OTP',
+      html: renderOtpEmail(otp, userName),
     })
 
     return true

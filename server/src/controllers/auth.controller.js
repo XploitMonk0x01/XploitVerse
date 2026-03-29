@@ -5,6 +5,63 @@ import config from '../config/index.js'
 import crypto from 'crypto'
 import { emailService } from '../services/index.js'
 
+const OTP_TTL_MINUTES = 10
+const OTP_RESEND_COOLDOWN_SECONDS = 60
+const OTP_MAX_ATTEMPTS = 5
+
+const generateSixDigitOtp = () => `${crypto.randomInt(100000, 1000000)}`
+
+const hashOtp = (otp) => crypto.createHash('sha256').update(otp).digest('hex')
+
+const issueEmailOtpForUser = async (user, options = {}) => {
+  const { force = false } = options
+
+  const now = new Date()
+  if (
+    !force &&
+    user.emailVerificationOtpLastSentAt &&
+    now.getTime() - user.emailVerificationOtpLastSentAt.getTime() <
+      OTP_RESEND_COOLDOWN_SECONDS * 1000
+  ) {
+    const retryAfterSeconds =
+      OTP_RESEND_COOLDOWN_SECONDS -
+      Math.floor(
+        (now.getTime() - user.emailVerificationOtpLastSentAt.getTime()) / 1000,
+      )
+    throw new ApiError(
+      `Please wait ${retryAfterSeconds}s before requesting another OTP.`,
+      429,
+    )
+  }
+
+  const otp = generateSixDigitOtp()
+  const expiresAt = new Date(now.getTime() + OTP_TTL_MINUTES * 60 * 1000)
+
+  user.emailVerificationOtpHash = hashOtp(otp)
+  user.emailVerificationOtpExpires = expiresAt
+  user.emailVerificationOtpAttempts = 0
+  user.emailVerificationOtpLastSentAt = now
+  await user.save({ validateBeforeSave: false })
+
+  const userName = user.firstName || user.username || 'there'
+  let sent = false
+
+  if (emailService.isConfigured()) {
+    try {
+      await emailService.sendEmailVerificationOtp(user.email, otp, userName)
+      sent = true
+    } catch (error) {
+      console.error('Failed to send verification OTP email:', error.message)
+    }
+  }
+
+  return {
+    sent,
+    expiresAt,
+    otp: config.nodeEnv === 'development' ? otp : undefined,
+  }
+}
+
 /**
  * @desc    Register a new user
  * @route   POST /api/auth/register
@@ -37,6 +94,8 @@ export const register = asyncHandler(async (req, res) => {
   // Generate token and cookie options
   const { token, cookieOptions } = createTokenResponse(user)
 
+  const otpMeta = await issueEmailOtpForUser(user, { force: true })
+
   // Set JWT cookie
   res.cookie('jwt', token, cookieOptions)
 
@@ -54,8 +113,15 @@ export const register = asyncHandler(async (req, res) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        isEmailVerified: user.isEmailVerified,
       },
       token,
+      emailVerification: {
+        required: !user.isEmailVerified,
+        otpSent: otpMeta.sent,
+        expiresAt: otpMeta.expiresAt,
+        otp: otpMeta.otp,
+      },
     },
   })
 })
@@ -185,7 +251,7 @@ export const updatePassword = asyncHandler(async (req, res) => {
   const isPasswordValid = await user.comparePassword(currentPassword)
 
   if (!isPasswordValid) {
-    throw new ApiError('Current password is incorrect', 401)
+    throw new ApiError('Current password is incorrect', 400)
   }
 
   // Update password
@@ -317,6 +383,135 @@ export const resetPassword = asyncHandler(async (req, res) => {
   })
 })
 
+/**
+ * @desc    Send verification OTP for logged-in user
+ * @route   POST /api/auth/send-email-otp
+ * @access  Private
+ */
+export const sendEmailOtp = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select(
+    '+emailVerificationOtpHash +emailVerificationOtpExpires +emailVerificationOtpAttempts +emailVerificationOtpLastSentAt',
+  )
+
+  if (!user) {
+    throw new ApiError('User not found', 404)
+  }
+
+  if (user.isEmailVerified) {
+    return res.status(200).json({
+      success: true,
+      message: 'Email is already verified.',
+      data: {
+        isEmailVerified: true,
+      },
+    })
+  }
+
+  const otpMeta = await issueEmailOtpForUser(user)
+
+  res.status(200).json({
+    success: true,
+    message: otpMeta.sent
+      ? 'Verification OTP sent to your email.'
+      : 'Verification OTP generated. Email service is not configured.',
+    data: {
+      isEmailVerified: false,
+      otpSent: otpMeta.sent,
+      expiresAt: otpMeta.expiresAt,
+      otp: otpMeta.otp,
+    },
+  })
+})
+
+/**
+ * @desc    Verify email with OTP
+ * @route   POST /api/auth/verify-email-otp
+ * @access  Private
+ */
+export const verifyEmailOtp = asyncHandler(async (req, res) => {
+  const { otp } = req.body
+
+  const user = await User.findById(req.user._id).select(
+    '+emailVerificationOtpHash +emailVerificationOtpExpires +emailVerificationOtpAttempts +emailVerificationOtpLastSentAt',
+  )
+
+  if (!user) {
+    throw new ApiError('User not found', 404)
+  }
+
+  if (user.isEmailVerified) {
+    return res.status(200).json({
+      success: true,
+      message: 'Email is already verified.',
+      data: {
+        isEmailVerified: true,
+      },
+    })
+  }
+
+  if (!user.emailVerificationOtpHash || !user.emailVerificationOtpExpires) {
+    throw new ApiError(
+      'No active OTP. Please request a new verification OTP.',
+      400,
+    )
+  }
+
+  if (user.emailVerificationOtpExpires <= new Date()) {
+    user.emailVerificationOtpHash = undefined
+    user.emailVerificationOtpExpires = undefined
+    user.emailVerificationOtpAttempts = 0
+    await user.save({ validateBeforeSave: false })
+    throw new ApiError(
+      'OTP expired. Please request a new verification OTP.',
+      400,
+    )
+  }
+
+  if ((user.emailVerificationOtpAttempts || 0) >= OTP_MAX_ATTEMPTS) {
+    throw new ApiError(
+      'Too many incorrect OTP attempts. Please request a new verification OTP.',
+      429,
+    )
+  }
+
+  const isCorrect = hashOtp(otp) === user.emailVerificationOtpHash
+
+  if (!isCorrect) {
+    user.emailVerificationOtpAttempts =
+      (user.emailVerificationOtpAttempts || 0) + 1
+    await user.save({ validateBeforeSave: false })
+
+    const attemptsLeft = Math.max(
+      0,
+      OTP_MAX_ATTEMPTS - user.emailVerificationOtpAttempts,
+    )
+    throw new ApiError(`Invalid OTP. Attempts left: ${attemptsLeft}`, 400)
+  }
+
+  user.isEmailVerified = true
+  user.emailVerificationOtpHash = undefined
+  user.emailVerificationOtpExpires = undefined
+  user.emailVerificationOtpAttempts = 0
+  await user.save({ validateBeforeSave: false })
+
+  res.status(200).json({
+    success: true,
+    message: 'Email verified successfully.',
+    data: {
+      isEmailVerified: true,
+    },
+  })
+})
+
+/**
+ * @desc    Resend verification OTP for logged-in user
+ * @route   POST /api/auth/resend-email-otp
+ * @access  Private
+ */
+export const resendEmailOtp = asyncHandler(async (req, res) => {
+  return sendEmailOtp(req, res)
+})
+
 export default {
   register,
   login,
@@ -326,4 +521,7 @@ export default {
   refreshToken,
   forgotPassword,
   resetPassword,
+  sendEmailOtp,
+  verifyEmailOtp,
+  resendEmailOtp,
 }

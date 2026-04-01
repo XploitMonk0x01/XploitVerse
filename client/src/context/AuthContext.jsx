@@ -142,10 +142,18 @@ export const AuthProvider = ({ children }) => {
     // Check if user has specific role
     const hasRole = (roles) => {
         if (!user) return false;
-        if (typeof roles === 'string') {
-            return user.role === roles;
-        }
+        if (typeof roles === 'string') return user.role === roles;
         return roles.includes(user.role);
+    };
+
+    // Re-fetch /auth/me to get latest user data (e.g. after plan upgrade)
+    const refreshUser = async () => {
+        try {
+            const response = await api.get('/auth/me');
+            setUser(response.data.data.user);
+        } catch (err) {
+            console.error('refreshUser failed:', err);
+        }
     };
 
     const value = {
@@ -157,6 +165,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         updateUser,
+        refreshUser,
         hasRole,
         checkAuth,
         sendEmailOtp,

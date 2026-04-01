@@ -78,6 +78,12 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Subscription plan (denormalized from Subscription for fast middleware checks)
+    plan: {
+      type: String,
+      enum: ['FREE', 'PRO', 'PREMIUM'],
+      default: 'FREE',
+    },
     // Security fields
     lastLogin: {
       type: Date,

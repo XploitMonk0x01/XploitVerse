@@ -68,6 +68,12 @@ const labSchema = new mongoose.Schema(
         lowercase: true,
       },
     ],
+    // Docker image used to spawn the lab container
+    dockerImage: {
+      type: String,
+      default: null,     // e.g. 'xploitverse/sqli-lab:latest'
+      trim: true,
+    },
     // Lab environment configuration (for Phase 2 AWS integration)
     environmentConfig: {
       instanceType: {

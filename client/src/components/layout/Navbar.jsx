@@ -13,6 +13,7 @@ import {
   Bell,
   UserCircle,
   ChevronDown,
+  Zap,
 } from 'lucide-react';
 
 const styles = `
@@ -266,6 +267,27 @@ const styles = `
     border: 1px solid var(--color-border);
     margin-bottom: var(--space-4);
   }
+  .nav-upgrade-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.4rem 0.9rem;
+    background: var(--color-accent);
+    color: var(--color-paper);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    border: 1.5px solid var(--color-accent);
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .nav-upgrade-btn:hover {
+    background: transparent;
+    color: var(--color-accent);
+  }
 `;
 
 const Navbar = () => {
@@ -347,6 +369,14 @@ const Navbar = () => {
                 <span className="nav-badge"></span>
               </button>
 
+              {/* Upgrade button — only for FREE users */}
+              {(!user?.plan || user.plan === 'FREE') && (
+                <Link to="/pricing" className="nav-upgrade-btn">
+                  <Zap size={13} />
+                  Upgrade
+                </Link>
+              )}
+
               <div className="nav-user-menu" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
@@ -420,6 +450,13 @@ const Navbar = () => {
               )}
 
               <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--space-2) 0' }} />
+
+              {(!user?.plan || user.plan === 'FREE') && (
+                <Link to="/pricing" className="nav-upgrade-btn" style={{ margin: '0 var(--space-3)', justifyContent: 'center' }}>
+                  <Zap size={14} />
+                  Upgrade Your Plan
+                </Link>
+              )}
 
               <button onClick={handleLogout} className="nav-dropdown-item danger" style={{ padding: '0.75rem var(--space-3)' }}>
                 <LogOut size={18} />

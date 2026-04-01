@@ -1,6 +1,11 @@
-import jwt from "jsonwebtoken";
-import config from "../config/index.js";
-import User, { USER_ROLES } from "../models/User.js";
+import jwt from 'jsonwebtoken'
+import config from '../config/index.js'
+import User, { USER_ROLES } from '../models/User.js'
+import { getRedis } from '../config/redis.js'
+
+// Cache user profiles for 15 minutes to avoid a Mongo round-trip per request
+const USER_CACHE_TTL_S = 15 * 60
+const userCacheKey = (id) => `user:${id}`
 
 /**
  * Verify JWT Token Middleware
@@ -32,37 +37,73 @@ export const verifyToken = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, config.jwt.secret)
 
-    // Check if user still exists
-    const user = await User.findById(decoded.id);
+    // ── Try Redis user cache first ────────────────────────────────────
+    let user = null
+    const redis = getRedis()
+    const cacheKey = userCacheKey(decoded.id)
 
+    if (redis) {
+      const cached = await redis.get(cacheKey)
+      if (cached) {
+        // Reconstruct a lean plain object from the cache
+        user = JSON.parse(cached)
+        // Attach a minimal changedPasswordAfter stub so guards still work
+        user.changedPasswordAfter = (iat) => {
+          if (!user.passwordChangedAt) return false
+          return iat < Math.floor(new Date(user.passwordChangedAt).getTime() / 1000)
+        }
+      }
+    }
+
+    // ── Cache miss – load from MongoDB ───────────────────────────────
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User no longer exists.",
-      });
+      const dbUser = await User.findById(decoded.id)
+      if (!dbUser) {
+        return res.status(401).json({ success: false, message: 'User no longer exists.' })
+      }
+      user = dbUser
+
+      // Persist to Redis (plain serialisable object)
+      if (redis) {
+        const plain = {
+          _id: dbUser._id.toString(),
+          username: dbUser.username,
+          email: dbUser.email,
+          role: dbUser.role,
+          isActive: dbUser.isActive,
+          isEmailVerified: dbUser.isEmailVerified,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+          passwordChangedAt: dbUser.passwordChangedAt,
+          preferences: dbUser.preferences,
+          totalLabTime: dbUser.totalLabTime,
+          totalSpent: dbUser.totalSpent,
+        }
+        await redis.set(cacheKey, JSON.stringify(plain), 'EX', USER_CACHE_TTL_S)
+      }
     }
 
     // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: "User account has been deactivated.",
-      });
+        message: 'User account has been deactivated.',
+      })
     }
 
     // Check if user changed password after token was issued
     if (user.changedPasswordAfter(decoded.iat)) {
       return res.status(401).json({
         success: false,
-        message: "Password recently changed. Please log in again.",
-      });
+        message: 'Password recently changed. Please log in again.',
+      })
     }
 
     // Attach user to request
-    req.user = user;
-    req.userId = user._id;
+    req.user = user
+    req.userId = user._id
 
     next();
   } catch (error) {

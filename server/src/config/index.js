@@ -19,6 +19,12 @@ const config = {
   // Redis (optional)
   redisUrl: process.env.REDIS_URL || '',
 
+  // Razorpay
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+  },
+
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',

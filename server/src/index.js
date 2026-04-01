@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit'
 
 import config from './config/index.js'
 import connectDB from './config/database.js'
+import { connectRedis } from './config/redis.js'
 import {
   authRoutes,
   userRoutes,
@@ -21,6 +22,7 @@ import {
   flagRoutes,
   leaderboardRoutes,
   adminRoutes,
+  subscriptionRoutes,
 } from './routes/index.js'
 import { errorHandler, notFound } from './middleware/error.middleware.js'
 import { initializeSocketHandlers } from './socket/socketHandler.js'
@@ -110,6 +112,7 @@ app.use('/api/modules', moduleRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/subscriptions', subscriptionRoutes)
 
 // API Documentation endpoint (placeholder for Phase 2)
 app.get('/api', (req, res) => {
@@ -142,18 +145,20 @@ const PORT = config.port
 
 const startServer = async () => {
   await connectDB()
+  await connectRedis()   // optional – app degrades gracefully without Redis
 
   httpServer.listen(PORT, () => {
     console.log(`
-🛡️  XploitVerse API Server
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚀 Server running on port ${PORT}
-🌍 Environment: ${config.nodeEnv}
-📡 API URL: http://localhost:${PORT}/api
-🔌 WebSocket: ws://localhost:${PORT}
-🏥 Health Check: http://localhost:${PORT}/health
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  `)
+  XploitVerse API Server
+=========================================
+  Server:      http://localhost:${PORT}
+  Environment: ${config.nodeEnv}
+  API:         http://localhost:${PORT}/api
+  WebSocket:   ws://localhost:${PORT}
+  Health:      http://localhost:${PORT}/health
+  Redis:       ${config.redisUrl || 'redis://localhost:6379'}
+=========================================
+    `)
   })
 }
 

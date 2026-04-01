@@ -21,6 +21,8 @@ import CourseDetail from './pages/courses/CourseDetail';
 import ModuleDetail from './pages/courses/ModuleDetail';
 import TaskDetail from './pages/courses/TaskDetail';
 import Leaderboard from './pages/Leaderboard';
+import Pricing from './pages/Pricing';
+import PaymentSuccess from './pages/PaymentSuccess';
 import NotFound from './pages/NotFound';
 
 // Route Guards
@@ -78,6 +80,10 @@ function App() {
 
                             {/* Leaderboard */}
                             <Route path="/leaderboard" element={<Leaderboard />} />
+
+                            {/* Pricing & Payments */}
+                            <Route path="/pricing" element={<Pricing />} />
+                            <Route path="/payment/success" element={<PaymentSuccess />} />
 
                             {/* Admin/Instructor Routes */}
                             <Route element={<RoleRoute allowedRoles={['ADMIN', 'INSTRUCTOR']} />}>

@@ -79,7 +79,16 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter)
 
 // Body parsing
-app.use(express.json({ limit: '10kb' }))
+app.use(
+  express.json({
+    limit: '10kb',
+    verify: (req, _res, buf) => {
+      if (req.originalUrl === '/api/subscriptions/webhook') {
+        req.rawBody = buf.toString('utf8')
+      }
+    },
+  }),
+)
 app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 app.use(cookieParser())
 
@@ -132,6 +141,7 @@ app.get('/api', (req, res) => {
       tasks: '/api/tasks',
       leaderboard: '/api/leaderboard',
       admin: '/api/admin',
+      subscriptions: '/api/subscriptions',
     },
   })
 })
@@ -144,8 +154,12 @@ app.use(errorHandler)
 const PORT = config.port
 
 const startServer = async () => {
+  if (!PORT) {
+    throw new Error('PORT environment variable is required.')
+  }
+
   await connectDB()
-  await connectRedis()   // optional – app degrades gracefully without Redis
+  await connectRedis() // optional – app degrades gracefully without Redis
 
   httpServer.listen(PORT, () => {
     console.log(`

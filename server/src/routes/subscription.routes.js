@@ -1,13 +1,17 @@
 import express from 'express'
 import {
-    createOrder,
-    verifyPayment,
-    getMySubscription,
-    cancelSubscription,
+  createOrder,
+  verifyPayment,
+  handleWebhook,
+  getMySubscription,
+  cancelSubscription,
 } from '../controllers/subscription.controller.js'
 import { verifyToken } from '../middleware/auth.middleware.js'
 
 const router = express.Router()
+
+// Webhook endpoint must be public (signature-verified in controller)
+router.post('/webhook', handleWebhook)
 
 // All subscription routes require authentication
 router.use(verifyToken)

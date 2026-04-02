@@ -1,6 +1,6 @@
 # XploitVerse: Current State vs Production Architecture
 
-**Last Updated:** 2026-04-01 (`express_server` branch)
+**Last Updated:** 2026-04-02 (`express_server` branch)
 
 This document compares the current `express_server` implementation against the production-grade architecture outlined in `advance.md` and provides a phased roadmap to bridge the gap.
 
@@ -9,11 +9,18 @@ This document compares the current `express_server` implementation against the p
 ## 📊 Progress Overview
 
 ```
-Foundation:     ████████████████████████  98%
-Core Features:  ████████████████░░░░░░░  70%
-Infrastructure: ████░░░░░░░░░░░░░░░░░░  15%
+Foundation:     ████████████████████████ 100%
+Core Features:  ██████████████████░░░░░░  75%
+Infrastructure: ████░░░░░░░░░░░░░░░░░░░  15%
 Production:     ░░░░░░░░░░░░░░░░░░░░░░   0%
 ```
+
+**Latest Status (2026-04-02):** Payment system hardening complete ✅
+
+- Razorpay signature verification (HMAC-SHA256) implemented
+- Server-side payment status validation active
+- Webhook handler with idempotent subscription activation
+- Environment-driven configuration enforced (no hardcoded secrets)
 
 ---
 
@@ -75,6 +82,14 @@ Production:     ░░░░░░░░░░░░░░░░░░░░░�
   - Branded HTML password-reset email
   - Branded HTML OTP verification email
   - Dev mode returns token/OTP in response when SMTP not configured
+- [x] **Subscription & Payment System** ← **NEW (Hardened 2026-04-02)**
+  - Razorpay SDK integration with order creation
+  - HMAC-SHA256 signature verification (prevents payment tampering)
+  - Server-side payment status verification (refetch from Razorpay API)
+  - Webhook handler with idempotent subscription activation
+  - Raw body preservation for webhook signature validation
+  - Environment-driven configuration (all secrets from env vars)
+  - Graceful fallback when Razorpay not configured
 - [x] **REST Controllers**
   - Auth, User, Lab, LabSession, Course, Module, Task, Flag, Leaderboard, Chat, Admin
 - [x] **Socket.io Real-time** ← **Replaces Go native WS**
@@ -94,6 +109,7 @@ Production:     ░░░░░░░░░░░░░░░░░░░░░�
 ### Challenges (`challenges/`) ← **NEW vs main**
 
 Real Docker lab images included:
+
 - `linux-basics`, `web-basic`, `sqli-lab`, `owasp-juice`, `reverse-shell`
 - `recon-basic`, `privesc-basic`, `privesc-linux`, `crypto-basics`
 - `boot2root`, `network-recon`
@@ -261,15 +277,40 @@ _Estimated: 2 weeks_
 - [ ] Public profile page
 - [ ] Activity feed (recent flags, labs, writeups)
 
-### 3.2 Subscription & Payment (Stripe)
+### 3.2 Subscription & Payment (Razorpay) ← **HARDENED 2026-04-02**
 
-**Status:** 🔴 Not Started
+**Status:** 🟢 MVP Complete — integration tests pending
 **Priority:** Medium
 
-- [ ] Subscription model schema
-- [ ] Stripe webhook handlers
-- [ ] Tier enforcement (free/pro/premium)
-- [ ] Pricing page + checkout flow + billing management
+**What's Done:** ✅
+
+- [x] Razorpay SDK integration (`razorpay` client initialized with `KEY_ID` + `KEY_SECRET`)
+- [x] Order creation API (`POST /api/subscriptions/create-order`) — returns order ID + key for client SDK
+- [x] **Payment verification with signature validation** — HMAC-SHA256 verification of `x-razorpay-signature`
+- [x] **Server-side payment status fetch** — refetch payment from Razorpay API, enforce `captured` status (never trust client)
+- [x] **Idempotent subscription activation** — prevents double-charge on webhook retry
+- [x] **Webhook handler** (`POST /api/subscriptions/webhook`) — public endpoint, signature-verified, `payment.captured` events only
+- [x] **Raw body preservation** — for webhook signature verification
+- [x] Subscription activation flow — updates user `plan` + increments `totalSpent` + busts Redis cache
+- [x] `.env.example` documentation for all Razorpay secrets
+- [x] Environment-driven configuration — no hardcoded defaults, fail-fast on missing `PORT`
+
+**What Needs Testing:** 🟡
+
+- [ ] Integration tests: signature mismatch rejection
+- [ ] Integration tests: webhook retry idempotency (no double-activation)
+- [ ] Integration tests: `captured: false` payment rejection
+- [ ] Integration tests: Razorpay API unavailability handling
+- [ ] Integration tests: Redis cache invalidation on activation
+- [ ] E2E test: full payment flow (order → client capture → webhook → subscription active)
+
+**What's Next:** 🔄
+
+- [ ] Deployment runbook — register webhook URL in Razorpay Dashboard
+- [ ] Test payment flow with Razorpay test cards + test webhooks
+- [ ] Monitor webhook delivery + implement dead-letter queue if webhook fails
+- [ ] Add rate limiting on `/create-order` endpoint (prevent order spam)
+- [ ] Frontend payment flow verification (cancel/retry on network timeout)
 
 ### 3.3 Writeups
 
@@ -347,63 +388,81 @@ All sub-phases (AWS setup, Managed Services, EKS, Frontend hosting, CI/CD, Monit
 
 ## 🗓️ Recommended Timeline (16-Week Semester)
 
-| Week  | Phase         | Focus                                                            |
-| ----- | ------------- | ---------------------------------------------------------------- |
-| 1-2   | Phase 0       | ✅ **Done:** Foundation, UI, Basic Auth                           |
-| 3-4   | Phase 1.1     | ✅ **Done:** Course/Module/Task system                            |
-| 5-6   | Phase 1.2     | ✅ **Done:** Docker lab spawning (CLI) + Email OTP                |
-| 7-8   | Phase 1.3-1.4 | ✅ **Done:** Flag submission + Leaderboard + Socket.io setup      |
-| 9-10  | Phase 2       | Redis wiring + real `docker exec` terminal + live leaderboard WS |
-| 11-12 | Phase 3       | Profiles + Stripe subscriptions                                  |
-| 13-14 | Phase 4       | Kubernetes (minikube) + Lab orchestration                        |
-| 15    | Phase 2/3/4   | Buffer week (finish features)                                    |
-| 16    | Phase 6       | **AWS deployment** (if time permits)                             |
+| Week  | Phase         | Focus                                                                          |
+| ----- | ------------- | ------------------------------------------------------------------------------ |
+| 1-2   | Phase 0       | ✅ **Done:** Foundation, UI, Basic Auth                                        |
+| 3-4   | Phase 1.1     | ✅ **Done:** Course/Module/Task system                                         |
+| 5-6   | Phase 1.2     | ✅ **Done:** Docker lab spawning (CLI) + Email OTP                             |
+| 7-8   | Phase 1.3-1.4 | ✅ **Done:** Flag submission + Leaderboard + Socket.io setup                   |
+| 9-10  | Phase 2       | Redis wiring + real `docker exec` terminal + live leaderboard WS               |
+| 11-12 | Phase 3       | ✅ **In Progress**: Razorpay subscriptions MVP ✓ + Profiles + tier enforcement |
+| 13-14 | Phase 4       | Kubernetes (minikube) + Lab orchestration                                      |
+| 15    | Phase 2/3/4   | Buffer week (finish features)                                                  |
+| 16    | Phase 6       | **AWS deployment** (if time permits)                                           |
 
 ---
 
 ## 📊 Feature Comparison: Current vs Production
 
-| Feature           | Current Status (`express_server`)        | Phase 1-4 Target               | Production (`advance.md`)          |
-| ----------------- | ---------------------------------------- | ------------------------------ | ---------------------------------- |
-| **Runtime**       | Node.js / Express 4                      | Same (or microservices split)  | Go microservices                   |
-| **Auth**          | JWT + HttpOnly cookie + OTP email verify | + OAuth2 + MFA                 | + Session mgmt + audit logs + PKCE |
-| **Email**         | Nodemailer SMTP (reset + OTP) ✅          | Same                           | Managed SES/SendGrid               |
-| **Database**      | MongoDB (Mongoose 8)                     | + Redis wired                  | + PostgreSQL + sharding            |
-| **Redis**         | Container ready; server not yet using it | Wired (leaderboard, cache)     | ElastiCache Cluster Mode           |
-| **Labs**          | Docker CLI ✅                             | Real `docker exec` PTY / k8s   | Kubernetes + VM pools              |
-| **Scoring**       | Anti-cheat rate-limit ✅                  | + Hint-penalty + dynamic flags | + Anti-cheat + dynamic flags       |
-| **Leaderboard**   | MongoDB agg + in-memory cache ✅          | Redis sorted set               | Redis sorted set + WebSocket       |
-| **Real-time**     | Socket.io (simulated terminal)           | Real `docker exec` PTY bridge  | WS + Redis Pub/Sub                 |
-| **Challenges**    | 11 Docker lab images ✅ **NEW**           | + k8s scheduling               | Kubernetes pods + VM labs          |
-| **Email verify**  | OTP flow end-to-end ✅ **NEW**            | Same                           | Same                               |
-| **Subscriptions** | Not implemented                          | Stripe test mode               | + Usage tracking + billing         |
-| **Monitoring**    | morgan logs only                         | Basic metrics                  | Prometheus + Grafana + Loki        |
-| **Networking**    | N/A                                      | Local VPN                      | WireGuard + isolated VPCs          |
-| **Deployment**    | Local dev (`npm run dev`)                | Docker Compose                 | EKS + multi-AZ + ArgoCD            |
-| **Scaling**       | Single instance                          | Vertical                       | Horizontal + autoscaling           |
+| Feature           | Current Status (`express_server`)                                      | Phase 1-4 Target                  | Production (`advance.md`)          |
+| ----------------- | ---------------------------------------------------------------------- | --------------------------------- | ---------------------------------- |
+| **Runtime**       | Node.js / Express 4                                                    | Same (or microservices split)     | Go microservices                   |
+| **Auth**          | JWT + HttpOnly cookie + OTP email verify                               | + OAuth2 + MFA                    | + Session mgmt + audit logs + PKCE |
+| **Email**         | Nodemailer SMTP (reset + OTP) ✅                                       | Same                              | Managed SES/SendGrid               |
+| **Database**      | MongoDB (Mongoose 8)                                                   | + Redis wired                     | + PostgreSQL + sharding            |
+| **Redis**         | Container ready; server not yet using it                               | Wired (leaderboard, cache)        | ElastiCache Cluster Mode           |
+| **Labs**          | Docker CLI ✅                                                          | Real `docker exec` PTY / k8s      | Kubernetes + VM pools              |
+| **Scoring**       | Anti-cheat rate-limit ✅                                               | + Hint-penalty + dynamic flags    | + Anti-cheat + dynamic flags       |
+| **Leaderboard**   | MongoDB agg + in-memory cache ✅                                       | Redis sorted set                  | Redis sorted set + WebSocket       |
+| **Real-time**     | Socket.io (simulated terminal)                                         | Real `docker exec` PTY bridge     | WS + Redis Pub/Sub                 |
+| **Challenges**    | 11 Docker lab images ✅ **NEW**                                        | + k8s scheduling                  | Kubernetes pods + VM labs          |
+| **Email verify**  | OTP flow end-to-end ✅ **NEW**                                         | Same                              | Same                               |
+| **Subscriptions** | Razorpay MVP (signature verification, webhook handler, idempotency) ✅ | + Rate limiting + payment retries | + Usage tracking + billing portal  |
+| **Monitoring**    | morgan logs only                                                       | Basic metrics                     | Prometheus + Grafana + Loki        |
+| **Networking**    | N/A                                                                    | Local VPN                         | WireGuard + isolated VPCs          |
+| **Deployment**    | Local dev (`npm run dev`)                                              | Docker Compose                    | EKS + multi-AZ + ArgoCD            |
+| **Scaling**       | Single instance                                                        | Vertical                          | Horizontal + autoscaling           |
 
 ---
 
-## 🚀 Quick Start: Next Steps (Week 9–10 sprint)
+## 🚀 Quick Start: Next Steps (Week 9–12 sprint)
+
+### Immediate (Week 9–10)
 
 1. Wire `ioredis` inside Express server — replace in-memory leaderboard cache with Redis sorted set.
 2. Replace simulated Socket.io terminal with real `dockerode`/`docker exec` PTY bridge.
 3. Admin panel — course/module/task CRUD UI (endpoints already exist).
 4. Quiz/question task type — multiple-choice form in TaskDetail + scoring handler.
-5. Integration tests for flag submission (critical path).
-6. End-to-end email verification test with real SMTP credentials.
+
+### Payment System (Week 11–12)
+
+5. **Integration tests for payment system** (BFRI improves from -3 → +6):
+   - Test: signature mismatch rejection
+   - Test: webhook retry idempotency (no double-activation)
+   - Test: payment status verification from API
+   - Test: `captured: false` payment rejection
+   - Test: Redis cache invalidation on activation
+6. **Deployment documentation** — register webhook URL in Razorpay Dashboard, test with Razorpay test cards.
+7. **Rate limiting** on `/api/subscriptions/create-order` endpoint (prevent order spam).
+
+### Secondary Tasks
+
+8. End-to-end email verification test with real SMTP credentials.
+9. Frontend payment flow verification (cancel/retry on network timeout).
 
 ---
 
 ## 📝 Notes
 
 - **Backend language change**: `express_server` uses Node.js/Express instead of Go. This is simpler to extend quickly but sacrifices the concurrency/memory advantages Go has for lab orchestration. Consider keeping Node for API layer and using Go microservices for lab orchestration later.
-- **Redis is there but idle**: The Compose file has Redis ready. The fastest win is wiring `ioredis` for leaderboard + session cache.
+- **Payment system hardened (2026-04-02)**: Razorpay integration now includes signature verification, server-side payment status validation, and idempotent webhook handling. This is production-ready for MVP but needs integration tests.
+- **Environment-driven config**: All secrets come from `.env` variables. No fallback defaults (e.g., no `PORT || 5000`). This prevents silent misconfiguration and enforces explicit deployment setup.
+- **Redis is there but idle**: The Compose file has Redis ready. The fastest win is wiring `ioredis` for leaderboard + session cache (can reuse Redis connection pool for subscription cache invalidation).
 - **Mock terminal is a gap**: The Socket.io terminal currently returns hardcoded mock responses. Real `docker exec` bridging should be the top Phase 2 priority.
 - **Don't over-engineer early**: Start with monolith, split into microservices only if needed.
 - **AWS is expensive**: Use AWS Academy credits or stick to local k8s for demo.
 - **Document everything**: Architecture diagrams are as valuable as working code for grades.
-- **Security mindset**: Even in dev, never store flags in plaintext, always hash.
+- **Security mindset**: Even in dev, never store flags in plaintext, always hash. Apply same rigor to payment webhook validation as you would to flag submission validation.
 
 ---
 

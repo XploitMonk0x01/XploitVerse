@@ -10,7 +10,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 
 const config = {
   // Server
-  port: process.env.PORT || 5000,
+  port: process.env.PORT,
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // MongoDB
@@ -23,6 +23,7 @@ const config = {
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
 
   // JWT

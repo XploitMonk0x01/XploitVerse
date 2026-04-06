@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 import config from "./index.js";
+import { createModuleLogger } from '../utils/logger.js'
+
+const log = createModuleLogger('mongodb')
 
 const connectDB = async () => {
   try {
@@ -10,24 +13,24 @@ const connectDB = async () => {
       socketTimeoutMS: 45000,
     });
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    log.info({ host: conn.connection.host }, 'MongoDB connected');
 
     // Handle connection events
     mongoose.connection.on("error", (err) => {
-      console.error(`❌ MongoDB connection error: ${err}`);
+      log.error({ err }, 'MongoDB connection error');
     });
 
     mongoose.connection.on("disconnected", () => {
-      console.warn("⚠️ MongoDB disconnected. Attempting to reconnect...");
+      log.warn('MongoDB disconnected, attempting to reconnect...');
     });
 
     mongoose.connection.on("reconnected", () => {
-      console.log("✅ MongoDB reconnected");
+      log.info('MongoDB reconnected');
     });
 
     return conn;
   } catch (error) {
-    console.error(`❌ MongoDB connection failed: ${error.message}`);
+    log.fatal({ err: error.message }, 'MongoDB connection failed');
     process.exit(1);
   }
 };

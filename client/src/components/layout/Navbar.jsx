@@ -288,6 +288,56 @@ const styles = `
     background: transparent;
     color: var(--color-accent);
   }
+
+  .nav-plan-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.1rem 0.35rem;
+    margin-left: 0.5rem;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    text-transform: uppercase;
+    border-radius: 4px;
+    background: var(--color-accent);
+    color: var(--color-paper);
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+  }
+
+  .nav-plan-badge.animate-upgrade {
+    animation: badge-pop 2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes badge-pop {
+    0% {
+      transform: scale(0.5);
+      opacity: 0;
+      box-shadow: 0 0 0 rgba(var(--color-accent-rgb), 0);
+    }
+    20% {
+      transform: scale(1.3);
+      opacity: 1;
+      box-shadow: 0 0 15px var(--color-accent);
+    }
+    40% {
+      transform: scale(0.9);
+      box-shadow: 0 0 5px var(--color-accent);
+    }
+    60% {
+      transform: scale(1.1);
+      box-shadow: 0 0 10px var(--color-accent);
+    }
+    80% {
+      transform: scale(0.95);
+      box-shadow: 0 0 3px var(--color-accent);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(var(--color-accent-rgb), 0);
+    }
+  }
 `;
 
 const Navbar = () => {
@@ -297,6 +347,17 @@ const Navbar = () => {
 
   const { user, logout, hasRole } = useAuth();
   const location = useLocation();
+
+  const prevPlanRef = useRef(user?.plan);
+  const [justUpgraded, setJustUpgraded] = useState(false);
+
+  useEffect(() => {
+    if (user?.plan && prevPlanRef.current && user.plan !== 'FREE' && prevPlanRef.current === 'FREE') {
+      setJustUpgraded(true);
+      setTimeout(() => setJustUpgraded(false), 5000); // reset after 5s
+    }
+    prevPlanRef.current = user?.plan;
+  }, [user?.plan]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -387,7 +448,14 @@ const Navbar = () => {
                   </div>
                   <div className="nav-user-info">
                     <p className="nav-user-name">{user?.username || 'Guest'}</p>
-                    <p className="nav-user-role">{user?.role?.toLowerCase() || 'Role'}</p>
+                    <p className="nav-user-role">
+                      {user?.role?.toLowerCase() || 'Role'}
+                      {user?.plan && user.plan !== 'FREE' && (
+                        <span className={`nav-plan-badge ${justUpgraded ? 'animate-upgrade' : ''}`}>
+                          {user.plan}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <ChevronDown size={14} style={{ color: 'var(--color-muted)', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--ease-default)' }} />
                 </button>
@@ -397,8 +465,13 @@ const Navbar = () => {
                     <div className="nav-dropdown-header">
                       <p className="nav-user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.username}
+                        {user?.plan && user.plan !== 'FREE' && (
+                          <span className={`nav-plan-badge ${justUpgraded ? 'animate-upgrade' : ''}`} style={{ marginLeft: 'var(--space-2)' }}>
+                            {user.plan}
+                          </span>
+                        )}
                       </p>
-                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
                         {user?.email}
                       </p>
                     </div>
@@ -431,7 +504,14 @@ const Navbar = () => {
                 </div>
                 <div>
                   <p className="nav-user-name">{user?.username}</p>
-                  <p className="nav-user-role">{user?.role?.toLowerCase()}</p>
+                  <p className="nav-user-role">
+                    {user?.role?.toLowerCase()}
+                    {user?.plan && user.plan !== 'FREE' && (
+                      <span className={`nav-plan-badge ${justUpgraded ? 'animate-upgrade' : ''}`}>
+                        {user.plan}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
 

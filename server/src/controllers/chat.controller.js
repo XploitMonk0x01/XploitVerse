@@ -2,6 +2,9 @@ import { asyncHandler, ApiError } from "../middleware/error.middleware.js";
 import Lab from "../models/Lab.js";
 import LabSession from "../models/LabSession.js";
 import config from "../config/index.js";
+import { createModuleLogger } from '../utils/logger.js'
+
+const log = createModuleLogger('chat')
 
 /**
  * Mock AI responses for when no API key is available
@@ -72,7 +75,7 @@ const getLabContext = async (sessionId, labId) => {
 
     return null;
   } catch (error) {
-    console.error("Error fetching lab context:", error);
+    log.error({ err: error.message }, 'Error fetching lab context');
     return null;
   }
 };
@@ -278,7 +281,7 @@ export const chat = asyncHandler(async (req, res) => {
       provider = "mock";
     }
   } catch (error) {
-    console.error("AI API Error:", error.message);
+    log.error({ err: error.message }, 'AI API error');
     // Fallback to mock response on error
     aiResponse = getMockResponse(labContext, message);
     provider = "mock (fallback)";

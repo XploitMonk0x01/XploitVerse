@@ -1,3 +1,8 @@
 export { default as ec2Service } from './ec2.service.js'
 export { default as autoTerminationService } from './autoTermination.service.js'
 export { default as emailService } from './email.service.js'
+export { default as authService } from './auth.service.js'
+export { default as subscriptionService } from './subscription.service.js'
+export { default as labService } from './lab.service.js'
+export { default as leaderboardService } from './leaderboard.service.js'
+export { default as flagService } from './flag.service.js'

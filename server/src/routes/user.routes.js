@@ -14,7 +14,12 @@ import {
   isAdmin,
   isInstructor,
 } from '../middleware/auth.middleware.js'
-import { updateProfileValidation, validate } from '../validators/index.js'
+import {
+  updateProfileValidation,
+  userIdParamValidation,
+  updateRoleValidation,
+  validate,
+} from '../validators/index.js'
 
 const router = express.Router()
 
@@ -54,27 +59,27 @@ router.get('/', isAdmin, getAllUsers)
  * @desc    Get user by ID
  * @access  Private/Admin
  */
-router.get('/:id', isAdmin, getUserById)
+router.get('/:id', isAdmin, userIdParamValidation, validate, getUserById)
 
 /**
  * @route   PUT /api/users/:id/role
  * @desc    Update user role
  * @access  Private/Admin
  */
-router.put('/:id/role', isAdmin, updateUserRole)
+router.put('/:id/role', isAdmin, updateRoleValidation, validate, updateUserRole)
 
 /**
  * @route   PUT /api/users/:id/deactivate
  * @desc    Deactivate user
  * @access  Private/Admin
  */
-router.put('/:id/deactivate', isAdmin, deactivateUser)
+router.put('/:id/deactivate', isAdmin, userIdParamValidation, validate, deactivateUser)
 
 /**
  * @route   PUT /api/users/:id/reactivate
  * @desc    Reactivate user
  * @access  Private/Admin
  */
-router.put('/:id/reactivate', isAdmin, reactivateUser)
+router.put('/:id/reactivate', isAdmin, userIdParamValidation, validate, reactivateUser)
 
 export default router

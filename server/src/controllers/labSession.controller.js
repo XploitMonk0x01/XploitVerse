@@ -1,6 +1,7 @@
 import LabSession, { LAB_STATUS, LAB_TYPES } from "../models/LabSession.js";
 import User from "../models/User.js";
 import { asyncHandler, ApiError } from "../middleware/error.middleware.js";
+import autoTerminationService from '../services/autoTermination.service.js'
 
 /**
  * @desc    Create a new lab session (Request a lab)
@@ -202,6 +203,21 @@ export const updateSessionStatus = asyncHandler(async (req, res) => {
 
   await session.save();
 
+  if (status === LAB_STATUS.RUNNING) {
+    if (!session.startTime) {
+      session.startTime = new Date()
+    }
+    if (!session.autoTerminateAt) {
+      session.autoTerminateAt = new Date(Date.now() + 60 * 60 * 1000)
+    }
+    await session.save()
+    await autoTerminationService.registerSession(session)
+  }
+
+  if (status === LAB_STATUS.TERMINATED || status === LAB_STATUS.STOPPED) {
+    await autoTerminationService.removeSession(session._id.toString())
+  }
+
   // Update user's total lab time and spent if session is terminated
   if (status === LAB_STATUS.TERMINATED && session.finalCost) {
     await User.findByIdAndUpdate(session.user, {
@@ -244,33 +260,74 @@ export const terminateSession = asyncHandler(async (req, res) => {
     throw new ApiError("Session is already terminated or stopped", 400);
   }
 
-  // Update status (in Phase 2, this will also trigger AWS EC2 termination)
-  session.status = LAB_STATUS.TERMINATED;
-  await session.save();
+  await autoTerminationService.terminateSession(session._id.toString(), 'Manual termination')
 
-  // Update user stats
-  if (session.finalCost) {
-    await User.findByIdAndUpdate(session.user, {
-      $inc: {
-        totalLabTime: session.totalBillableMinutes,
-        totalSpent: session.finalCost,
-      },
-    });
-  }
+  const updatedSession = await LabSession.findById(session._id)
 
   res.status(200).json({
     success: true,
     message: "Lab session terminated successfully",
     data: {
-      session,
+      session: updatedSession,
       billing: {
-        duration: session.durationFormatted,
-        totalMinutes: session.totalBillableMinutes,
-        cost: session.finalCost,
+        duration: updatedSession.durationFormatted,
+        totalMinutes: updatedSession.totalBillableMinutes,
+        cost: updatedSession.finalCost,
       },
     },
   });
 });
+
+/**
+ * @desc    Extend running lab by +1 hour for PRO/PREMIUM users (max 2 hours total)
+ * @route   POST /api/lab-sessions/:id/extend
+ * @access  Private
+ */
+export const extendSession = asyncHandler(async (req, res) => {
+  const session = await LabSession.findById(req.params.id)
+
+  if (!session) {
+    throw new ApiError('Lab session not found', 404)
+  }
+
+  if (session.user.toString() !== req.user._id.toString()) {
+    throw new ApiError('You are not authorized to extend this session', 403)
+  }
+
+  if (session.status !== LAB_STATUS.RUNNING) {
+    throw new ApiError('Only running sessions can be extended', 400)
+  }
+
+  const plan = (req.user.plan || 'FREE').toUpperCase()
+  if (!['PRO', 'PREMIUM'].includes(plan)) {
+    throw new ApiError('Lab extension requires a premium subscription', 403)
+  }
+
+  const startTime = session.startTime ? new Date(session.startTime) : new Date(session.createdAt)
+  const maxExpiresAt = new Date(startTime.getTime() + 2 * 60 * 60 * 1000)
+  const currentExpiresAt = session.autoTerminateAt
+    ? new Date(session.autoTerminateAt)
+    : new Date(startTime.getTime() + 60 * 60 * 1000)
+
+  if (currentExpiresAt >= maxExpiresAt) {
+    throw new ApiError('Lab cannot be extended beyond 2 hours total', 400)
+  }
+
+  const nextExpiresAt = new Date(Math.min(currentExpiresAt.getTime() + 60 * 60 * 1000, maxExpiresAt.getTime()))
+  session.autoTerminateAt = nextExpiresAt
+  await session.save()
+
+  await autoTerminationService.registerSession(session)
+
+  res.status(200).json({
+    success: true,
+    message: 'Lab session extended by 1 hour',
+    data: {
+      sessionId: session._id,
+      expiresAt: session.autoTerminateAt,
+    },
+  })
+})
 
 /**
  * @desc    Get lab session statistics (Admin/Instructor)
@@ -352,6 +409,7 @@ export default {
   getActiveSession,
   updateSessionStatus,
   terminateSession,
+  extendSession,
   getSessionStats,
   updateSessionNotes,
 };

@@ -1,5 +1,4 @@
 import { validationResult } from 'express-validator'
-import { ApiError } from '../middleware/error.middleware.js'
 
 /**
  * Validation result handler middleware
@@ -24,6 +23,7 @@ export const validate = (req, res, next) => {
   next()
 }
 
+// Auth validators
 export {
   registerValidation,
   loginValidation,
@@ -33,3 +33,29 @@ export {
   resetPasswordValidation,
   verifyEmailOtpValidation,
 } from './auth.validator.js'
+
+// Lab validators
+export {
+  startLabValidation,
+  stopLabValidation,
+  sessionIdParamValidation,
+} from './lab.validator.js'
+
+// Flag validators
+export { submitFlagValidation } from './flag.validator.js'
+
+// Subscription validators
+export {
+  createOrderValidation,
+  verifyPaymentValidation,
+} from './subscription.validator.js'
+
+// Chat validators
+export { chatValidation, suggestionsValidation } from './chat.validator.js'
+
+// User validators
+export {
+  userIdParamValidation,
+  updateRoleValidation,
+} from './user.validator.js'
+

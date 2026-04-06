@@ -1,4 +1,7 @@
 import Docker from 'dockerode'
+import { createModuleLogger } from '../utils/logger.js'
+
+const log = createModuleLogger('docker')
 
 // ── Docker client ─────────────────────────────────────────────────────
 let docker = null
@@ -16,17 +19,17 @@ const initDocker = async () => {
         docker = new Docker()
         await docker.ping()       // throws if daemon unreachable
         _dockerAvailable = true
-        console.log('🐳 Docker daemon connected')
+        log.info('Docker daemon connected')
     } catch {
         try {
             // Fallback: Docker Desktop on Windows exposes TCP on localhost:2375
             docker = new Docker({ host: 'localhost', port: 2375 })
             await docker.ping()
             _dockerAvailable = true
-            console.log('🐳 Docker daemon connected (TCP fallback)')
+            log.info('Docker daemon connected (TCP fallback)')
         } catch (err) {
             _dockerAvailable = false
-            console.warn('⚠️  Docker unavailable – labs will use simulation mode:', err.message)
+            log.warn({ err: err.message }, 'Docker unavailable — labs will use simulation mode')
         }
     }
 }
@@ -44,14 +47,14 @@ export const ensureImage = async (image) => {
     try {
         await docker.getImage(image).inspect()
     } catch {
-        console.log(`📦 Pulling image: ${image}`)
+        log.info({ image }, 'Pulling image')
         await new Promise((resolve, reject) => {
             docker.pull(image, (err, stream) => {
                 if (err) return reject(err)
                 docker.modem.followProgress(stream, (err) => (err ? reject(err) : resolve()))
             })
         })
-        console.log(`✅ Image pulled: ${image}`)
+        log.info({ image }, 'Image pulled')
     }
 }
 
@@ -141,10 +144,10 @@ export const stopContainer = async (sessionId) => {
             await container.stop({ t: 5 })  // 5-second grace period
         }
         await container.remove({ force: true })
-        console.log(`🗑️  Container ${containerName(sessionId)} removed`)
+        log.info({ container: containerName(sessionId) }, 'Container removed')
     } catch (err) {
         if (!err.message.includes('No such container')) {
-            console.error(`Error stopping container:`, err.message)
+            log.error({ err: err.message, sessionId }, 'Error stopping container')
         }
     }
 }

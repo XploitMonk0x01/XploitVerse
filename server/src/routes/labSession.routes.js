@@ -6,6 +6,7 @@ import {
   getActiveSession,
   updateSessionStatus,
   terminateSession,
+  extendSession,
   getSessionStats,
   updateSessionNotes,
 } from "../controllers/labSession.controller.js";
@@ -68,6 +69,13 @@ router.patch("/:id/status", isInstructor, updateSessionStatus);
  * @access  Private
  */
 router.post("/:id/terminate", terminateSession);
+
+/**
+ * @route   POST /api/lab-sessions/:id/extend
+ * @desc    Extend running lab session by +1h (PRO/PREMIUM only)
+ * @access  Private
+ */
+router.post('/:id/extend', extendSession)
 
 /**
  * @route   PATCH /api/lab-sessions/:id/notes

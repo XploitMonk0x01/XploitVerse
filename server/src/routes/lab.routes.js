@@ -10,6 +10,12 @@ import {
   getSessionHistory,
 } from '../controllers/lab.controller.js'
 import { verifyToken } from '../middleware/auth.middleware.js'
+import {
+  startLabValidation,
+  stopLabValidation,
+  sessionIdParamValidation,
+  validate,
+} from '../validators/index.js'
 
 const router = express.Router()
 
@@ -25,7 +31,7 @@ router.get('/', getAllLabs)
  * @desc    Get single lab by ID
  * @access  Public
  */
-router.get('/:id', getLabById)
+router.get('/:id([0-9a-fA-F]{24})', getLabById)
 
 // Protected lab session operations
 router.use(verifyToken)
@@ -49,27 +55,27 @@ router.get('/history', getSessionHistory)
  * @desc    Start a new lab session
  * @access  Private
  */
-router.post('/start', startLab)
+router.post('/start', startLabValidation, validate, startLab)
 
 /**
  * @route   POST /api/labs/stop
  * @desc    Stop an active lab session
  * @access  Private
  */
-router.post('/stop', stopLab)
+router.post('/stop', stopLabValidation, validate, stopLab)
 
 /**
  * @route   GET /api/labs/session/:sessionId/status
  * @desc    Check session status
  * @access  Private
  */
-router.get('/session/:sessionId/status', checkSessionStatus)
+router.get('/session/:sessionId/status', sessionIdParamValidation, validate, checkSessionStatus)
 
 /**
  * @route   POST /api/labs/session/:sessionId/provision
  * @desc    Complete provisioning (with simulated delay)
  * @access  Private
  */
-router.post('/session/:sessionId/provision', completeProvisioning)
+router.post('/session/:sessionId/provision', sessionIdParamValidation, validate, completeProvisioning)
 
 export default router

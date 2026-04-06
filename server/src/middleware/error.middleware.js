@@ -1,4 +1,7 @@
 import config from "../config/index.js";
+import { createModuleLogger } from '../utils/logger.js'
+
+const log = createModuleLogger('error-handler')
 
 /**
  * 404 Not Found Handler
@@ -65,13 +68,12 @@ export const errorHandler = (err, req, res, next) => {
     }));
   }
 
-  // Log error in development
   if (config.nodeEnv === "development") {
-    console.error("❌ Error:", {
+    log.error({
       message: err.message,
-      stack: err.stack,
       statusCode,
-    });
+      stack: err.stack,
+    }, 'Request error');
   }
 
   // Send response

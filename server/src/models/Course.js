@@ -1,17 +1,17 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose'
 
 const courseSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, "Course title is required"],
+      required: [true, 'Course title is required'],
       trim: true,
-      minlength: [3, "Course title must be at least 3 characters"],
-      maxlength: [120, "Course title cannot exceed 120 characters"],
+      minlength: [3, 'Course title must be at least 3 characters'],
+      maxlength: [120, 'Course title cannot exceed 120 characters'],
     },
     slug: {
       type: String,
-      required: [true, "Course slug is required"],
+      required: [true, 'Course slug is required'],
       trim: true,
       lowercase: true,
       unique: true,
@@ -19,17 +19,17 @@ const courseSchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
-      default: "",
+      default: '',
     },
     difficulty: {
       type: String,
       trim: true,
-      default: "Easy",
+      default: 'Easy',
     },
     category: {
       type: String,
       trim: true,
-      default: "",
+      default: '',
     },
     tags: [
       {
@@ -49,13 +49,12 @@ const courseSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "courses",
-  }
-);
+    collection: 'courses',
+  },
+)
 
-courseSchema.index({ slug: 1 }, { unique: true });
-courseSchema.index({ title: "text", description: "text" });
+courseSchema.index({ title: 'text', description: 'text' })
 
-const Course = mongoose.model("Course", courseSchema);
+const Course = mongoose.model('Course', courseSchema)
 
-export default Course;
+export default Course

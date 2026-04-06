@@ -1,6 +1,7 @@
 # XploitVerse Development Stack
 # Usage: docker compose up -d
-# Then run the Go backend and Vite dev server locally.
+# Then run the Express server and Vite dev server locally,
+# or use the 'api' service below for full containerized mode.
 
 services:
   # ── MongoDB ────────────────────────────────────────────────────
@@ -19,6 +20,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    networks:
+      - backend
 
   # ── Redis ──────────────────────────────────────────────────────
   redis:
@@ -35,6 +43,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend
+
+  # ── Express API Server (optional — for full containerized mode) ─
+  # Uncomment to run the API server in Docker instead of locally.
+  # api:
+  #   build:
+  #     context: ./server
+  #     dockerfile: Dockerfile
+  #   container_name: xv-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - '5000:5000'
+  #   env_file:
+  #     - ./server/.env
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M
+  #         cpus: '1.0'
+  #   networks:
+  #     - backend
 
 volumes:
   mongo_data:
@@ -42,7 +82,12 @@ volumes:
   redis_data:
     driver: local
 
+networks:
+  backend:
+    driver: bridge
+
 # ── Lab Network (created separately by DockerService) ────────────
 # The xploitverse-labs network (172.30.0.0/16) is created by the
-# Go backend's DockerService.ensureNetwork() at startup.
+# Express backend's DockerService at startup.
 # Lab containers are attached to that network, NOT this compose stack.
+

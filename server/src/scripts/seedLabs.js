@@ -1,175 +1,184 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+import mongoose from 'mongoose'
+import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Load environment variables
-dotenv.config({ path: path.join(__dirname, "../../.env") });
+dotenv.config({ path: path.join(__dirname, '../../.env') })
 
-import Lab from "../models/Lab.js";
+import Lab from '../models/Lab.js'
+import { createModuleLogger } from '../utils/logger.js'
+
+const log = createModuleLogger('seed-labs')
 
 const labs = [
   {
-    title: "Basic SQL Injection",
+    title: 'Basic SQL Injection',
     description:
-      "Learn to identify and exploit SQL injection vulnerabilities in web applications. Practice with various injection techniques including UNION-based, blind, and time-based attacks.",
-    difficulty: "Easy",
-    category: "Red Team",
+      'Learn to identify and exploit SQL injection vulnerabilities in web applications. Practice with various injection techniques including UNION-based, blind, and time-based attacks.',
+    difficulty: 'Easy',
+    category: 'Red Team',
     estimatedDuration: 45,
     objectives: [
-      "Understand SQL injection fundamentals",
-      "Identify vulnerable input fields",
-      "Extract database information",
-      "Bypass authentication mechanisms",
+      'Understand SQL injection fundamentals',
+      'Identify vulnerable input fields',
+      'Extract database information',
+      'Bypass authentication mechanisms',
     ],
-    tools: ["Burp Suite", "SQLMap", "Browser DevTools"],
-    tags: ["sql", "injection", "web", "owasp", "beginner"],
+    tools: ['Burp Suite', 'SQLMap', 'Browser DevTools'],
+    tags: ['sql', 'injection', 'web', 'owasp', 'beginner'],
     environmentConfig: {
-      instanceType: "t2.micro",
+      instanceType: 't2.micro',
       ports: [80, 443, 3306],
     },
   },
   {
-    title: "Linux Privilege Escalation",
+    title: 'Linux Privilege Escalation',
     description:
-      "Master the art of escalating privileges on Linux systems. Explore SUID binaries, kernel exploits, cron jobs, and misconfigurations to gain root access.",
-    difficulty: "Medium",
-    category: "Red Team",
+      'Master the art of escalating privileges on Linux systems. Explore SUID binaries, kernel exploits, cron jobs, and misconfigurations to gain root access.',
+    difficulty: 'Medium',
+    category: 'Red Team',
     estimatedDuration: 90,
     objectives: [
-      "Enumerate Linux systems for weaknesses",
-      "Exploit SUID/SGID binaries",
-      "Leverage cron job misconfigurations",
-      "Understand kernel exploitation basics",
+      'Enumerate Linux systems for weaknesses',
+      'Exploit SUID/SGID binaries',
+      'Leverage cron job misconfigurations',
+      'Understand kernel exploitation basics',
     ],
-    tools: ["LinPEAS", "GTFOBins", "pspy", "Linux Exploit Suggester"],
-    tags: ["linux", "privesc", "enumeration", "root", "intermediate"],
+    tools: ['LinPEAS', 'GTFOBins', 'pspy', 'Linux Exploit Suggester'],
+    tags: ['linux', 'privesc', 'enumeration', 'root', 'intermediate'],
     environmentConfig: {
-      instanceType: "t2.small",
+      instanceType: 't2.small',
       ports: [22, 80],
     },
   },
   {
-    title: "Network Traffic Analysis",
+    title: 'Network Traffic Analysis',
     description:
-      "Develop skills in analyzing network traffic to detect malicious activities. Use Wireshark and tcpdump to identify attacks, exfiltration, and suspicious patterns.",
-    difficulty: "Medium",
-    category: "Blue Team",
+      'Develop skills in analyzing network traffic to detect malicious activities. Use Wireshark and tcpdump to identify attacks, exfiltration, and suspicious patterns.',
+    difficulty: 'Medium',
+    category: 'Blue Team',
     estimatedDuration: 60,
     objectives: [
-      "Capture and analyze network packets",
-      "Identify common attack patterns",
-      "Detect data exfiltration attempts",
-      "Create detection signatures",
+      'Capture and analyze network packets',
+      'Identify common attack patterns',
+      'Detect data exfiltration attempts',
+      'Create detection signatures',
     ],
-    tools: ["Wireshark", "tcpdump", "NetworkMiner", "Zeek"],
-    tags: ["network", "analysis", "defense", "wireshark", "packets"],
+    tools: ['Wireshark', 'tcpdump', 'NetworkMiner', 'Zeek'],
+    tags: ['network', 'analysis', 'defense', 'wireshark', 'packets'],
     environmentConfig: {
-      instanceType: "t2.micro",
+      instanceType: 't2.micro',
       ports: [22],
     },
   },
   {
-    title: "Web Application XSS Attacks",
+    title: 'Web Application XSS Attacks',
     description:
-      "Explore Cross-Site Scripting vulnerabilities in modern web applications. Learn reflected, stored, and DOM-based XSS techniques and how to bypass filters.",
-    difficulty: "Easy",
-    category: "Red Team",
+      'Explore Cross-Site Scripting vulnerabilities in modern web applications. Learn reflected, stored, and DOM-based XSS techniques and how to bypass filters.',
+    difficulty: 'Easy',
+    category: 'Red Team',
     estimatedDuration: 40,
     objectives: [
-      "Understand XSS attack vectors",
-      "Exploit reflected XSS vulnerabilities",
-      "Chain XSS with other attacks",
-      "Bypass common XSS filters",
+      'Understand XSS attack vectors',
+      'Exploit reflected XSS vulnerabilities',
+      'Chain XSS with other attacks',
+      'Bypass common XSS filters',
     ],
-    tools: ["Burp Suite", "XSS Hunter", "Browser DevTools"],
-    tags: ["xss", "web", "javascript", "owasp", "beginner"],
+    tools: ['Burp Suite', 'XSS Hunter', 'Browser DevTools'],
+    tags: ['xss', 'web', 'javascript', 'owasp', 'beginner'],
     environmentConfig: {
-      instanceType: "t2.micro",
+      instanceType: 't2.micro',
       ports: [80, 443],
     },
   },
   {
-    title: "Active Directory Exploitation",
+    title: 'Active Directory Exploitation',
     description:
-      "Learn to attack and compromise Windows Active Directory environments. From initial foothold to domain admin through various attack paths.",
-    difficulty: "Hard",
-    category: "Red Team",
+      'Learn to attack and compromise Windows Active Directory environments. From initial foothold to domain admin through various attack paths.',
+    difficulty: 'Hard',
+    category: 'Red Team',
     estimatedDuration: 120,
     objectives: [
-      "Enumerate Active Directory",
-      "Exploit Kerberos vulnerabilities",
-      "Perform lateral movement",
-      "Achieve domain dominance",
+      'Enumerate Active Directory',
+      'Exploit Kerberos vulnerabilities',
+      'Perform lateral movement',
+      'Achieve domain dominance',
     ],
-    tools: ["BloodHound", "Mimikatz", "Impacket", "CrackMapExec"],
-    tags: ["windows", "ad", "kerberos", "domain", "advanced"],
+    tools: ['BloodHound', 'Mimikatz', 'Impacket', 'CrackMapExec'],
+    tags: ['windows', 'ad', 'kerberos', 'domain', 'advanced'],
     environmentConfig: {
-      instanceType: "t2.medium",
+      instanceType: 't2.medium',
       ports: [22, 445, 389, 88, 3389],
     },
   },
   {
-    title: "Incident Response Fundamentals",
+    title: 'Incident Response Fundamentals',
     description:
-      "Practice real-world incident response procedures. Investigate a compromised system, collect evidence, and document findings following industry best practices.",
-    difficulty: "Medium",
-    category: "Blue Team",
+      'Practice real-world incident response procedures. Investigate a compromised system, collect evidence, and document findings following industry best practices.',
+    difficulty: 'Medium',
+    category: 'Blue Team',
     estimatedDuration: 75,
     objectives: [
-      "Follow IR procedures",
-      "Collect and preserve evidence",
-      "Analyze system artifacts",
-      "Write incident reports",
+      'Follow IR procedures',
+      'Collect and preserve evidence',
+      'Analyze system artifacts',
+      'Write incident reports',
     ],
-    tools: ["Autopsy", "Volatility", "KAPE", "Timeline Explorer"],
-    tags: ["dfir", "forensics", "incident", "defense", "investigation"],
+    tools: ['Autopsy', 'Volatility', 'KAPE', 'Timeline Explorer'],
+    tags: ['dfir', 'forensics', 'incident', 'defense', 'investigation'],
     environmentConfig: {
-      instanceType: "t2.small",
+      instanceType: 't2.small',
       ports: [22, 3389],
     },
   },
-];
+]
 
 const seedDatabase = async () => {
   try {
     // Connect to MongoDB
     const mongoUri =
-      process.env.MONGODB_URI || "mongodb://localhost:27017/xploitverse";
-    console.log("🔄 Connecting to MongoDB...");
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/xploitverse'
+    log.info('Connecting to MongoDB')
 
-    await mongoose.connect(mongoUri);
-    console.log("✅ Connected to MongoDB");
+    await mongoose.connect(mongoUri)
+    log.info('Connected to MongoDB')
 
     // Clear existing labs (optional - comment out to preserve existing)
-    console.log("🗑️  Clearing existing labs...");
-    await Lab.deleteMany({});
+    log.info('Clearing existing labs')
+    await Lab.deleteMany({})
 
     // Insert new labs
-    console.log("📝 Seeding labs...");
-    const createdLabs = await Lab.insertMany(labs);
+    log.info('Seeding labs')
+    const createdLabs = await Lab.insertMany(labs)
 
-    console.log(`✅ Successfully seeded ${createdLabs.length} labs:`);
+    log.info({ count: createdLabs.length }, 'Successfully seeded labs')
     createdLabs.forEach((lab, index) => {
-      console.log(
-        `   ${index + 1}. ${lab.title} (${lab.difficulty} - ${lab.category})`
-      );
-    });
+      log.info(
+        {
+          index: index + 1,
+          title: lab.title,
+          difficulty: lab.difficulty,
+          category: lab.category,
+        },
+        'Seeded lab',
+      )
+    })
 
     // Disconnect
-    await mongoose.disconnect();
-    console.log("✅ Disconnected from MongoDB");
-    console.log("\n🎉 Seeding complete!");
+    await mongoose.disconnect()
+    log.info('Disconnected from MongoDB')
+    log.info('Seeding complete')
 
-    process.exit(0);
+    process.exit(0)
   } catch (error) {
-    console.error("❌ Seeding failed:", error.message);
-    process.exit(1);
+    log.error({ err: error }, 'Seeding failed')
+    process.exit(1)
   }
-};
+}
 
 // Run the seeder
-seedDatabase();
+seedDatabase()

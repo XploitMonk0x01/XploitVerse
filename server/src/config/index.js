@@ -13,22 +13,22 @@ const config = {
   port: process.env.PORT,
   nodeEnv: process.env.NODE_ENV || 'development',
 
-  // MongoDB
-  mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/xploitverse',
+  // MongoDB — REQUIRED, no insecure default
+  mongoUri: process.env.MONGODB_URI,
 
-  // Redis (optional)
+  // Redis (optional — graceful fallback when absent)
   redisUrl: process.env.REDIS_URL || '',
 
-  // Razorpay
+  // Razorpay (optional — payments disabled when absent)
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
 
-  // JWT
+  // JWT — REQUIRED, no insecure default
   jwt: {
-    secret: process.env.JWT_SECRET || 'default-secret-change-me',
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     cookieExpiresIn: parseInt(process.env.JWT_COOKIE_EXPIRES_IN) || 7,
   },
@@ -65,6 +65,31 @@ const config = {
     maxSessionDuration: 4, // hours
     autoTerminateWarning: 15, // minutes before auto-terminate
   },
+}
+
+/**
+ * Validate required config at startup. Fails fast with clear messages.
+ * Call this before connecting to any external services.
+ */
+export const validateConfig = () => {
+  const missing = []
+
+  if (!config.port) missing.push('PORT')
+  if (!config.mongoUri) missing.push('MONGODB_URI')
+  if (!config.jwt.secret) missing.push('JWT_SECRET')
+
+  if (missing.length > 0) {
+    throw new Error(
+      `❌ Missing required environment variables: ${missing.join(', ')}.\n` +
+        `   Copy server/.env.example to server/.env and fill in the values.`,
+    )
+  }
+
+  if (config.jwt.secret.length < 32) {
+    throw new Error(
+      '❌ JWT_SECRET must be at least 32 characters long for security.',
+    )
+  }
 }
 
 export default config

@@ -72,6 +72,7 @@ export const verifyToken = async (req, res, next) => {
           username: dbUser.username,
           email: dbUser.email,
           role: dbUser.role,
+          plan: dbUser.plan,
           isActive: dbUser.isActive,
           isEmailVerified: dbUser.isEmailVerified,
           firstName: dbUser.firstName,

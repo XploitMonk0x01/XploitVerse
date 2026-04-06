@@ -31,6 +31,7 @@ export const labSessionService = {
   getActive: () => api.get('/lab-sessions/active'),
   updateStatus: (id, data) => api.patch(`/lab-sessions/${id}/status`, data),
   terminate: (id) => api.post(`/lab-sessions/${id}/terminate`),
+  extend: (id) => api.post(`/lab-sessions/${id}/extend`),
   updateNotes: (id, notes) => api.patch(`/lab-sessions/${id}/notes`, { notes }),
   getStats: () => api.get('/lab-sessions/stats'),
 }

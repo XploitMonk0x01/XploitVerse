@@ -1,9 +1,136 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input } from '../../components/ui';
-import { Mail, Terminal, ArrowLeft, Shield } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+
+const styles = `
+    .auth-root {
+        min-height: 100vh;
+        background: var(--color-paper);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-6);
+        background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 460px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        padding: var(--space-8);
+        position: relative;
+        box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
+    }
+
+    .auth-card::before {
+        content: '[ SYS_AUTH ]';
+        position: absolute;
+        top: -12px;
+        left: var(--space-6);
+        background: var(--color-paper);
+        padding: 0 var(--space-2);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: 700;
+        color: var(--color-muted);
+        letter-spacing: 0.1em;
+    }
+
+    .auth-header {
+        margin-bottom: var(--space-8);
+        border-bottom: 1px dashed var(--color-border);
+        padding-bottom: var(--space-6);
+    }
+
+    .auth-title {
+        font-family: var(--font-display);
+        font-size: var(--text-3xl);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--color-ink);
+        margin-bottom: var(--space-2);
+        text-transform: uppercase;
+    }
+
+    .auth-subtitle {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        color: var(--color-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-6);
+    }
+
+    .auth-footer {
+        text-align: center;
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        color: var(--color-muted);
+        border-top: 1px dashed var(--color-border);
+        margin-top: var(--space-8);
+        padding-top: var(--space-6);
+        text-transform: uppercase;
+    }
+
+    .auth-link {
+        color: var(--color-accent);
+        font-weight: 700;
+        text-decoration: none;
+        transition: all var(--ease-out);
+        padding: 0 var(--space-1);
+    }
+
+    .auth-link:hover {
+        background: var(--color-accent);
+        color: var(--color-paper);
+    }
+
+    .auth-note {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        color: var(--color-muted);
+        line-height: 1.6;
+        text-transform: uppercase;
+    }
+
+    .submit-state {
+        border: 1px dashed var(--color-border);
+        background: var(--color-paper);
+        padding: var(--space-6);
+    }
+
+    .submit-state-title {
+        font-family: var(--font-display);
+        font-size: var(--text-2xl);
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: var(--space-3);
+        color: var(--color-ink);
+    }
+
+    .submit-state-text {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        color: var(--color-muted);
+        text-transform: uppercase;
+        line-height: 1.7;
+    }
+
+    .email-chip {
+        color: var(--color-accent);
+        font-weight: 700;
+    }
+`;
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
@@ -45,28 +172,20 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div className="min-h-screen bg-cyber-dark flex">
-            {/* Left Panel - Form */}
-            <div className="flex-1 flex items-center justify-center px-4 py-12">
-                <div className="w-full max-w-md">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center space-x-2 mb-8">
-                        <div className="w-10 h-10 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center">
-                            <Terminal className="w-6 h-6 text-green-400" />
-                        </div>
-                        <span className="text-2xl font-bold gradient-text">XploitVerse</span>
-                    </Link>
-
+        <>
+            <style>{styles}</style>
+            <div className="auth-root">
+                <div className="auth-card">
                     {!isSubmitted ? (
                         <>
-                            <h1 className="text-3xl font-bold text-white mb-2">Forgot password?</h1>
-                            <p className="text-gray-400 mb-8">
-                                No worries. Enter your email and we'll send you reset instructions.
-                            </p>
+                            <div className="auth-header">
+                                <h1 className="auth-title">Recover Access</h1>
+                                <p className="auth-subtitle">{'>'} Enter identity to receive reset link</p>
+                            </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-6">
+                            <form onSubmit={handleSubmit} className="auth-form" noValidate>
                                 <Input
-                                    label="Email"
+                                    label="Identity (Email)"
                                     type="email"
                                     name="email"
                                     placeholder="you@example.com"
@@ -77,66 +196,58 @@ const ForgotPassword = () => {
                                     }}
                                     error={error}
                                     icon={Mail}
+                                    required
                                 />
 
                                 <Button
                                     type="submit"
                                     variant="primary"
-                                    size="lg"
                                     className="w-full"
                                     isLoading={isLoading}
                                 >
-                                    Send Reset Instructions
+                                    SEND RESET INSTRUCTIONS
                                 </Button>
                             </form>
+
+                            <p className="auth-note" style={{ marginTop: 'var(--space-6)' }}>
+                                Reset links expire in 10 minutes for security.
+                            </p>
                         </>
                     ) : (
-                        <div className="text-center">
-                            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                                <Mail className="w-8 h-8 text-green-400" />
+                        <>
+                            <div className="auth-header">
+                                <h1 className="auth-title">Check Inbox</h1>
+                                <p className="auth-subtitle">{'>'} Recovery instructions dispatched</p>
                             </div>
-                            <h1 className="text-3xl font-bold text-white mb-2">Check your email</h1>
-                            <p className="text-gray-400 mb-6">
-                                We've sent password reset instructions to{' '}
-                                <span className="text-green-400 font-medium">{email}</span>
-                            </p>
-                            <p className="text-gray-500 text-sm mb-8">
-                                Didn't receive the email? Check your spam folder or{' '}
-                                <button
-                                    onClick={() => setIsSubmitted(false)}
-                                    className="text-green-400 hover:text-green-300 underline"
-                                >
-                                    try again
-                                </button>
-                            </p>
-                        </div>
+
+                            <div className="submit-state">
+                                <h2 className="submit-state-title">Message Sent</h2>
+                                <p className="submit-state-text">
+                                    Reset instructions were sent to <span className="email-chip">{email}</span>.
+                                </p>
+                                <p className="submit-state-text" style={{ marginTop: 'var(--space-4)' }}>
+                                    Check spam folder if needed.
+                                    {' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsSubmitted(false)}
+                                        className="auth-link"
+                                        style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                    >
+                                        TRY AGAIN
+                                    </button>
+                                </p>
+                            </div>
+                        </>
                     )}
 
-                    <Link
-                        to="/login"
-                        className="mt-8 flex items-center justify-center text-gray-400 hover:text-green-400 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to login
-                    </Link>
-                </div>
-            </div>
-
-            {/* Right Panel - Decoration */}
-            <div className="hidden lg:flex flex-1 bg-gray-900 border-l border-gray-800 items-center justify-center p-12">
-                <div className="max-w-lg text-center">
-                    <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse-slow">
-                        <Shield className="w-16 h-16 text-green-400" />
+                    <div className="auth-footer">
+                        Back to authentication?{' '}
+                        <Link to="/login" className="auth-link">LOGIN</Link>
                     </div>
-                    <h2 className="text-3xl font-bold text-white mb-4">
-                        Account Recovery
-                    </h2>
-                    <p className="text-gray-400">
-                        We take security seriously. Your password reset link will expire in 10 minutes.
-                    </p>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 

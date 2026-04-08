@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui";
 import { labService, labSessionService } from "../../services";
@@ -28,6 +29,7 @@ const DASHBOARD_STATE = {
 };
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [dashboardState, setDashboardState] = useState(DASHBOARD_STATE.LOADING_LABS);
     const [labs, setLabs] = useState([]);
@@ -83,21 +85,32 @@ const Dashboard = () => {
                 labService.getActiveSession(),
             ]);
 
-            // API returns { data: { labs: [...], pagination: {...} } }
-            const labsData = labsResponse.data.data?.labs || labsResponse.data.labs || [];
+            const labsPayload = labsResponse.data?.data ?? labsResponse.data;
+            const labsData = Array.isArray(labsPayload)
+                ? labsPayload
+                : labsPayload?.labs || labsResponse.data?.labs || [];
             setLabs(labsData);
 
+            const hasSessionField =
+                sessionResponse.data?.data &&
+                Object.prototype.hasOwnProperty.call(sessionResponse.data.data, "session");
+            const session = hasSessionField
+                ? sessionResponse.data.data.session
+                : sessionResponse.data?.session || null;
+
             // Check if there's an active session
-            if (sessionResponse.data.data) {
-                const session = sessionResponse.data.data;
+            if (session) {
                 setActiveSession(session);
                 // Find the lab details
                 const lab = labsData.find(
-                    (l) => l._id === session.lab || l._id === session.lab?._id
+                    (l) =>
+                        l._id === session.lab ||
+                        l._id === session.lab?._id ||
+                        l._id === session.metadata?.labId
                 );
                 setActiveLab(lab || session.lab);
                 setDashboardState(
-                    session.status === "INITIALIZING"
+                    session.status === "initializing"
                         ? DASHBOARD_STATE.PROVISIONING
                         : DASHBOARD_STATE.RUNNING
                 );
@@ -162,29 +175,47 @@ const Dashboard = () => {
             setActiveLab(lab);
             setDashboardState(DASHBOARD_STATE.PROVISIONING);
 
-            // Simulate provisioning delay (mock cloud service)
-            setTimeout(async () => {
-                try {
-                    const provisionResponse = await labService.completeProvisioning(
-                        session._id
-                    );
-                    console.log("Provision response:", provisionResponse.data);
+            // Poll real backend state until container is running.
+            let runningSession = null;
+            for (let attempt = 0; attempt < 25; attempt += 1) {
+                await new Promise((resolve) => setTimeout(resolve, 1200));
 
-                    // Normalize the provisioned session data
-                    const provisionedData = provisionResponse.data.data?.session || provisionResponse.data.session || provisionResponse.data.data;
-                    const provisionedId = provisionedData?._id || provisionedData?.id;
-                    const provisionedSession = { ...provisionedData, _id: provisionedId };
-                    setActiveSession(provisionedSession);
-                    setDashboardState(DASHBOARD_STATE.RUNNING);
-                } catch (provisionError) {
-                    console.error("Provisioning failed:", provisionError);
-                    setError("Failed to provision lab environment");
-                    setDashboardState(DASHBOARD_STATE.ERROR);
+                const statusResponse = await labService.getSessionStatus(session._id);
+                const latest =
+                    statusResponse.data?.data?.session ||
+                    statusResponse.data?.session ||
+                    null;
+
+                if (!latest) {
+                    throw new Error("Session status unavailable from server");
                 }
-            }, 3500); // Slightly longer than server delay for UX
+
+                const latestId = latest._id || latest.id || session._id;
+                const normalizedSession = { ...latest, _id: latestId };
+                setActiveSession(normalizedSession);
+
+                if (normalizedSession.status === "running") {
+                    runningSession = normalizedSession;
+                    break;
+                }
+
+                if (["error", "terminated", "stopped"].includes(normalizedSession.status)) {
+                    throw new Error(
+                        normalizedSession.errorMessage ||
+                        `Lab failed to start (status: ${normalizedSession.status})`
+                    );
+                }
+            }
+
+            if (!runningSession) {
+                throw new Error("Lab is taking longer than expected to start. Please try again.");
+            }
+
+            setDashboardState(DASHBOARD_STATE.RUNNING);
+            navigate(`/workspace/${runningSession._id}`);
         } catch (err) {
             console.error("Failed to start lab:", err);
-            setError(err.response?.data?.message || "Failed to start lab");
+            setError(err.response?.data?.message || err.message || "Failed to start lab");
             setDashboardState(DASHBOARD_STATE.ERROR);
         } finally {
             setStartingLabId(null);
@@ -369,10 +400,12 @@ const Dashboard = () => {
                                 <tbody className="divide-y divide-border">
                                     {sessionHistory.map((s) => {
                                         const statusColor = {
-                                            COMPLETED: 'text-success bg-success/10 border-success/30',
-                                            RUNNING: 'text-info bg-info/10 border-info/30',
-                                            TERMINATED: 'text-error bg-error/10 border-error/30',
-                                            INITIALIZING: 'text-warning bg-warning/10 border-warning/30',
+                                            running: 'text-info bg-info/10 border-info/30',
+                                            stopped: 'text-error bg-error/10 border-error/30',
+                                            terminated: 'text-error bg-error/10 border-error/30',
+                                            initializing: 'text-warning bg-warning/10 border-warning/30',
+                                            pending: 'text-warning bg-warning/10 border-warning/30',
+                                            error: 'text-error bg-error/10 border-error/30',
                                         }[s.status] || 'text-muted bg-surface/50 border-border';
 
                                         const labName =

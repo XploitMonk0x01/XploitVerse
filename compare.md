@@ -11,16 +11,21 @@ This document compares the current `express_server` implementation against the p
 ```
 Foundation:     ████████████████████████ 100%
 Core Features:  ██████████████████████░░  90%
-Infrastructure: ████████████░░░░░░░░░░░  45%
-Code Quality:   ████████░░░░░░░░░░░░░░░  35%
-Production:     ██░░░░░░░░░░░░░░░░░░░░░   5%
+Infrastructure: ██████████████░░░░░░░░░  55%
+Code Quality:   ███████████████░░░░░░░░  65%
+Production:     ████░░░░░░░░░░░░░░░░░░░  15%
 ```
 
 **Latest Status (2026-04-06):**
+
 - ✅ Real `docker exec` PTY terminal bridging (replaced mock)
 - ✅ Redis fully wired (user cache, leaderboard, flag rate-limit, lab TTL)
 - ✅ Docker containers healthy (MongoDB 7, Redis 7-alpine)
-- ⚠️ Code quality audit: BFRI = -3.25 (needs service layer, validation, tests)
+- ✅ Structured logging moved to `pino` + `pino-http`
+- ✅ Fail-fast config, graceful shutdown, request IDs, and enhanced security headers
+- ✅ Service extraction done for auth/subscription/lab/leaderboard/flag
+- ✅ Socket terminal-input rate limiting added
+- ⚠️ Main blocker now: test coverage + remaining architecture goals from `advance.md`
 
 ---
 
@@ -181,16 +186,16 @@ Real Docker lab images included:
 
 ### Code Quality Hardening (NEW — from audit)
 
-**Status:** 🔴 Critical | **Priority:** Highest | **BFRI: -3.25**
+**Status:** 🟡 In Progress | **Priority:** Highest | **BFRI: ~ -0.63 (improved)**
 
-- [ ] **Security hardening** — fail-fast config, remove insecure JWT default, add security headers
-- [ ] **Service layer extraction** — pull business logic from controllers into testable services
-- [ ] **Input validation** — add express-validator to all unvalidated routes
-- [ ] **Graceful shutdown** — SIGTERM/SIGINT handlers for clean connection draining
-- [ ] **Request correlation IDs** — for distributed tracing
-- [ ] **Structured logging** — replace 30+ console.log calls with pino/winston
-- [ ] **Docker client dedup** — socketHandler.js should import from docker.service.js
-- [ ] **Socket.io rate limiting** — throttle terminal-input events
+- [x] **Security hardening** — fail-fast config, removed insecure defaults, added security headers
+- [x] **Service layer extraction** — auth/subscription/lab/leaderboard/flag extracted
+- [x] **Input validation** — validators added for auth/lab/flag/subscription/chat/user routes
+- [x] **Graceful shutdown** — SIGTERM/SIGINT handlers for clean connection draining
+- [x] **Request correlation IDs** — tracing IDs added (`X-Request-Id`)
+- [x] **Structured logging** — migrated to pino/pino-http
+- [x] **Docker client dedup** — socket handler uses docker service shared path
+- [x] **Socket.io rate limiting** — terminal-input throttle implemented
 - [ ] **Tests** — unit (services), integration (API), payment (signature mocking)
 
 ---
@@ -244,25 +249,25 @@ All sub-phases remain **🔴 Not Started**.
 
 ## 📊 Feature Comparison: Current vs Production
 
-| Feature           | Current Status (`express_server`)                                      | Next Target                       | Production (`advance.md`)          |
-| ----------------- | ---------------------------------------------------------------------- | --------------------------------- | ---------------------------------- |
-| **Runtime**       | Node.js / Express 4                                                    | + service layer + tests           | Go microservices                   |
-| **Auth**          | JWT + HttpOnly cookie + OTP verify                                     | + fail-fast config + OAuth2       | + Session mgmt + audit logs + PKCE |
-| **Email**         | Nodemailer SMTP (reset + OTP) ✅                                       | Same                              | Managed SES/SendGrid               |
-| **Database**      | MongoDB (Mongoose 8)                                                   | Same                              | + PostgreSQL + sharding            |
-| **Redis**         | ✅ **Fully wired** (cache, leaderboard, flags, TTL)                    | + Pub/Sub for live updates        | ElastiCache Cluster Mode           |
-| **Labs**          | ✅ **Real `docker exec` PTY** (was mock)                               | k8s scheduling                    | Kubernetes + VM pools              |
-| **Scoring**       | ✅ Anti-cheat (Redis atomic) + dedup guard                             | + Hint-penalty + dynamic flags    | + Anti-cheat + dynamic flags       |
-| **Leaderboard**   | ✅ **Redis sorted set** + pipeline rebuild                             | + WebSocket live updates          | Redis sorted set + WebSocket       |
-| **Real-time**     | ✅ **Real `docker exec` PTY bridge** via Socket.io                     | + Redis Pub/Sub                   | WS + Redis Pub/Sub                 |
-| **Challenges**    | 11 Docker lab images ✅                                                | + k8s scheduling                  | Kubernetes pods + VM labs          |
-| **Subscriptions** | ✅ Razorpay MVP (sig verify, webhook, idempotency)                     | + Rate limiting + tests           | + Usage tracking + billing portal  |
-| **Code Quality**  | ⚠️ BFRI -3.25 (no services, no tests, no structured logs)             | Service layer + validation + tests| Layered arch + full test suite     |
-| **Docker**        | ⚠️ Compose for DB only; no server Dockerfile                          | Multi-stage Dockerfile            | EKS pods                          |
-| **Monitoring**    | morgan logs only                                                       | Structured JSON logs (pino)       | Prometheus + Grafana + Loki        |
-| **Networking**    | N/A                                                                    | Local VPN                         | WireGuard + isolated VPCs          |
-| **Deployment**    | Local dev (`npm run dev`)                                              | Docker Compose (full stack)       | EKS + multi-AZ + ArgoCD            |
-| **Scaling**       | Single instance                                                        | Vertical                          | Horizontal + autoscaling           |
+| Feature           | Current Status (`express_server`)                                | Next Target                                  | Production (`advance.md`)          |
+| ----------------- | ---------------------------------------------------------------- | -------------------------------------------- | ---------------------------------- |
+| **Runtime**       | Node.js / Express 4 with partial service-layer architecture      | complete remaining module extraction + tests | Go microservices                   |
+| **Auth**          | JWT + HttpOnly cookie + OTP verify                               | + fail-fast config + OAuth2                  | + Session mgmt + audit logs + PKCE |
+| **Email**         | Nodemailer SMTP (reset + OTP) ✅                                 | Same                                         | Managed SES/SendGrid               |
+| **Database**      | MongoDB (Mongoose 8)                                             | Same                                         | + PostgreSQL + sharding            |
+| **Redis**         | ✅ **Fully wired** (cache, leaderboard, flags, TTL)              | + Pub/Sub for live updates                   | ElastiCache Cluster Mode           |
+| **Labs**          | ✅ **Real `docker exec` PTY** (was mock)                         | k8s scheduling                               | Kubernetes + VM pools              |
+| **Scoring**       | ✅ Anti-cheat (Redis atomic) + dedup guard                       | + Hint-penalty + dynamic flags               | + Anti-cheat + dynamic flags       |
+| **Leaderboard**   | ✅ **Redis sorted set** + pipeline rebuild                       | + WebSocket live updates                     | Redis sorted set + WebSocket       |
+| **Real-time**     | ✅ **Real `docker exec` PTY bridge** via Socket.io               | + Redis Pub/Sub                              | WS + Redis Pub/Sub                 |
+| **Challenges**    | 11 Docker lab images ✅                                          | + k8s scheduling                             | Kubernetes pods + VM labs          |
+| **Subscriptions** | ✅ Razorpay MVP (sig verify, webhook, idempotency)               | + Rate limiting + tests                      | + Usage tracking + billing portal  |
+| **Code Quality**  | ⚠️ BFRI ~ -0.63 (major hardening done; tests still missing)      | complete tests + remaining module extraction | Layered arch + full test suite     |
+| **Docker**        | ✅ Multi-stage server Dockerfile + hardened compose for DB stack | Full app container orchestration path        | EKS pods                           |
+| **Monitoring**    | pino + pino-http structured logging                              | metrics/tracing stack                        | Prometheus + Grafana + Loki        |
+| **Networking**    | N/A                                                              | Local VPN                                    | WireGuard + isolated VPCs          |
+| **Deployment**    | Local dev (`npm run dev`)                                        | Docker Compose (full stack)                  | EKS + multi-AZ + ArgoCD            |
+| **Scaling**       | Single instance                                                  | Vertical                                     | Horizontal + autoscaling           |
 
 ---
 
@@ -270,12 +275,10 @@ All sub-phases remain **🔴 Not Started**.
 
 ### Immediate (Code Quality Sprint)
 
-1. **Security hardening** — fail-fast config validation, remove insecure defaults, add HTTP security headers
-2. **Input validation** — add express-validator to lab/flag/user/chat/subscription routes
-3. **Service layer** — extract auth + subscription services (highest risk modules)
-4. **Graceful shutdown** + request correlation IDs
-5. **Structured logging** — replace console.log with pino
-6. **Server Dockerfile** — production multi-stage build
+1. **Test coverage** — add unit tests for extracted services and integration tests for auth/payment/lab flows
+2. **Complete service extraction** — remaining modules (`user`, `course`, `module`, `task`, `chat`, `admin`)
+3. **Real-time improvements** — leaderboard push updates and richer lab lifecycle push events
+4. **Production baseline** — CI/CD, observability stack, and deployment hardening
 
 ### Then (Feature Sprint)
 
@@ -290,9 +293,8 @@ All sub-phases remain **🔴 Not Started**.
 
 - **Real Docker terminal!** — Socket.io now bridges to actual container bash/sh sessions via `docker exec` PTY. This was the top Phase 2 priority and is now done.
 - **Redis is fully wired** — user cache, leaderboard sorted set, flag rate limiting, dedup, lab session TTL, and subscription cache bust are all active. In-memory fallback works when Redis is down.
-- **Code quality is the new bottleneck** — features are ahead of architecture. The BFRI audit shows the highest risk in payment and lab modules where business logic lives in controllers without tests.
-- **Docker client duplication** — `socketHandler.js` creates its own Dockerode instance instead of reusing `docker.service.js`. Should be consolidated.
-- **JWT_SECRET has a default** — `'default-secret-change-me'` in `config/index.js`. Must fail-fast instead.
+- **Code quality has improved materially** — major hardening and service extraction slices are done; tests and remaining module extraction are now the main blockers.
+- **Security baseline improved** — fail-fast config, request IDs, graceful shutdown, structured logs, and socket input throttling are all in place.
 
 ---
 

@@ -1,5 +1,5 @@
 import Lab from '../models/Lab.js'
-import LabSession, { LAB_STATUS } from '../models/LabSession.js'
+import LabSession, { LAB_STATUS, LAB_TYPES } from '../models/LabSession.js'
 import { ApiError } from '../middleware/error.middleware.js'
 import * as dockerService from './docker.service.js'
 import autoTerminationService from './autoTermination.service.js'
@@ -36,6 +36,26 @@ const deriveImage = (title = '') => {
   return 'ubuntu:22.04'
 }
 
+const mapLabType = (category = '') => {
+  const normalized = category.toLowerCase()
+
+  if (normalized.includes('red')) return LAB_TYPES.CTF_CHALLENGE
+  if (normalized.includes('blue')) return LAB_TYPES.FORENSICS
+  if (normalized.includes('purple')) return LAB_TYPES.CUSTOM
+
+  return LAB_TYPES.WEB_EXPLOITATION
+}
+
+const mapSessionDifficulty = (difficulty = '') => {
+  const normalized = difficulty.toLowerCase()
+
+  if (normalized === 'easy') return 'beginner'
+  if (normalized === 'medium') return 'intermediate'
+  if (normalized === 'hard') return 'advanced'
+
+  return 'beginner'
+}
+
 const assertSessionOwnership = (session, userId) => {
   if (!session) {
     throw new ApiError('Session not found', 404)
@@ -49,12 +69,38 @@ const assertSessionOwnership = (session, userId) => {
 const provisionContainer = async (session, image) => {
   try {
     let containerId = null
+    let selectedImage = image
 
     if (dockerService.isDockerAvailable()) {
-      containerId = await dockerService.startContainer(
-        session._id.toString(),
-        image,
-      )
+      try {
+        containerId = await dockerService.startContainer(
+          session._id.toString(),
+          selectedImage,
+        )
+      } catch (primaryImageErr) {
+        const fallbackImage = 'ubuntu:22.04'
+
+        if (selectedImage === fallbackImage) {
+          throw primaryImageErr
+        }
+
+        log.warn(
+          {
+            sessionId: session._id,
+            image: selectedImage,
+            fallbackImage,
+            err: primaryImageErr.message,
+          },
+          'Primary image unavailable, retrying with fallback image',
+        )
+
+        selectedImage = fallbackImage
+        containerId = await dockerService.startContainer(
+          session._id.toString(),
+          selectedImage,
+        )
+      }
+
       log.info(
         { containerId: containerId?.slice(0, 12), sessionId: session._id },
         'Container started',
@@ -75,6 +121,7 @@ const provisionContainer = async (session, image) => {
       ...session.metadata,
       containerId,
       dockerMode: Boolean(containerId),
+      dockerImage: selectedImage,
     }
     session.markModified('metadata')
 
@@ -82,7 +129,7 @@ const provisionContainer = async (session, image) => {
     await autoTerminationService.registerSession(session)
     await session.logActivity('lab_started', {
       containerId,
-      image,
+      image: selectedImage,
       dockerMode: Boolean(containerId),
     })
   } catch (err) {
@@ -172,10 +219,10 @@ export const startLabSession = async ({ user, labId }) => {
 
   const session = await LabSession.create({
     user: user._id,
-    labType: lab.category.toLowerCase().replace(/ /g, '_'),
+    labType: mapLabType(lab.category),
     labName: lab.title,
     description: lab.description,
-    difficulty: lab.difficulty.toLowerCase(),
+    difficulty: mapSessionDifficulty(lab.difficulty),
     status: LAB_STATUS.INITIALIZING,
     metadata: {
       labId: lab._id,

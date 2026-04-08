@@ -12,11 +12,30 @@ const MAX_RATE_VIOLATIONS = 5
 
 const log = createModuleLogger('socket')
 
+const readJwtFromCookieHeader = (cookieHeader = '') => {
+  if (!cookieHeader || typeof cookieHeader !== 'string') return null
+
+  const cookies = cookieHeader.split(';')
+  for (const cookiePart of cookies) {
+    const [rawKey, ...rawValue] = cookiePart.trim().split('=')
+    if (rawKey === 'jwt') {
+      return decodeURIComponent(rawValue.join('='))
+    }
+  }
+
+  return null
+}
+
 const authenticateSocket = (socket, next) => {
   try {
+    const tokenFromCookie = readJwtFromCookieHeader(
+      socket.handshake.headers?.cookie,
+    )
+
     const token =
       socket.handshake.auth?.token ||
-      socket.handshake.headers?.authorization?.replace('Bearer ', '')
+      socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+      tokenFromCookie
 
     if (!token) return next(new Error('Authentication required'))
 

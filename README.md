@@ -1,24 +1,36 @@
-# XploitVerse (Express Backend Branch)
+# XploitVerse (express_server)
 
-This branch uses the Node.js + Express backend implementation.
+XploitVerse is a cybersecurity learning platform with hands-on labs, scoring, and real-time terminal sessions.
+This branch uses the Node.js + Express backend in the `server` folder.
 
-## Branch Info
+## Current Status
 
-- Current branch: express_server
-- Express API: server/
-- Frontend: client/
-- Go implementation is maintained separately in branch: go_backend
+- Active branch architecture: Express API + React client
+- Service extraction completed for auth, subscription, lab, leaderboard, and flag domains
+- Docker-backed terminal sessions are live via Socket.io
+- Redis is integrated for cache, leaderboard, flag controls, and lab TTL tracking
+- Test baseline is passing: 3 suites, 11 tests (as of 2026-04-07)
+
+## Repository Layout
+
+- `server/`: active backend (Node.js + Express)
+- `client/`: frontend (React + Vite)
+- `challenges/`: lab images and challenge apps
+- `backend/`: legacy Go backend implementation retained in repo history
 
 ## Tech Stack
 
-### Backend (Express)
+### Backend
 
 - Node.js
 - Express
 - MongoDB + Mongoose
-- JWT authentication
-- Socket.IO
-- Nodemailer
+- Redis + ioredis
+- JWT auth + HttpOnly cookies
+- Socket.io
+- Razorpay payments
+- Nodemailer email flows
+- Pino structured logging
 
 ### Frontend
 
@@ -32,25 +44,25 @@ This branch uses the Node.js + Express backend implementation.
 
 - Node.js 18+
 - npm 9+
-- Docker + Docker Compose (for MongoDB/Redis local infra)
+- Docker + Docker Compose
 - Git
 
 ## Quick Start
 
-1. Clone and enter project
+1. Clone repository
 
 ```bash
 git clone https://github.com/XploitMonk0x01/XploitVerse.git
 cd XploitVerse
 ```
 
-2. Start local infrastructure
+2. Start local infrastructure (MongoDB + Redis)
 
 ```bash
 docker compose up -d
 ```
 
-3. Configure and run Express backend
+3. Configure and run backend
 
 ```bash
 cd server
@@ -59,7 +71,13 @@ npm install
 npm run dev
 ```
 
-The API runs on http://localhost:5000 by default.
+PowerShell alternative for env file copy:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Backend default URL: http://localhost:5000
 
 4. Run frontend
 
@@ -69,49 +87,77 @@ npm install
 npm run dev
 ```
 
-Frontend runs on http://localhost:5173.
+Frontend default URL: http://localhost:5173
 
-## Main API Groups
+## Environment Variables
 
-- /api/auth
-- /api/users
-- /api/labs
-- /api/lab-sessions
-- /api/courses
-- /api/modules
-- /api/tasks
-- /api/flags
-- /api/leaderboard
-- /api/admin
+See `server/.env.example` for the full template.
 
-## Environment Notes
+Minimum required for backend startup:
 
-Set these at minimum for local development:
+- `PORT`
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `CLIENT_URL`
 
-- PORT
-- NODE_ENV
-- MONGODB_URI
-- JWT_SECRET
-- CLIENT_URL
-- SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM (for OTP/password email)
+Common optional variables:
+
+- `REDIS_URL`
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
+
+## Backend API Groups
+
+- `/health`
+- `/api`
+- `/api/auth`
+- `/api/users`
+- `/api/labs`
+- `/api/lab-sessions`
+- `/api/courses`
+- `/api/modules`
+- `/api/tasks`
+- `/api/flags`
+- `/api/leaderboard`
+- `/api/subscriptions`
+- `/api/chat`
+- `/api/admin`
 
 ## Scripts
 
-### Backend (server)
+### Backend (`server/`)
 
-- npm run dev
-- npm start
-- npm test
+- `npm run dev`: start with nodemon
+- `npm start`: start with node
+- `npm test`: run Jest test suites
 
-### Frontend (client)
+### Frontend (`client/`)
 
-- npm run dev
-- npm run build
-- npm run preview
+- `npm run dev`
+- `npm run build`
+- `npm run preview`
 
-## Branch Switching
+## Testing
 
-To switch to the Go backend branch:
+Run backend tests:
+
+```bash
+cd server
+npm test
+```
+
+Current implemented suites include:
+
+- payment service scenarios
+- subscription route integration scenarios
+- flag service unit scenarios
+
+## Branch Notes
+
+- Active runtime branch: `express_server`
+- Go backend branch: `go_backend`
+
+Switch to the Go backend branch:
 
 ```bash
 git checkout go_backend

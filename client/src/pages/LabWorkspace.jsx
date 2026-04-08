@@ -8,9 +8,12 @@ import { ArrowLeft, Clock, Wifi, WifiOff, Loader2 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+const apiBase = import.meta.env.VITE_API_BASE;
 const SOCKET_URL =
-    (import.meta.env.VITE_API_BASE || "/api").replace(/\/api$/, "") ||
-    window.location.origin;
+    import.meta.env.VITE_SOCKET_URL ||
+    (typeof apiBase === "string" && apiBase.startsWith("http")
+        ? apiBase.replace(/\/api\/?$/, "")
+        : window.location.origin);
 
 const formatRemaining = (remainingSeconds) => {
     const safe = Math.max(0, remainingSeconds || 0);
@@ -87,6 +90,14 @@ const LabWorkspace = () => {
                 if (!sessionData) throw new Error("Lab session not found");
                 setSession(sessionData);
 
+                if (sessionData?.autoTerminateAt) {
+                    const initial = Math.max(
+                        0,
+                        Math.floor((new Date(sessionData.autoTerminateAt).getTime() - Date.now()) / 1000)
+                    );
+                    setRemainingSeconds(initial);
+                }
+
                 const labId = sessionData?.metadata?.labId;
                 if (labId) {
                     const labRes = await api.get(`/labs/${labId}`);
@@ -108,7 +119,7 @@ const LabWorkspace = () => {
         const token = localStorage.getItem("token");
         const socket = io(SOCKET_URL, {
             auth: { token },
-            transports: ["websocket", "polling"],
+            transports: ["polling", "websocket"],
             withCredentials: true,
         });
 
@@ -127,6 +138,12 @@ const LabWorkspace = () => {
             setConnected(true);
             socket.emit("join-lab", { sessionId });
             handleResize();
+        });
+
+        socket.on("connect_error", (connectErr) => {
+            setConnected(false);
+            setJoining(false);
+            setError(connectErr?.message || "Failed to connect to lab gateway");
         });
 
         socket.on("disconnect", () => setConnected(false));

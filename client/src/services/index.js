@@ -56,6 +56,7 @@ export const labService = {
   startLab: (labId) => api.post('/labs/start', { labId }),
   stopLab: (sessionId) => api.post('/labs/stop', { sessionId }),
   getActiveSession: () => api.get('/labs/active-session'),
+  getSessionStatus: (sessionId) => api.get(`/labs/session/${sessionId}/status`),
   completeProvisioning: (sessionId) =>
     api.post(`/labs/session/${sessionId}/provision`),
 }

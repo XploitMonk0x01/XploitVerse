@@ -9,7 +9,11 @@ export const getTaskById = asyncHandler(async (req, res) => {
     throw new ApiError("Invalid task ID", 400);
   }
 
-  const task = await Task.findOne({ _id: id, isPublished: true });
+  let task = await Task.findOne({ _id: id, isPublished: true });
+
+  if (!task && process.env.NODE_ENV !== "production") {
+    task = await Task.findById(id);
+  }
 
   if (!task) {
     throw new ApiError("Task not found", 404);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Server,
     Clock,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
+    const navigate = useNavigate();
     const [elapsed, setElapsed] = useState(0);
     const [copied, setCopied] = useState(false);
 
@@ -50,7 +52,9 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const isProvisioning = session?.status === "INITIALIZING";
+    const isProvisioning = session?.status === "initializing";
+    const sessionId = session?._id || session?.id;
+    const isDockerMode = Boolean(session?.metadata?.dockerMode);
 
     return (
         <div className="bg-surface border border-border p-8 font-mono shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative">
@@ -123,7 +127,7 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
                         <div className="bg-paper border border-border p-5 border-l-2 border-l-info">
                             <div className="flex items-center gap-2 text-muted text-xs font-bold uppercase tracking-widest mb-3">
                                 <Globe className="w-4 h-4" />
-                                <span>TARGET_IP</span>
+                                <span>{isDockerMode ? "CONTAINER_VIRTUAL_IP" : "TARGET_IP"}</span>
                             </div>
                             <div className="flex items-center justify-between gap-4">
                                 <code className="text-lg font-bold text-info">
@@ -169,23 +173,31 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
 
                     {/* Quick Actions */}
                     <div className="border border-border p-6 mb-8 bg-[#1a1a1a]">
-                        <p className="text-muted text-xs font-bold uppercase tracking-widest mb-4">DIRECT_SHELL_ACCESS:</p>
-                        <div className="flex items-center gap-4 bg-paper border border-border p-3">
-                            <Terminal className="w-4 h-4 text-success flex-shrink-0" />
-                            <code className="text-success text-sm flex-1 overflow-x-auto whitespace-nowrap">
-                                ssh student@{session.publicIp || session.instanceDetails?.publicIp || "10.0.0.x"}
-                            </code>
-                            <button
-                                onClick={() =>
-                                    copyToClipboard(
-                                        `ssh student@${session.publicIp || session.instanceDetails?.publicIp || "10.0.0.x"}`
-                                    )
-                                }
-                                className="p-2 bg-surface border border-border hover:bg-ink hover:text-paper hover:border-ink text-muted transition-colors flex-shrink-0"
-                            >
-                                <Copy className="w-4 h-4" />
-                            </button>
-                        </div>
+                        <p className="text-muted text-xs font-bold uppercase tracking-widest mb-4">
+                            {isDockerMode ? "TERMINAL_ACCESS_MODE:" : "DIRECT_SHELL_ACCESS:"}
+                        </p>
+                        {isDockerMode ? (
+                            <div className="bg-paper border border-border p-3 text-xs text-muted uppercase tracking-widest">
+                                Local Docker lab detected. Use OPEN_TERMINAL_WORKSPACE for shell access.
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-4 bg-paper border border-border p-3">
+                                <Terminal className="w-4 h-4 text-success flex-shrink-0" />
+                                <code className="text-success text-sm flex-1 overflow-x-auto whitespace-nowrap">
+                                    ssh student@{session.publicIp || session.instanceDetails?.publicIp || "10.0.0.x"}
+                                </code>
+                                <button
+                                    onClick={() =>
+                                        copyToClipboard(
+                                            `ssh student@${session.publicIp || session.instanceDetails?.publicIp || "10.0.0.x"}`
+                                        )
+                                    }
+                                    className="p-2 bg-surface border border-border hover:bg-ink hover:text-paper hover:border-ink text-muted transition-colors flex-shrink-0"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </>
             )}
@@ -208,6 +220,16 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
             )}
 
             {/* Stop Button */}
+            {!isProvisioning && sessionId && (
+                <button
+                    onClick={() => navigate(`/workspace/${sessionId}`)}
+                    className="w-full py-4 px-6 mb-4 text-sm font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-3 border bg-paper text-ink border-border hover:bg-ink hover:text-paper shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-1 hover:translate-x-1"
+                >
+                    <Terminal className="w-4 h-4" />
+                    OPEN_TERMINAL_WORKSPACE
+                </button>
+            )}
+
             <button
                 onClick={onStopSession}
                 disabled={isStopping || isProvisioning}

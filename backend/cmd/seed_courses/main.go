@@ -5,14 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log"
-	"time"
 
 	"github.com/xploitverse/backend/internal/config"
 	"github.com/xploitverse/backend/internal/database"
-	"github.com/xploitverse/backend/internal/models"
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func hashFlag(flag string) string {
@@ -23,148 +18,94 @@ func hashFlag(flag string) string {
 func main() {
 	cfg := config.Load()
 
-	db, err := database.ConnectDB(cfg.MongoURI)
+	db, err := database.ConnectPostgres(cfg.PostgresURI)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
+		log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
 	}
+	defer db.Close()
 
 	ctx := context.Background()
 
-	coursesCol := db.Collection("courses")
-	modulesCol := db.Collection("modules")
-	tasksCol := db.Collection("tasks")
-
-	// Clear existing content
-	if res, err := coursesCol.DeleteMany(ctx, bson.M{}); err == nil {
-		log.Printf("🗑️  Cleared %d existing courses", res.DeletedCount)
-	}
-	if res, err := modulesCol.DeleteMany(ctx, bson.M{}); err == nil {
-		log.Printf("🗑️  Cleared %d existing modules", res.DeletedCount)
-	}
-	if res, err := tasksCol.DeleteMany(ctx, bson.M{}); err == nil {
-		log.Printf("🗑️  Cleared %d existing tasks", res.DeletedCount)
-	}
-
-	now := time.Now()
-
-	course := models.Course{
-		Title:       "Web Exploitation Basics",
-		Slug:        "web-exploitation-basics",
-		Description: "Learn the fundamentals of web exploitation through short, focused modules and hands-on tasks.",
-		Difficulty:  models.DifficultyEasy,
-		Category:    "Web",
-		Tags:        []string{"web", "beginner"},
-		IsPremium:   false,
-		IsPublished: true,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-
-	courseRes, err := coursesCol.InsertOne(ctx, course)
+	tx, err := db.Begin(ctx)
 	if err != nil {
-		log.Fatalf("❌ Failed to seed course: %v", err)
+		log.Fatalf("❌ Failed to start transaction: %v", err)
 	}
-	courseID := courseRes.InsertedID.(bson.ObjectID)
+	defer tx.Rollback(ctx)
 
-	modules := []models.Module{
-		{
-			CourseID:     courseID,
-			Title:        "HTTP & Requests",
-			Description:  "Understand requests, responses, headers, cookies.",
-			Order:        1,
-			PointsReward: 50,
-			IsPublished:  true,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
-		{
-			CourseID:     courseID,
-			Title:        "Input Validation",
-			Description:  "How user input becomes vulnerabilities.",
-			Order:        2,
-			PointsReward: 75,
-			IsPublished:  true,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
-	}
-
-	moduleDocs := make([]interface{}, 0, len(modules))
-	for _, m := range modules {
-		moduleDocs = append(moduleDocs, m)
-	}
-	modRes, err := modulesCol.InsertMany(ctx, moduleDocs)
+	var roomID int64
+	err = tx.QueryRow(ctx, `
+		INSERT INTO rooms (slug, title, description, difficulty, is_public, updated_at)
+		VALUES ($1, $2, $3, $4, true, now())
+		ON CONFLICT (slug) DO UPDATE
+		SET title=EXCLUDED.title,
+			description=EXCLUDED.description,
+			difficulty=EXCLUDED.difficulty,
+			is_public=EXCLUDED.is_public,
+			updated_at=now()
+		RETURNING id
+	`, "web-exploitation-basics", "Web Exploitation Basics", "Learn the fundamentals of web exploitation through short, focused modules and hands-on tasks.", "Easy").Scan(&roomID)
 	if err != nil {
-		log.Fatalf("❌ Failed to seed modules: %v", err)
+		log.Fatalf("❌ Failed to upsert room: %v", err)
 	}
 
-	moduleID1 := modRes.InsertedIDs[0].(bson.ObjectID)
-	moduleID2 := modRes.InsertedIDs[1].(bson.ObjectID)
-
-	tasks := []interface{}{
-		models.Task{
-			ModuleID:     moduleID1,
-			Title:        "Identify request components",
-			Type:         models.TaskTypeQuestion,
-			Order:        1,
-			Prompt:       "In your own words, what is the difference between a header and a cookie?",
-			Points:       25,
-			HintPenalty:  5,
-			IsPublished:  true,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
-		models.Task{
-			ModuleID:     moduleID2,
-			Title:        "Spot unsafe input",
-			Type:         models.TaskTypeInteractive,
-			Order:        1,
-			Prompt:       "Look at the example code snippet and identify one unsafe input usage.",
-			ContentMD:    "You will later see a vulnerable snippet here.",
-			Points:       40,
-			HintPenalty:  10,
-			IsPublished:  true,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
-		models.Task{
-			ModuleID:     moduleID2,
-			Title:        "Submit your first flag",
-			Type:         models.TaskTypeFlag,
-			Order:        2,
-			Prompt:       "Submit the demo flag to test scoring.",
-			Points:       50,
-			HintPenalty:  10,
-			FlagHash:     hashFlag("FLAG{demo-flag}"),
-			IsPublished:  true,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
+	// Replace room content deterministically so local dev data stays reproducible.
+	if _, err := tx.Exec(ctx, `DELETE FROM tasks WHERE room_id=$1`, roomID); err != nil {
+		log.Fatalf("❌ Failed to clear room tasks: %v", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM modules WHERE room_id=$1`, roomID); err != nil {
+		log.Fatalf("❌ Failed to clear room modules: %v", err)
 	}
 
-	if _, err := tasksCol.InsertMany(ctx, tasks); err != nil {
-		log.Fatalf("❌ Failed to seed tasks: %v", err)
+	var moduleHTTPID int64
+	err = tx.QueryRow(ctx, `
+		INSERT INTO modules (room_id, title, description, order_no, points_reward, is_published)
+		VALUES ($1, $2, $3, 1, 50, true)
+		RETURNING id
+	`, roomID, "HTTP & Requests", "Understand requests, responses, headers, and cookies.").Scan(&moduleHTTPID)
+	if err != nil {
+		log.Fatalf("❌ Failed to create module 1: %v", err)
 	}
 
-	// Indexes
-	indexModelsCourses := []mongo.IndexModel{
-		{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetName("slug_1").SetUnique(true)},
-		{Keys: bson.D{{Key: "isPublished", Value: 1}}},
-		{Keys: bson.D{{Key: "title", Value: "text"}, {Key: "description", Value: "text"}}},
+	var moduleInputID int64
+	err = tx.QueryRow(ctx, `
+		INSERT INTO modules (room_id, title, description, order_no, points_reward, is_published)
+		VALUES ($1, $2, $3, 2, 75, true)
+		RETURNING id
+	`, roomID, "Input Validation", "How user input becomes vulnerabilities.").Scan(&moduleInputID)
+	if err != nil {
+		log.Fatalf("❌ Failed to create module 2: %v", err)
 	}
-	_, _ = coursesCol.Indexes().CreateMany(ctx, indexModelsCourses)
 
-	indexModelsModules := []mongo.IndexModel{
-		{Keys: bson.D{{Key: "courseId", Value: 1}, {Key: "order", Value: 1}}},
-		{Keys: bson.D{{Key: "isPublished", Value: 1}}},
+	var webAssetID *int64
+	var existingAssetID int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM assets WHERE LOWER(name)=LOWER($1) LIMIT 1`, "Web Basics").Scan(&existingAssetID); err == nil {
+		webAssetID = &existingAssetID
 	}
-	_, _ = modulesCol.Indexes().CreateMany(ctx, indexModelsModules)
 
-	indexModelsTasks := []mongo.IndexModel{
-		{Keys: bson.D{{Key: "moduleId", Value: 1}, {Key: "order", Value: 1}}},
-		{Keys: bson.D{{Key: "isPublished", Value: 1}}},
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, is_published, flag_hash)
+		VALUES ($1, $2, $3, $4, 'question', 'none', $5, $6, '[]'::jsonb, 1, 25, 5, true, NULL)
+	`, roomID, moduleHTTPID, webAssetID, "Identify request components", "In your own words, what is the difference between a header and a cookie?", "Explain header vs cookie."); err != nil {
+		log.Fatalf("❌ Failed to insert task 1: %v", err)
 	}
-	_, _ = tasksCol.Indexes().CreateMany(ctx, indexModelsTasks)
 
-	log.Println("✅ Seeded course content successfully!")
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, is_published, flag_hash)
+		VALUES ($1, $2, $3, $4, 'interactive', 'none', $5, $6, '["Review user-controlled input paths first"]'::jsonb, 1, 40, 10, true, NULL)
+	`, roomID, moduleInputID, webAssetID, "Spot unsafe input", "Look at the example code snippet and identify one unsafe input usage.", "Find one unsafe input usage."); err != nil {
+		log.Fatalf("❌ Failed to insert task 2: %v", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, is_published, flag_hash)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, '["The demo format is FLAG{...}"]'::jsonb, 2, 50, 10, true, $7)
+	`, roomID, moduleInputID, webAssetID, "Submit your first flag", "Submit the demo flag to test scoring.", "Submit the demo flag.", hashFlag("FLAG{demo-flag}")); err != nil {
+		log.Fatalf("❌ Failed to insert task 3: %v", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Fatalf("❌ Failed to commit seed transaction: %v", err)
+	}
+
+	log.Println("✅ Seeded PostgreSQL room/module/task content successfully")
 }

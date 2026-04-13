@@ -4,6 +4,7 @@ import {
     Clock,
     Terminal,
     StopCircle,
+    ExternalLink,
     Copy,
     CheckCircle,
     Loader2,
@@ -12,16 +13,18 @@ import {
     HardDrive,
 } from "lucide-react";
 
-const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
+const ActiveSession = ({ session, lab, onOpenWorkspace, onStopSession, isStopping }) => {
     const [elapsed, setElapsed] = useState(0);
     const [copied, setCopied] = useState(false);
+    const sessionIdRaw = session?.id;
+    const sessionId = sessionIdRaw !== null && sessionIdRaw !== undefined ? String(sessionIdRaw) : "";
 
     // Timer effect
     useEffect(() => {
-        if (!session?.startTime) return;
+        if (!session?.startedAt) return;
 
         const calculateElapsed = () => {
-            const start = new Date(session.startTime);
+            const start = new Date(session.startedAt);
             const now = new Date();
             return Math.floor((now - start) / 1000);
         };
@@ -33,7 +36,7 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [session?.startTime]);
+    }, [session?.startedAt]);
 
     const formatTime = (seconds) => {
         const hrs = Math.floor(seconds / 3600);
@@ -55,7 +58,7 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
     return (
         <div className="bg-surface border border-border p-8 font-mono shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative">
             <div className="absolute top-0 right-0 p-2 font-mono text-[10px] text-muted font-bold opacity-30 tracking-widest uppercase">
-                PID: {session?._id?.slice(-6) || "SYS_PROC"}
+                PID: {sessionId ? sessionId.slice(-6).toUpperCase() : "SYS_PROC"}
             </div>
             {/* Header */}
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-border border-dashed">
@@ -207,27 +210,41 @@ const ActiveSession = ({ session, lab, onStopSession, isStopping }) => {
                 </div>
             )}
 
-            {/* Stop Button */}
-            <button
-                onClick={onStopSession}
-                disabled={isStopping || isProvisioning}
-                className={`w-full py-4 px-6 text-sm font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-3 border ${isStopping || isProvisioning
-                    ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
-                    : "bg-error text-paper border-error hover:bg-paper hover:text-error shadow-[4px_4px_0px_rgba(255,69,0,0.3)] hover:shadow-none hover:translate-y-1 hover:translate-x-1"
-                    }`}
-            >
-                {isStopping ? (
-                    <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        TERMINATING_INSTANCE...
-                    </>
-                ) : (
-                    <>
-                        <StopCircle className="w-4 h-4" />
-                        TERMINATE_TARGET
-                    </>
-                )}
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                    onClick={onOpenWorkspace}
+                    disabled={!sessionId || isProvisioning}
+                    className={`w-full py-4 px-6 text-sm font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-3 border ${!sessionId || isProvisioning
+                        ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
+                        : "bg-paper text-ink border-border hover:bg-ink hover:text-paper shadow-[4px_4px_0px_rgba(0,0,0,0.3)] hover:shadow-none hover:translate-y-1 hover:translate-x-1"
+                        }`}
+                >
+                    <ExternalLink className="w-4 h-4" />
+                    OPEN_WORKSPACE
+                </button>
+
+                {/* Stop Button */}
+                <button
+                    onClick={onStopSession}
+                    disabled={isStopping || isProvisioning}
+                    className={`w-full py-4 px-6 text-sm font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-3 border ${isStopping || isProvisioning
+                        ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
+                        : "bg-error text-paper border-error hover:bg-paper hover:text-error shadow-[4px_4px_0px_rgba(255,69,0,0.3)] hover:shadow-none hover:translate-y-1 hover:translate-x-1"
+                        }`}
+                >
+                    {isStopping ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            TERMINATING_INSTANCE...
+                        </>
+                    ) : (
+                        <>
+                            <StopCircle className="w-4 h-4" />
+                            TERMINATE_TARGET
+                        </>
+                    )}
+                </button>
+            </div>
 
             {/* Cost Warning */}
             <p className="text-center text-muted font-mono text-[10px] uppercase tracking-widest mt-6">

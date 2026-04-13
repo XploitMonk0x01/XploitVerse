@@ -3,19 +3,21 @@
 # Then run the Go backend and Vite dev server locally.
 
 services:
-  # ── MongoDB ────────────────────────────────────────────────────
-  mongo:
-    image: mongo:7
-    container_name: xv-mongo
+  # ── PostgreSQL ─────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: xv-postgres
     restart: unless-stopped
     ports:
-      - '27017:27017'
+      - '5432:5432'
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      MONGO_INITDB_DATABASE: xploitverse
+      POSTGRES_DB: xploitverse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     healthcheck:
-      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d xploitverse']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +39,7 @@ services:
       retries: 5
 
 volumes:
-  mongo_data:
+  postgres_data:
     driver: local
   redis_data:
     driver: local

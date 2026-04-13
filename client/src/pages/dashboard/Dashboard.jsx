@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui";
 import { labService, labSessionService } from "../../services";
@@ -27,7 +28,24 @@ const DASHBOARD_STATE = {
     ERROR: "ERROR",
 };
 
+const getEntityId = (entity) => entity?.id ?? null;
+
+const toIdString = (value) => {
+    if (value === null || value === undefined) return null;
+    return String(value);
+};
+
+const sameId = (a, b) => {
+    const left = toIdString(a);
+    const right = toIdString(b);
+    return left !== null && right !== null && left === right;
+};
+
+const getSessionLabRef = (session) =>
+    getEntityId(session?.lab) ?? session?.lab ?? session?.roomId ?? null;
+
 const Dashboard = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [dashboardState, setDashboardState] = useState(DASHBOARD_STATE.LOADING_LABS);
     const [labs, setLabs] = useState([]);
@@ -91,13 +109,14 @@ const Dashboard = () => {
             if (sessionResponse.data.data) {
                 const session = sessionResponse.data.data;
                 setActiveSession(session);
+
                 // Find the lab details
                 const lab = labsData.find(
-                    (l) => l._id === session.lab || l._id === session.lab?._id
+                    (l) => sameId(getEntityId(l), getSessionLabRef(session))
                 );
                 setActiveLab(lab || session.lab);
                 setDashboardState(
-                    session.status === "INITIALIZING"
+                    String(session.status || "").toUpperCase() === "INITIALIZING"
                         ? DASHBOARD_STATE.PROVISIONING
                         : DASHBOARD_STATE.RUNNING
                 );
@@ -137,7 +156,7 @@ const Dashboard = () => {
     // Start a lab
     const handleStartLab = async (labId) => {
         try {
-            setStartingLabId(labId);
+            setStartingLabId(toIdString(labId));
             setDashboardState(DASHBOARD_STATE.STARTING_LAB);
             setError(null);
 
@@ -149,16 +168,14 @@ const Dashboard = () => {
             const sessionData = response.data.data?.session || response.data.session || response.data.data;
             console.log("Session data extracted:", sessionData);
 
-            // Normalize id to _id for consistency
-            const sessionId = sessionData?._id || sessionData?.id;
+            const sessionId = sessionData?.id;
             if (!sessionId) {
                 throw new Error("Failed to get session ID from server response");
             }
-            const session = { ...sessionData, _id: sessionId };
 
             // Find the lab details
-            const lab = labs.find((l) => l._id === labId);
-            setActiveSession(session);
+            const lab = labs.find((l) => sameId(getEntityId(l), labId));
+            setActiveSession(sessionData);
             setActiveLab(lab);
             setDashboardState(DASHBOARD_STATE.PROVISIONING);
 
@@ -166,15 +183,13 @@ const Dashboard = () => {
             setTimeout(async () => {
                 try {
                     const provisionResponse = await labService.completeProvisioning(
-                        session._id
+                        sessionId
                     );
                     console.log("Provision response:", provisionResponse.data);
 
                     // Normalize the provisioned session data
                     const provisionedData = provisionResponse.data.data?.session || provisionResponse.data.session || provisionResponse.data.data;
-                    const provisionedId = provisionedData?._id || provisionedData?.id;
-                    const provisionedSession = { ...provisionedData, _id: provisionedId };
-                    setActiveSession(provisionedSession);
+                    setActiveSession(provisionedData);
                     setDashboardState(DASHBOARD_STATE.RUNNING);
                 } catch (provisionError) {
                     console.error("Provisioning failed:", provisionError);
@@ -199,8 +214,7 @@ const Dashboard = () => {
             setDashboardState(DASHBOARD_STATE.STOPPING);
             setError(null);
 
-            // Use _id or id (API returns id, we normalize to _id)
-            const sessionId = activeSession._id || activeSession.id;
+            const sessionId = activeSession.id;
             console.log("Stopping session with ID:", sessionId, "Full session:", activeSession);
 
             if (!sessionId) {
@@ -217,6 +231,12 @@ const Dashboard = () => {
             setError(err.response?.data?.message || err.message || "Failed to stop session");
             setDashboardState(DASHBOARD_STATE.RUNNING);
         }
+    };
+
+    const handleOpenWorkspace = () => {
+        const sessionId = getEntityId(activeSession);
+        if (!sessionId) return;
+        navigate(`/workspace/${sessionId}`);
     };
 
     // Render loading state
@@ -292,6 +312,7 @@ const Dashboard = () => {
                     <ActiveSession
                         session={activeSession}
                         lab={activeLab}
+                        onOpenWorkspace={handleOpenWorkspace}
                         onStopSession={handleStopSession}
                         isStopping={dashboardState === DASHBOARD_STATE.STOPPING}
                     />
@@ -317,18 +338,21 @@ const Dashboard = () => {
                             />
                         ) : (
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {labs.map((lab) => (
-                                    <LabCard
-                                        key={lab._id}
-                                        lab={lab}
-                                        onStartLab={handleStartLab}
-                                        isStarting={startingLabId === lab._id}
-                                        disabled={
-                                            dashboardState === DASHBOARD_STATE.STARTING_LAB &&
-                                            startingLabId !== lab._id
-                                        }
-                                    />
-                                ))}
+                                {labs.map((lab) => {
+                                    const labId = getEntityId(lab);
+                                    return (
+                                        <LabCard
+                                            key={toIdString(labId) || lab.title}
+                                            lab={lab}
+                                            onStartLab={handleStartLab}
+                                            isStarting={sameId(startingLabId, labId)}
+                                            disabled={
+                                                dashboardState === DASHBOARD_STATE.STARTING_LAB &&
+                                                !sameId(startingLabId, labId)
+                                            }
+                                        />
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -405,7 +429,7 @@ const Dashboard = () => {
 
                                         return (
                                             <tr
-                                                key={s._id || s.id}
+                                                key={s.id}
                                                 className="hover:bg-paper transition-colors"
                                             >
                                                 <td className="px-5 py-4 text-ink font-bold font-mono text-xs uppercase">

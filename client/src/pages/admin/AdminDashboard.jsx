@@ -56,7 +56,7 @@ const AdminDashboard = () => {
 
     const systemHealth = [
         { name: 'API Server', status: 'healthy', uptime: '99.9%' },
-        { name: 'MongoDB', status: 'healthy', uptime: '99.9%' },
+        { name: 'PostgreSQL', status: 'healthy', uptime: '99.9%' },
         { name: 'AWS EC2', status: 'pending', uptime: 'Phase 2' },
         { name: 'Auto Scaling', status: 'pending', uptime: 'Phase 2' },
     ];

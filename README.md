@@ -15,11 +15,12 @@ This branch uses the Go + Gin backend implementation.
 
 - Go 1.25+
 - Gin
-- MongoDB (official Go driver)
+- PostgreSQL (primary durable database)
 - Redis (for caching/services)
 - JWT authentication
 - Gorilla WebSocket
 - Docker-based lab lifecycle support
+- AI mentor endpoints disabled
 
 ### Frontend
 
@@ -78,13 +79,19 @@ Frontend runs on http://localhost:5173.
 - /api/auth
 - /api/users
 - /api/labs
+- /api/labs/:id
 - /api/lab-sessions
-- /api/chat
+- /api/lab-sessions/active
+- /api/lab-sessions/:id/terminate
+- /api/rooms (new.md compatibility)
+- /api/tasks/:task_id/lab-sessions (new.md compatibility)
+- /api/tasks/:task_id/submit-flag (new.md compatibility)
 - /api/courses
 - /api/modules
 - /api/tasks
 - /api/flags
 - /api/leaderboard
+- /ws/terminal?sessionId=<id>&token=<jwt>
 
 ## Environment Notes
 
@@ -92,10 +99,16 @@ Set these at minimum in backend/.env for local development:
 
 - PORT
 - NODE_ENV
-- MONGODB_URI
+- POSTGRES_URI
 - REDIS_URL
 - JWT_SECRET
 - CLIENT_URL
+
+AI-related environment variables are no longer required.
+
+## AWS Terraform
+
+Terraform for the current EC2 + PostgreSQL + Redis deployment shape lives in [infra/terraform/README.md](/C:/Users/smwlc/proj/Test/xploitverse/infra/terraform/README.md).
 
 ## Scripts and Commands
 

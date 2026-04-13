@@ -40,6 +40,8 @@ const categoryConfig = {
 };
 
 const LabCard = ({ lab, onStartLab, isStarting, disabled }) => {
+    const labIdRaw = lab?.id;
+    const labId = labIdRaw !== null && labIdRaw !== undefined ? String(labIdRaw) : "";
     const difficulty = difficultyConfig[lab.difficulty] || difficultyConfig.Easy;
     const category = categoryConfig[lab.category] || categoryConfig.Mixed;
     const DifficultyIcon = difficulty.icon;
@@ -48,7 +50,7 @@ const LabCard = ({ lab, onStartLab, isStarting, disabled }) => {
     return (
         <div className="bg-surface border border-border p-6 hover:-translate-y-1 hover:shadow-[4px_4px_0px_rgba(0,0,0,0.2)] transition-all duration-300 group flex flex-col h-full font-mono relative">
             <div className="absolute top-0 right-0 p-2 text-[10px] text-muted font-bold opacity-30">
-                L-{lab._id.slice(-4).toUpperCase()}
+                L-{labId ? labId.slice(-4).toUpperCase() : "UNKN"}
             </div>
 
             {/* Header */}
@@ -93,8 +95,8 @@ const LabCard = ({ lab, onStartLab, isStarting, disabled }) => {
 
             {/* Start Button */}
             <button
-                onClick={() => onStartLab(lab._id)}
-                disabled={isStarting || disabled}
+                onClick={() => onStartLab(labIdRaw)}
+                disabled={isStarting || disabled || !labId}
                 className={`w-full py-3 px-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 border ${isStarting || disabled
                     ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
                     : "bg-paper text-ink border-border hover:bg-ink hover:text-paper shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"

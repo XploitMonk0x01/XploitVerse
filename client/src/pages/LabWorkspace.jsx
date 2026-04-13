@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { io } from "socket.io-client";
 import {
     ArrowLeft,
     Terminal,
-    MessageSquare,
     BookOpen,
     Shield,
     Clock,
@@ -17,7 +15,6 @@ import {
     Loader2,
 } from "lucide-react";
 import TerminalWindow from "../components/workspace/TerminalWindow";
-import ChatWidget from "../components/workspace/ChatWidget";
 import api from "../services/api";
 
 const LabWorkspace = () => {
@@ -30,24 +27,59 @@ const LabWorkspace = () => {
     const [connected, setConnected] = useState(false);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("terminal"); // terminal, guide, chat
+    const [activeTab, setActiveTab] = useState("terminal");
     const [elapsedTime, setElapsedTime] = useState(0);
 
-    const socketRef = useRef(null);
     const terminalWsRef = useRef(null);
     const timerRef = useRef(null);
+
+    const getEntityId = (entity) => entity?.id ?? null;
+
+    const normalizeSessionPayload = (payload) => {
+        const data = payload?.data || payload || {};
+        const session = data.session || data;
+        return session;
+    };
+
+    const effectiveSessionId = getEntityId(session) || sessionId;
 
     // Fetch session and lab data
     useEffect(() => {
         const fetchSessionData = async () => {
             try {
                 setLoading(true);
-                const response = await api.get(`/lab-sessions/${sessionId}`);
-                const sessionData = response.data.data?.session || response.data.data;
+                let sessionData;
+
+                try {
+                    const response = await api.get(`/lab-sessions/${sessionId}`);
+                    sessionData = normalizeSessionPayload(response.data);
+                } catch (err) {
+                    const notFound = err?.response?.status === 404;
+                    if (!notFound) {
+                        throw err;
+                    }
+
+                    // If the route carries a stale session id, recover by using the current active session.
+                    const activeResponse = await api.get("/labs/active-session");
+                    const activeData = activeResponse?.data?.data;
+                    if (!activeData) {
+                        throw err;
+                    }
+
+                    sessionData = normalizeSessionPayload(activeData);
+                    const activeId = getEntityId(sessionData);
+                    if (activeId && String(activeId) !== String(sessionId)) {
+                        navigate(`/workspace/${activeId}`, { replace: true });
+                    }
+                }
+
                 setSession(sessionData);
 
                 // Fetch lab details
-                const labId = sessionData.lab?._id || sessionData.lab;
+                const labId =
+                    getEntityId(sessionData.lab) ||
+                    sessionData.lab ||
+                    sessionData.roomId;
                 if (labId) {
                     const labResponse = await api.get(`/labs/${labId}`);
                     setLab(labResponse.data.data.lab);
@@ -67,77 +99,27 @@ const LabWorkspace = () => {
 
     // Timer for elapsed time
     useEffect(() => {
-        if (session?.startedAt) {
-            const startTime = new Date(session.startedAt).getTime();
+        const started = session?.startedAt;
+        if (!started) return;
 
-            timerRef.current = setInterval(() => {
-                const now = Date.now();
-                setElapsedTime(Math.floor((now - startTime) / 1000));
-            }, 1000);
-        }
+        const calculateElapsed = () => {
+            const start = new Date(started).getTime();
+            const now = Date.now();
+            return Math.floor((now - start) / 1000);
+        };
+
+        setElapsedTime(calculateElapsed());
+
+        timerRef.current = setInterval(() => {
+            setElapsedTime(calculateElapsed());
+        }, 1000);
 
         return () => {
             if (timerRef.current) {
                 clearInterval(timerRef.current);
             }
         };
-    }, [session]);
-
-    // Socket.io connection
-    useEffect(() => {
-        if (!sessionId) return;
-
-        const token = localStorage.getItem("token");
-        const socketUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000";
-
-        socketRef.current = io(socketUrl, {
-            auth: { token },
-            transports: ["websocket", "polling"],
-        });
-
-        socketRef.current.on("connect", () => {
-            console.log("Socket connected");
-            setConnected(true);
-
-            // Join the lab session room
-            socketRef.current.emit("join-lab", sessionId);
-        });
-
-        socketRef.current.on("disconnect", () => {
-            console.log("Socket disconnected");
-            setConnected(false);
-        });
-
-        socketRef.current.on("connect_error", (err) => {
-            console.error("Socket connection error:", err.message);
-            setConnected(false);
-        });
-
-        // Listen for lab logs
-        socketRef.current.on("lab-log", (logData) => {
-            setLogs((prev) => [...prev, logData]);
-        });
-
-        // Listen for boot complete
-        socketRef.current.on("boot-complete", () => {
-            setLogs((prev) => [
-                ...prev,
-                {
-                    type: "success",
-                    message: "🎯 Lab environment is ready! You can now start the exercise.",
-                    timestamp: new Date().toISOString(),
-                },
-            ]);
-        });
-
-        // Cleanup
-        return () => {
-            if (socketRef.current) {
-                socketRef.current.emit("leave-lab", sessionId);
-                socketRef.current.disconnect();
-            }
-        };
-    }, [sessionId]);
+    }, [session?.startedAt]);
 
     // Handle terminal commands
     const handleTerminalCommand = useCallback((command) => {
@@ -146,27 +128,36 @@ const LabWorkspace = () => {
 
         if (terminalWsRef.current && terminalWsRef.current.readyState === WebSocket.OPEN) {
             terminalWsRef.current.send(command + "\n");
-        } else if (socketRef.current && connected) {
-            // Fallback to socket.io if native WS not available
-            socketRef.current.emit("terminal-input", { sessionId, command });
         }
-    }, [sessionId, connected]);
+    }, []);
 
-    // Native WebSocket terminal — connects to /ws/terminal once session is running
+    // Native WebSocket terminal — connects to /ws/terminal only for active session states.
     useEffect(() => {
-        if (!sessionId) return;
+        if (!effectiveSessionId) return;
+
+        const currentStatus = String(session?.status || "").toLowerCase();
+        const shouldConnect = ["running", "initializing", "pending"].includes(currentStatus);
+        if (!shouldConnect) {
+            setConnected(false);
+            return;
+        }
 
         const token = localStorage.getItem("token");
         if (!token) return;
 
         const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const apiBase = import.meta.env.VITE_API_BASE || "";
-        // Strip /api suffix to get the backend host
-        const hostPart = apiBase
-            ? apiBase.replace(/^https?:/, proto).replace(/\/api$/, "")
-            : `${proto}//${window.location.host}`;
+        const explicitWsBase = import.meta.env.VITE_WS_BASE || "";
+        let hostPart = "";
 
-        const url = `${hostPart}/ws/terminal?sessionId=${sessionId}&token=${encodeURIComponent(token)}`;
+        if (explicitWsBase) {
+            hostPart = explicitWsBase.replace(/^https?:/, proto).replace(/\/$/, "");
+        } else {
+            const host = window.location.hostname;
+            const isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1";
+            hostPart = isLocal ? `${proto}//127.0.0.1:5000` : `${proto}//${window.location.host}`;
+        }
+
+        const url = `${hostPart}/ws/terminal?sessionId=${effectiveSessionId}&token=${encodeURIComponent(token)}`;
 
         let ws;
         let reconnectTimer;
@@ -207,7 +198,7 @@ const LabWorkspace = () => {
             if (ws) ws.close();
             terminalWsRef.current = null;
         };
-    }, [sessionId]);
+    }, [effectiveSessionId, session?.status]);
 
     // Format elapsed time
     const formatTime = (seconds) => {
@@ -360,16 +351,6 @@ const LabWorkspace = () => {
                     <BookOpen className="w-4 h-4" />
                     <span>DOCS</span>
                 </button>
-                <button
-                    onClick={() => setActiveTab("chat")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-4 border-b-2 transition-colors ${activeTab === "chat"
-                        ? "text-ink border-accent bg-paper"
-                        : "text-muted border-transparent"
-                        }`}
-                >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>AI_COMMS</span>
-                </button>
             </div>
 
             {/* Main Content */}
@@ -386,12 +367,11 @@ const LabWorkspace = () => {
                     />
                 </div>
 
-                {/* Right Panel - Guide & Chat */}
+                {/* Right Panel - Guide */}
                 <div className={`${activeTab !== "terminal" ? "block" : "hidden"
                     } lg:block lg:w-1/2 xl:w-2/5 h-full flex flex-col border-l border-border bg-surface`}>
-                    {/* Guide Section (Desktop: always visible) */}
                     <div className={`${activeTab === "guide" ? "block" : "hidden"
-                        } lg:flex lg:flex-col lg:h-1/2 overflow-y-auto border-b border-border`}>
+                        } lg:flex lg:flex-col h-full overflow-y-auto`}>
                         <div className="bg-paper border-b border-border p-3 flex items-center gap-2 sticky top-0 z-10">
                             <BookOpen className="w-4 h-4 text-accent" />
                             <h2 className="text-ink font-mono text-xs font-bold uppercase tracking-widest">LAB_DOCUMENTATION</h2>
@@ -470,29 +450,6 @@ const LabWorkspace = () => {
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Chat Section */}
-                    <div className={`${activeTab === "chat" ? "flex flex-col" : "hidden"
-                        } lg:flex lg:flex-col lg:h-1/2`}>
-                        <div className="bg-paper border-b border-border p-3 flex items-center justify-between sticky top-0 z-10 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <MessageSquare className="w-4 h-4 text-info" />
-                                <h2 className="text-ink font-mono text-xs font-bold uppercase tracking-widest">TACTICAL_AI_COMMS</h2>
-                            </div>
-                            <span className="flex h-2 w-2 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-info opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-info"></span>
-                            </span>
-                        </div>
-                        <div className="flex-1 overflow-hidden relative">
-                            <ChatWidget
-                                sessionId={sessionId}
-                                labId={lab?._id}
-                                labName={lab?.title}
-                                className="absolute inset-0 border-none bg-surface"
-                            />
                         </div>
                     </div>
                 </div>

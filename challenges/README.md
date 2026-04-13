@@ -40,7 +40,7 @@ docker rm -f test-lab
 1. Create a new directory under `challenges/`
 2. Add a `Dockerfile` with the `xploitverse=lab` label
 3. Place flag files inside (format: `FLAG{xv_<name>_2024}`)
-4. Update the `Lab` document in MongoDB with the `dockerImage` field pointing to your image
+4. Create or update a PostgreSQL `assets` row with your `docker_image`, `source_type`, `source_ref`, and `exposed_ports_json`
 5. Build and push the image
 
 ## Image Naming Convention

@@ -125,7 +125,7 @@ const ModuleDetail = () => {
                         ) : (
                             <div className="space-y-2">
                                 {tasks.map((t, idx) => {
-                                    const taskId = t.id || t._id;
+                                    const taskId = t.id;
                                     return (
                                         <Link
                                             key={taskId}

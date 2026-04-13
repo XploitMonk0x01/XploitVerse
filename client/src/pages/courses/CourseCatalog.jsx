@@ -96,7 +96,7 @@ const CourseCatalog = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filtered.map((course) => (
                         <Link
-                            key={course.id || course._id || course.slug}
+                            key={course.id || course.slug}
                             to={`/courses/${course.slug}`}
                             className="card-cyber p-5 block hover:border-gray-600 transition-colors"
                         >

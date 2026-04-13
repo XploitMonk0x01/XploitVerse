@@ -41,7 +41,7 @@ const TaskDetail = () => {
 
                     if (progressRes.status === "fulfilled") {
                         const prog = progressRes.value.data?.data?.progress || [];
-                        const mine = prog.find((p) => p.taskId === id || p.taskId?.$oid === id);
+                        const mine = prog.find((p) => String(p.taskId) === String(id));
                         if (mine?.completedAt) {
                             setCompletedAt(mine.completedAt);
                             setPointsEarned(mine.pointsEarned ?? null);
@@ -61,9 +61,15 @@ const TaskDetail = () => {
         const trimmed = flag.trim();
         if (!trimmed) return;
 
+        const parsedTaskId = Number.parseInt(String(id), 10);
+        if (!Number.isFinite(parsedTaskId) || parsedTaskId <= 0) {
+            toast.error("Invalid task id");
+            return;
+        }
+
         try {
             setSubmittingFlag(true);
-            const res = await flagService.submit({ taskId: id, flag: trimmed });
+            const res = await flagService.submit({ taskId: parsedTaskId, flag: trimmed });
             const data = res.data?.data;
             if (data?.alreadySolved) {
                 toast.success("Already solved!");

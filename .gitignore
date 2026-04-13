@@ -37,7 +37,9 @@ yarn-error.log*
 *.swp
 *.swo
 *~
-
+start-docker-service.ps1
+postman/
+.postman/
 # OS
 .DS_Store
 Thumbs.db
@@ -51,3 +53,8 @@ coverage/
 *.key
 .cache/
 .agent/
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars

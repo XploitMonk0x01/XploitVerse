@@ -120,7 +120,7 @@ const CourseDetail = () => {
                         ) : (
                             <div className="space-y-2">
                                 {modules.map((m, idx) => {
-                                    const moduleId = m.id || m._id;
+                                    const moduleId = m.id;
                                     return (
                                         <Link
                                             key={moduleId}

@@ -1,7 +1,14 @@
 import api from './api'
 
 export const flagService = {
-  submit: ({ taskId, flag }) => api.post('/flags/submit', { taskId, flag }),
+  submit: ({ taskId, flag }) => {
+    const normalizedTaskId =
+      typeof taskId === 'string' && /^\d+$/.test(taskId.trim())
+        ? Number.parseInt(taskId, 10)
+        : taskId
+
+    return api.post('/flags/submit', { taskId: normalizedTaskId, flag })
+  },
 }
 
 export const authService = {

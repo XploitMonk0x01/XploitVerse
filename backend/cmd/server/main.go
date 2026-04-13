@@ -15,9 +15,9 @@ import (
 	"github.com/xploitverse/backend/internal/config"
 	"github.com/xploitverse/backend/internal/database"
 	"github.com/xploitverse/backend/internal/middleware"
-	"github.com/xploitverse/backend/internal/routes"
+	"github.com/xploitverse/backend/internal/pgapi"
 	"github.com/xploitverse/backend/internal/services"
-	"github.com/xploitverse/backend/internal/ws"
+	"github.com/xploitverse/backend/ws"
 )
 
 func main() {
@@ -29,10 +29,18 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Connect to MongoDB
-	db, err := database.ConnectDB(cfg.MongoURI)
+	// Connect to PostgreSQL
+	db, err := database.ConnectPostgres(cfg.PostgresURI)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
+		log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.RunPostgresMigrations(context.Background(), db); err != nil {
+		log.Fatalf("❌ Failed to run PostgreSQL migrations: %v", err)
+	}
+	if err := database.SeedPostgresBaseline(context.Background(), db); err != nil {
+		log.Fatalf("❌ Failed to seed PostgreSQL baseline data: %v", err)
 	}
 
 	// Create Gin engine
@@ -62,8 +70,12 @@ func main() {
 		c.Next()
 	})
 
-	// Rate limiter: 100 requests per 15 minutes (general)
-	generalLimiter := middleware.NewRateLimiter(100, 15*time.Minute)
+	// Rate limiter: more permissive in development to avoid blocking local UI/WebSocket retries.
+	rateLimitMax := 100
+	if cfg.NodeEnv != "production" {
+		rateLimitMax = 1000
+	}
+	generalLimiter := middleware.NewRateLimiter(rateLimitMax, 15*time.Minute)
 	r.Use(generalLimiter.Middleware())
 
 	// Error handler
@@ -90,11 +102,11 @@ func main() {
 				"runtime":     "Go " + runtime.Version(),
 				"endpoints": gin.H{
 					"auth":        "/api/auth",
-					"users":       "/api/users",
-					"labs":        "/api/labs",
+					"rooms":       "/api/rooms",
+					"courses":     "/api/courses",
+					"tasks":       "/api/tasks",
 					"labSessions": "/api/lab-sessions",
-					"chat":        "/api/chat",
-					"websocket":   "/ws",
+					"flags":       "/api/flags",
 				},
 			},
 		})
@@ -107,12 +119,11 @@ func main() {
 	redisSvc := services.NewRedisService(cfg.RedisURL)
 	defer redisSvc.Close()
 
-	// ── Register API Routes ───────────────────────────────────────
-	routes.RegisterRoutes(r, db, cfg, dockerSvc, redisSvc)
+	// ── Register API Routes (PostgreSQL) ──────────────────────────
+	pgapi.RegisterRoutes(r, db, cfg, dockerSvc, redisSvc)
 
-	// ── WebSocket ─────────────────────────────────────────────────
-	hub := ws.NewHub(db, cfg)
-	r.GET("/ws", hub.HandleWebSocket)
+	// ── Terminal WebSocket ─────────────────────────────────────────
+	r.GET("/ws/terminal", ws.TerminalHandlerPG(db, cfg))
 
 	// ── 404 Handler ───────────────────────────────────────────────
 	r.NoRoute(middleware.NotFound())
@@ -120,7 +131,7 @@ func main() {
 	// ── Start Auto-Termination Service ────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	autoTermSvc := services.NewAutoTerminationService(db, dockerSvc)
+	autoTermSvc := services.NewAutoTerminationServicePG(db, dockerSvc)
 	autoTermSvc.Start(ctx)
 
 	// ── Start Server ──────────────────────────────────────────────

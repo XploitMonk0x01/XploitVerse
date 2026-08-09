@@ -9,6 +9,7 @@ Docker-based lab environments for cybersecurity training.
 | `web-basic`     | Easy       | Web Exploitation     | Command injection & directory traversal in Flask |
 | `privesc-basic` | Medium     | Privilege Escalation | SUID binaries, sudo misconfig, writable cron     |
 | `recon-basic`   | Easy       | Reconnaissance       | Port scanning & hidden service discovery         |
+| `aws-autopsy`  | Hard       | Cloud Security       | Capital One SSRF → IAM credential theft → S3 exfil |
 
 ## Building Images
 
@@ -17,6 +18,7 @@ Docker-based lab environments for cybersecurity training.
 docker build -t xv-web-basic      ./web-basic/
 docker build -t xv-privesc-basic  ./privesc-basic/
 docker build -t xv-recon-basic    ./recon-basic/
+docker build -t xv-aws-autopsy   ./aws-autopsy/
 
 # Or build a single challenge
 docker build -t xv-web-basic ./web-basic/

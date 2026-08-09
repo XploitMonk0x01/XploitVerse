@@ -33,6 +33,10 @@ const categoryConfig = {
         color: "text-info border-info",
         icon: Shield,
     },
+    "Purple Team": {
+        color: "text-purple-400 border-purple-400",
+        icon: Shield,
+    },
     Mixed: {
         color: "text-muted border-muted",
         icon: Terminal,

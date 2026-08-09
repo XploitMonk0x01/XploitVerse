@@ -48,4 +48,3 @@ coverage/
 *.pem
 *.key
 .cache/
-.agent/

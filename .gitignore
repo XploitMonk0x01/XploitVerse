@@ -52,7 +52,7 @@ coverage/
 *.pem
 *.key
 .cache/
-.agent/
+
 .terraform/
 *.tfstate
 *.tfstate.*

@@ -13,12 +13,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     net-tools \
     nano \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Install a minimal web server
 RUN pip3 install flask
 
-# Create a non-root lab user
+# Configure SSH
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config \
+    && sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+
+# Create SSH-accessible 'student' user with password 'student'
+RUN useradd -m -s /bin/bash student \
+    && echo "student:student" | chpasswd
+
+# Create a non-root lab 'hacker' user for running the app
 RUN useradd -m -s /bin/bash hacker
 
 # Set up the vulnerable web application
@@ -33,8 +44,11 @@ RUN chmod 600 /opt/flag.txt && chown root:root /opt/flag.txt
 # The web app runs as the hacker user
 RUN chown -R hacker:hacker /opt/webapp
 
-# Expose the web server port
-EXPOSE 5000
+# Copy entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Start a shell by default (the WS terminal will connect here)
-CMD ["sleep", "infinity"]
+# Expose SSH and web server ports
+EXPOSE 22 5000
+
+CMD ["/entrypoint.sh"]

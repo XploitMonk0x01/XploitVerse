@@ -128,7 +128,7 @@ const Leaderboard = () => {
                         </thead>
                         <tbody>
                             {entries.map((e) => {
-                                const isMe = currentUser && e.userID === currentUser.id;
+                                const isMe = currentUser && (e.userId === currentUser.id || e.userID === currentUser.id);
                                 return (
                                     <tr
                                         key={e.userId}
@@ -147,10 +147,10 @@ const Leaderboard = () => {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right text-gray-400 font-mono">
-                                            {e.tasksCompleted}
+                                            {e.tasksCompleted || 0}
                                         </td>
                                         <td className="px-4 py-3 text-right font-semibold font-mono text-green-400">
-                                            {e.totalPoints.toLocaleString()}
+                                            {(Number(e.points || e.totalPoints || 0)).toLocaleString()}
                                         </td>
                                     </tr>
                                 );

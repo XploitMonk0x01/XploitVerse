@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -721,13 +722,13 @@ func (a *API) GetTaskByID(c *gin.Context) {
 	}
 
 	var (
-		roomID int64
-		moduleID *int64
-		assetID *int64
+		roomID                                                 int64
+		moduleID                                               *int64
+		assetID                                                *int64
 		title, tType, flagType, bodyMarkdown, prompt, flagHash string
-		hintsRaw []byte
-		orderNo, points, hintPenalty int64
-		isPublished bool
+		hintsRaw                                               []byte
+		orderNo, points, hintPenalty                           int64
+		isPublished                                            bool
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
 		SELECT room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt,
@@ -772,8 +773,8 @@ func (a *API) findRoomByIDOrSlug(ctx context.Context, idOrSlug string) (int64, s
 	if id, err := strconv.ParseInt(idOrSlug, 10, 64); err == nil && id > 0 {
 		var (
 			slug, title, description, difficulty string
-			isPublic bool
-			createdAt time.Time
+			isPublic                             bool
+			createdAt                            time.Time
 		)
 		err := a.DB.QueryRow(ctx, `
 			SELECT slug, title, description, difficulty, is_public, created_at
@@ -785,10 +786,10 @@ func (a *API) findRoomByIDOrSlug(ctx context.Context, idOrSlug string) (int64, s
 	}
 
 	var (
-		id int64
+		id                                   int64
 		slug, title, description, difficulty string
-		isPublic bool
-		createdAt time.Time
+		isPublic                             bool
+		createdAt                            time.Time
 	)
 	err := a.DB.QueryRow(ctx, `
 		SELECT id, slug, title, description, difficulty, is_public, created_at
@@ -928,11 +929,11 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 	}
 
 	var (
-		roomID int64
-		assetID *int64
+		roomID                          int64
+		assetID                         *int64
 		title, bodyMarkdown, difficulty string
-		dockerImage *string
-		exposedPortsRaw []byte
+		dockerImage                     *string
+		exposedPortsRaw                 []byte
 	)
 	err = tx.QueryRow(c.Request.Context(), `
 		SELECT t.room_id, t.asset_id, t.title,
@@ -1060,15 +1061,18 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 	}
 
 	var (
-		session LabSessionView
+		session           LabSessionView
 		connectionInfoRaw []byte
+		assetID           sql.NullInt64
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
-		SELECT id, user_id, room_id, task_id, status, started_at, expires_at,
-			COALESCE(network_name,''), COALESCE(target_container_id,''),
-			COALESCE(attack_container_id,''), connection_info_json
-		FROM lab_sessions
-		WHERE id=$1
+		SELECT s.id, s.user_id, s.room_id, s.task_id, s.status, s.started_at, s.expires_at,
+			COALESCE(s.network_name,''), COALESCE(s.target_container_id,''),
+			COALESCE(s.attack_container_id,''), s.connection_info_json,
+			t.asset_id
+		FROM lab_sessions s
+		LEFT JOIN tasks t ON s.task_id = t.id
+		WHERE s.id=$1
 	`, id).Scan(
 		&session.ID,
 		&session.UserID,
@@ -1081,6 +1085,7 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 		&session.TargetContainerID,
 		&session.AttackContainerID,
 		&connectionInfoRaw,
+		&assetID,
 	)
 	if err != nil {
 		writeErr(c, http.StatusNotFound, "Lab session not found")
@@ -1105,6 +1110,9 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 		"targetContainerId": session.TargetContainerID,
 		"networkName":       session.NetworkName,
 		"connectionInfo":    session.ConnectionInfo,
+	}
+	if assetID.Valid {
+		sessionPayload["lab"] = assetID.Int64
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"session": sessionPayload}})
@@ -1142,11 +1150,11 @@ func (a *API) submitFlagForTask(c *gin.Context, u *AuthUser, taskID int64, flag 
 	}
 
 	var (
-		roomID int64
-		tType string
+		roomID   int64
+		tType    string
 		flagType string
 		flagHash string
-		points int64
+		points   int64
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
 		SELECT room_id, type, flag_type, COALESCE(flag_hash,''), points
@@ -1167,8 +1175,8 @@ func (a *API) submitFlagForTask(c *gin.Context, u *AuthUser, taskID int64, flag 
 	}
 
 	var (
-		attempts int64
-		completedAt *time.Time
+		attempts     int64
+		completedAt  *time.Time
 		pointsEarned int64
 	)
 	err = a.DB.QueryRow(c.Request.Context(), `
@@ -1288,11 +1296,11 @@ func (a *API) GetMyProgress(c *gin.Context) {
 		}
 		totalPoints += pointsEarned
 		progress = append(progress, gin.H{
-			"taskId":      strconv.FormatInt(taskID, 10),
-			"state":       state,
-			"startedAt":   startedAt,
-			"completedAt": completedAt,
-			"attempts":    attempts,
+			"taskId":       strconv.FormatInt(taskID, 10),
+			"state":        state,
+			"startedAt":    startedAt,
+			"completedAt":  completedAt,
+			"attempts":     attempts,
 			"pointsEarned": pointsEarned,
 		})
 	}
@@ -1427,14 +1435,14 @@ func (a *API) GetLabByID(c *gin.Context) {
 	}
 
 	var (
-		id int64
-		name string
-		sourceType string
-		sourceRef string
-		image string
+		id              int64
+		name            string
+		sourceType      string
+		sourceRef       string
+		image           string
 		exposedPortsRaw []byte
-		envRaw []byte
-		active bool
+		envRaw          []byte
+		active          bool
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
 		SELECT id, name, source_type, COALESCE(source_ref,''), docker_image,
@@ -1447,16 +1455,47 @@ func (a *API) GetLabByID(c *gin.Context) {
 		return
 	}
 
+	// Fetch task and room documentation if associated with this asset
+	var roomDesc, taskBody, taskPrompt string
+	var hintsRaw []byte
+	_ = a.DB.QueryRow(c.Request.Context(), `
+		SELECT COALESCE(r.description, ''), COALESCE(t.body_markdown, ''), COALESCE(t.prompt, ''), COALESCE(t.hints_json, '[]'::jsonb)
+		FROM tasks t
+		LEFT JOIN rooms r ON r.id = t.room_id
+		WHERE t.asset_id = $1
+		LIMIT 1
+	`, id).Scan(&roomDesc, &taskBody, &taskPrompt, &hintsRaw)
+
+	desc := roomDesc
+	if desc == "" {
+		desc = "Penetration testing lab environment for hands-on cybersecurity training."
+	}
+	instructions := taskBody
+	if instructions == "" {
+		instructions = "Connect to the lab terminal on the left and locate the hidden flag."
+	}
+
+	objectives := []string{}
+	if taskPrompt != "" {
+		objectives = append(objectives, taskPrompt)
+	} else {
+		objectives = append(objectives, "Exploit the target vulnerability and obtain the flag.")
+	}
+
+	hints := parseJSONStringArray(hintsRaw)
+
 	lab := gin.H{
 		"id":                id,
 		"title":             name,
-		"description":       sourceRef,
+		"description":       desc,
 		"difficulty":        "Easy",
 		"category":          "Red Team",
 		"estimatedDuration": 60,
-		"objectives":        []string{},
-		"tools":             []string{},
-		"tags":              []string{},
+		"objectives":        objectives,
+		"instructions":      instructions,
+		"hints":             hints,
+		"tools":             []string{"nmap", "curl", "sqlmap"},
+		"tags":              []string{"web", "security"},
 		"isActive":          active,
 		"isPublished":       true,
 		"dockerImage":       image,
@@ -1502,13 +1541,18 @@ func (a *API) StartLab(c *gin.Context) {
 		return
 	}
 
+	var roomID, taskID sql.NullInt64
+	_ = a.DB.QueryRow(c.Request.Context(), `
+		SELECT room_id, id FROM tasks WHERE asset_id=$1 LIMIT 1
+	`, body.LabID).Scan(&roomID, &taskID)
+
 	var sessionID int64
 	now := time.Now()
 	err = a.DB.QueryRow(c.Request.Context(), `
-		INSERT INTO lab_sessions (user_id, status, created_at, updated_at, docker_image)
-		VALUES ($1, 'initializing', $2, $2, $3)
+		INSERT INTO lab_sessions (user_id, status, created_at, updated_at, docker_image, room_id, task_id)
+		VALUES ($1, 'initializing', $2, $2, $3, $4, $5)
 		RETURNING id
-	`, u.ID, now, image).Scan(&sessionID)
+	`, u.ID, now, image, roomID, taskID).Scan(&sessionID)
 	if err != nil {
 		writeErr(c, http.StatusInternalServerError, "Failed to create session")
 		return
@@ -1580,12 +1624,12 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 		"message": "Lab environment is now active!",
 		"data": gin.H{
 			"session": gin.H{
-				"id":              sessionID,
-				"status":          "RUNNING",
-				"publicIp":        containerIP,
-				"startedAt":       now,
-				"expiresAt":       expiresAt,
-				"containerId":     containerID,
+				"id":          sessionID,
+				"status":      "RUNNING",
+				"publicIp":    containerIP,
+				"startedAt":   now,
+				"expiresAt":   expiresAt,
+				"containerId": containerID,
 			},
 		},
 	})
@@ -1645,11 +1689,11 @@ func (a *API) GetActiveSession(c *gin.Context) {
 	}
 
 	var (
-		id int64
-		status string
-		roomID, taskID *int64
+		id                             int64
+		status                         string
+		roomID, taskID                 *int64
 		targetContainerID, networkName string
-		startedAt, expiresAt *time.Time
+		startedAt, expiresAt           *time.Time
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
 		SELECT id, status, room_id, task_id, COALESCE(target_container_id,''), COALESCE(network_name,''), started_at, expires_at
@@ -1687,7 +1731,7 @@ func (a *API) GetLegacySessionStatus(c *gin.Context) {
 	}
 	var (
 		id, userID int64
-		status string
+		status     string
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `SELECT id, user_id, status FROM lab_sessions WHERE id=$1`, sessionID).Scan(&id, &userID, &status)
 	if err != nil {
@@ -1709,7 +1753,7 @@ func (a *API) GetActiveLabSession(c *gin.Context) {
 	}
 
 	var (
-		session LabSessionView
+		session           LabSessionView
 		connectionInfoRaw []byte
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
@@ -1769,8 +1813,8 @@ func (a *API) TerminateLabSession(c *gin.Context) {
 	}
 
 	var (
-		userID int64
-		status string
+		userID      int64
+		status      string
 		containerID string
 		networkName string
 	)
@@ -1867,4 +1911,3 @@ func (a *API) GetLabSessions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"sessions": sessions}})
 }
-

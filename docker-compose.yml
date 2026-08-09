@@ -9,7 +9,7 @@ services:
     container_name: xv-postgres
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -38,11 +38,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── MongoDB (for Express branch compatibility) ───────────────────
+  # mongodb:
+  #   image: mongo:6
+  #   container_name: xv-mongodb
+  #   restart: unless-stopped
+  #   ports:
+  #     - '27017:27017'
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
+  # mongodb_data:
+  #   driver: local
 
 # ── Lab Network (created separately by DockerService) ────────────
 # The xploitverse-labs network (172.30.0.0/16) is created by the

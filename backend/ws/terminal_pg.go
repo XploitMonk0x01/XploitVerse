@@ -16,6 +16,18 @@ import (
 	"github.com/xploitverse/backend/internal/utils"
 )
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+func sendError(conn *websocket.Conn, msg string) {
+	_ = conn.WriteMessage(websocket.TextMessage, []byte("\r\n\033[31mError: "+msg+"\033[0m\r\n"))
+}
+
 // TerminalHandlerPG bridges browser WebSocket terminal traffic to a running
 // Docker container for PostgreSQL-backed lab sessions.
 func TerminalHandlerPG(db *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {

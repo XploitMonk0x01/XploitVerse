@@ -110,11 +110,15 @@ func (d *DockerService) SpawnContainerOnNetwork(
 		return mockID, mockIP, nil
 	}
 
-	// Pull the image quietly (--quiet suppresses progress bars)
-	pullArgs := []string{"pull", "--quiet", labImage}
-	pullCmd := exec.CommandContext(ctx, "docker", pullArgs...)
-	if out, pullErr := pullCmd.CombinedOutput(); pullErr != nil {
-		return "", "", fmt.Errorf("docker pull %s: %w\n%s", labImage, pullErr, out)
+	// Check if the image exists locally before pulling
+	inspectCmd := exec.CommandContext(ctx, "docker", "image", "inspect", labImage)
+	if err := inspectCmd.Run(); err != nil {
+		// Pull the image quietly (--quiet suppresses progress bars)
+		pullArgs := []string{"pull", "--quiet", labImage}
+		pullCmd := exec.CommandContext(ctx, "docker", pullArgs...)
+		if out, pullErr := pullCmd.CombinedOutput(); pullErr != nil {
+			return "", "", fmt.Errorf("docker pull %s: %w\n%s", labImage, pullErr, out)
+		}
 	}
 
 	// Determine which network to use.
@@ -144,7 +148,9 @@ func (d *DockerService) SpawnContainerOnNetwork(
 		"--cap-add", "SETGID",
 		"--cap-add", "DAC_OVERRIDE",
 		"--cap-add", "NET_BIND_SERVICE",
-		"--security-opt", "no-new-privileges",
+		"--cap-add", "AUDIT_WRITE",
+		"--cap-add", "SYS_CHROOT",
+		"--security-opt", "no-new-privileges=false",
 		"--read-only=false",
 		// ── Networking ──
 		"--network", network,

@@ -13,6 +13,7 @@ import {
     ExternalLink,
     Server,
     Loader2,
+    PowerOff,
 } from "lucide-react";
 import TerminalWindow from "../components/workspace/TerminalWindow";
 import api from "../services/api";
@@ -27,6 +28,7 @@ const LabWorkspace = () => {
     const [connected, setConnected] = useState(false);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [terminating, setTerminating] = useState(false);
     const [activeTab, setActiveTab] = useState("terminal");
     const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -226,6 +228,21 @@ const LabWorkspace = () => {
         return colors[difficulty?.toLowerCase()] || "text-muted";
     };
 
+    const handleTerminate = async () => {
+        if (!window.confirm("Are you sure you want to terminate this lab session? All progress will be lost.")) {
+            return;
+        }
+        setTerminating(true);
+        try {
+            await api.post(`/lab-sessions/${effectiveSessionId}/terminate`);
+            navigate("/dashboard");
+        } catch (err) {
+            console.error("Failed to terminate lab:", err);
+            alert("Failed to terminate lab. Please try again.");
+            setTerminating(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-paper flex items-center justify-center p-4" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
@@ -325,6 +342,16 @@ const LabWorkspace = () => {
                                 <span>{session.publicIp}</span>
                             </div>
                         )}
+
+                        {/* Terminate Button */}
+                        <button
+                            onClick={handleTerminate}
+                            disabled={terminating}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error font-mono text-xs font-bold tracking-widest uppercase transition-colors"
+                        >
+                            {terminating ? <Loader2 className="w-3 h-3 animate-spin" /> : <PowerOff className="w-3 h-3" />}
+                            <span className="hidden sm:inline">{terminating ? "TERMINATING..." : "TERMINATE"}</span>
+                        </button>
                     </div>
                 </div>
             </header>

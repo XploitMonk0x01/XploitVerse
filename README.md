@@ -101,7 +101,7 @@ Set these at minimum in backend/.env for local development:
 - NODE_ENV
 - POSTGRES_URI
 - REDIS_URL
-- JWT_SECRET
+- JWT_SECRET        # REQUIRED - Generate with: openssl rand -base64 32
 - CLIENT_URL
 
 AI-related environment variables are no longer required.

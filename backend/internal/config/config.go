@@ -61,13 +61,13 @@ func Load() *Config {
 	// Try to load .env file (ignore error if file doesn't exist)
 	_ = godotenv.Load()
 
-	return &Config{
+	cfg := &Config{
 		Port:        getEnv("PORT", "5000"),
 		NodeEnv:     getEnv("NODE_ENV", "development"),
 		PostgresURI: getEnv("POSTGRES_URI", "postgres://postgres:postgres@localhost:5432/xploitverse?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", ""),
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", "default-secret-change-me"),
+			Secret:          getEnv("JWT_SECRET", ""),
 			ExpiresIn:       getEnv("JWT_EXPIRES_IN", "7d"),
 			CookieExpiresIn: getEnvInt("JWT_COOKIE_EXPIRES_IN", 7),
 		},
@@ -91,6 +91,15 @@ func Load() *Config {
 			FromName: getEnv("SMTP_FROM_NAME", "XploitVerse"),
 		},
 	}
+
+	if cfg.JWT.Secret == "" || cfg.JWT.Secret == "default-secret-change-me" {
+		log.Fatal("JWT_SECRET must be set to a secure value (generate with: openssl rand -base64 32)")
+	}
+	if cfg.PostgresURI == "" {
+		log.Fatal("POSTGRES_URI must be set")
+	}
+
+	return cfg
 }
 
 func getEnv(key, fallback string) string {

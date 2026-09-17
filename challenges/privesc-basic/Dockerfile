@@ -14,7 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     python3 \
     cron \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # Create the lab user (students login as this user)
 RUN useradd -m -s /bin/bash hacker && echo "hacker:hacker123" | chpasswd
@@ -57,8 +61,6 @@ RUN echo "Welcome to the Privilege Escalation challenge!" > /home/hacker/README.
     echo "  - Look for writable cron jobs" >> /home/hacker/README.txt && \
     chown hacker:hacker /home/hacker/README.txt
 
-# Start as the hacker user for terminal sessions
-USER hacker
-WORKDIR /home/hacker
+EXPOSE 22
 
-CMD ["sleep", "infinity"]
+CMD ["sh", "-c", "service ssh start 2>/dev/null || /usr/sbin/sshd; sleep infinity"]

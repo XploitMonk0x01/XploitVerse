@@ -4,8 +4,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 openssl xxd bsdmainutils \
-    nano less curl file \
+    nano less curl file openssh-server \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 RUN useradd -m -s /bin/bash hacker && echo "hacker:hacker123" | chpasswd
 
@@ -48,6 +51,6 @@ RUN echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4iLCJmbGFnIjoiR
 
 RUN chown -R hacker:hacker /home/hacker/challenges
 
-USER hacker
-WORKDIR /home/hacker
-CMD ["sleep", "infinity"]
+EXPOSE 22
+
+CMD ["sh", "-c", "service ssh start 2>/dev/null || /usr/sbin/sshd; sleep infinity"]

@@ -63,6 +63,7 @@ RUN echo "FLAG{xv_privesc_suid_escalation}" > /root/proof.txt && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 22
 USER hacker
 WORKDIR /home/hacker
 ENTRYPOINT ["/entrypoint.sh"]

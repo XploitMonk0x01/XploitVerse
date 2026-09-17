@@ -53,6 +53,8 @@ coverage/
 *.key
 .cache/
 .agents/
+__pycache__/
+*.pyc
 .terraform/
 *.tfstate
 *.tfstate.*

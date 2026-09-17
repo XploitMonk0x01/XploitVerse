@@ -87,10 +87,11 @@ services:
       GIN_MODE: release
       POSTGRES_URI: postgres://postgres:postgres@postgres:5432/xploitverse?sslmode=disable
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: xploitverse-super-secret-jwt-key-change-in-production
       CLIENT_URL: http://localhost:5173
     volumes:
       # Allows backend container to orchestrate challenge containers
-      - /var/run/docker.sock:/var/run/docker.sock
+      - //var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy

@@ -36,11 +36,13 @@ const LabWorkspace = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [terminating, setTerminating] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
   const [activeTab, setActiveTab] = useState("terminal");
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const terminalWsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const provisioningRef = useRef(false);
 
   const getEntityId = (entity: { id?: number } | number | null | undefined) => {
     if (typeof entity === 'number') return entity;
@@ -115,6 +117,54 @@ const LabWorkspace = () => {
       void fetchSessionData();
     }
   }, [sessionId, navigate]);
+
+  // If the session never finished provisioning (docker build + spawn),
+  // drive it here so the workspace never sits on a dead initializing row.
+  useEffect(() => {
+    const status = String(session?.status || "").toLowerCase();
+    const id = Number(session?.id ?? sessionId);
+    if (!id || Number.isNaN(id)) return;
+    if (status !== "initializing" && status !== "pending") return;
+    if (provisioningRef.current) return;
+    provisioningRef.current = true;
+
+    const provision = async () => {
+      setProvisioning(true);
+      setLogs((prev) => [...prev, { type: "system", message: "── Provisioning target: docker build + spawn ──" }]);
+      try {
+        await labService.completeProvisioning(id);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "";
+        if (!/not in initializing state/i.test(msg)) {
+          setError(msg || "Provisioning failed. The container image could not be built.");
+          setProvisioning(false);
+          return;
+        }
+      }
+      for (let attempt = 0; attempt < 50; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        try {
+          const detail = await labSessionService.getById(id);
+          const next = String(detail.session?.status || "").toLowerCase();
+          if (next === "running") {
+            setSession(detail.session);
+            setLogs((prev) => [...prev, { type: "system", message: "── Target online ──" }]);
+            break;
+          }
+          if (next === "error" || next === "stopped" || next === "terminated") {
+            setSession(detail.session);
+            setError("Lab failed to start. Terminate this session and try again.");
+            break;
+          }
+        } catch {
+          // Keep polling through transient read failures.
+        }
+      }
+      setProvisioning(false);
+    };
+
+    void provision();
+  }, [session?.status, session?.id, sessionId]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -406,7 +456,14 @@ const LabWorkspace = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {provisioning && (
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-warning/10 border-b border-warning/40 font-mono text-xs text-warning font-bold uppercase tracking-widest" role="status">
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            <span>Provisioning target — building image and spawning container. This can take a few minutes.</span>
+          </div>
+        )}
+        <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Terminal (Desktop: always visible, Mobile: conditional) */}
         <div className={`${activeTab === "terminal" ? "block" : "hidden"
           } lg:block lg:w-1/2 xl:w-3/5 h-full p-0 sm:p-4 bg-paper`}>
@@ -504,6 +561,7 @@ const LabWorkspace = () => {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>

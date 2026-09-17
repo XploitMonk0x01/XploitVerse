@@ -18,7 +18,8 @@ var _ *services.DockerService
 func (a *API) GetAllLabs(c *gin.Context) {
 	rows, err := a.DB.Query(c.Request.Context(), `
 		SELECT a.id, a.name, COALESCE(a.source_ref,''), COALESCE(a.docker_image,''), a.is_active,
-			COALESCE(r.difficulty, 'Easy') AS difficulty
+			COALESCE(r.difficulty, 'Easy') AS difficulty,
+			COALESCE(a.build_context_path, '') AS build_context_path
 		FROM assets a
 		LEFT JOIN (
 			SELECT DISTINCT ON (asset_id) asset_id, room_id FROM tasks WHERE asset_id IS NOT NULL
@@ -38,7 +39,8 @@ func (a *API) GetAllLabs(c *gin.Context) {
 		var id int64
 		var name, sourceRef, image, difficulty string
 		var active bool
-		if err := rows.Scan(&id, &name, &sourceRef, &image, &active, &difficulty); err != nil {
+		var buildCtx sql.NullString
+		if err := rows.Scan(&id, &name, &sourceRef, &image, &active, &difficulty, &buildCtx); err != nil {
 			writeErr(c, http.StatusInternalServerError, "Failed to decode labs")
 			return
 		}
@@ -52,6 +54,7 @@ func (a *API) GetAllLabs(c *gin.Context) {
 			"isActive":          active,
 			"isPublished":       true,
 			"dockerImage":       image,
+			"buildContextPath":  buildCtx.String,
 		})
 	}
 
@@ -210,10 +213,15 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 
 	var userID int64
 	var status, image string
+	var taskID sql.NullInt64
+	var buildContextPath sql.NullString
 	err := a.DB.QueryRow(c.Request.Context(), `
-		SELECT user_id, status, COALESCE(docker_image,'ubuntu:latest')
-		FROM lab_sessions WHERE id=$1
-	`, sessionID).Scan(&userID, &status, &image)
+		SELECT ls.user_id, ls.status, COALESCE(ls.docker_image,'ubuntu:latest'), ls.task_id, a.build_context_path
+		FROM lab_sessions ls
+		LEFT JOIN tasks t ON t.id = ls.task_id
+		LEFT JOIN assets a ON a.id = t.asset_id
+		WHERE ls.id=$1
+	`, sessionID).Scan(&userID, &status, &image, &taskID, &buildContextPath)
 	if err != nil {
 		writeErr(c, http.StatusNotFound, "Session not found")
 		return
@@ -225,6 +233,14 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 	if status != "initializing" {
 		writeErr(c, http.StatusBadRequest, "Session is not in initializing state")
 		return
+	}
+
+	if buildContextPath.Valid && buildContextPath.String != "" {
+		if buildErr := a.DockerSvc.BuildImage(c.Request.Context(), buildContextPath.String, image); buildErr != nil {
+			_, _ = a.DB.Exec(c.Request.Context(), `UPDATE lab_sessions SET status='error', updated_at=$1 WHERE id=$2`, time.Now(), sessionID)
+			writeErr(c, http.StatusInternalServerError, "Failed to build lab image")
+			return
+		}
 	}
 
 	networkName := fmt.Sprintf("xv-room-%d", sessionID)

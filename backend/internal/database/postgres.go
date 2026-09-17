@@ -72,12 +72,13 @@ func RunPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_uniq ON users (LOWER(email))`,
 		`CREATE INDEX IF NOT EXISTS users_password_reset_token_idx ON users (password_reset_token)`,
 
-		`CREATE TABLE IF NOT EXISTS assets (
+`CREATE TABLE IF NOT EXISTS assets (
 			id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 			name TEXT NOT NULL,
 			source_type TEXT NOT NULL DEFAULT 'custom',
 			source_ref TEXT,
 			docker_image TEXT NOT NULL,
+			build_context_path TEXT,
 			exposed_ports_json JSONB NOT NULL DEFAULT '[]'::jsonb,
 			env_json JSONB NOT NULL DEFAULT '{}'::jsonb,
 			type TEXT NOT NULL DEFAULT 'target' CHECK (type IN ('target','attack')),
@@ -87,6 +88,7 @@ func RunPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			CHECK (jsonb_typeof(exposed_ports_json) = 'array'),
 			CHECK (jsonb_typeof(env_json) = 'object')
 		)`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS build_context_path TEXT`,
 
 		`CREATE TABLE IF NOT EXISTS rooms (
 			id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -215,10 +217,10 @@ func SeedPostgresBaseline(ctx context.Context, pool *pgxpool.Pool) error {
 
 	var assetID int64
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO assets (name, source_type, source_ref, docker_image, exposed_ports_json, env_json, type, is_active)
-		VALUES ($1, $2, $3, $4, '["80/tcp"]'::jsonb, '{}'::jsonb, $5, true)
+		INSERT INTO assets (name, source_type, source_ref, docker_image, build_context_path, exposed_ports_json, env_json, type, is_active)
+		VALUES ($1, $2, $3, $4, $5, '["80/tcp"]'::jsonb, '{}'::jsonb, $6, true)
 		RETURNING id
-	`, "Basic SQLi Web Lab", "custom", "seeded baseline", "xploitverse/web-basic:latest", "target").Scan(&assetID); err != nil {
+	`, "Basic SQLi Web Lab", "custom", "seeded baseline", "xploitverse/web-basic:latest", "challenges/web-basic", "target").Scan(&assetID); err != nil {
 		return fmt.Errorf("failed to seed asset: %w", err)
 	}
 

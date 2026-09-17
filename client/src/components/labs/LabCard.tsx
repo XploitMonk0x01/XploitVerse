@@ -20,6 +20,8 @@ export const LabCard = ({ lab, onStartLab, isStarting, disabled }: LabCardProps)
   const labIdRaw = lab?.id;
   const labId = labIdRaw !== null && labIdRaw !== undefined ? String(labIdRaw) : "";
 
+  const targetCode = `L-${labId ? labId.padStart(3, '0') : '001'}`;
+
   const getDifficultyVariant = (diff: string): 'cyan' | 'warning' | 'error' | 'muted' => {
     switch (diff?.toLowerCase()) {
       case 'easy':
@@ -36,8 +38,6 @@ export const LabCard = ({ lab, onStartLab, isStarting, disabled }: LabCardProps)
         return 'muted';
     }
   };
-
-  const targetCode = `L-${labId ? labId.padStart(3, '0') : '001'}`;
 
   return (
     <SpotlightCard
@@ -89,6 +89,13 @@ export const LabCard = ({ lab, onStartLab, isStarting, disabled }: LabCardProps)
             <Cpu className="w-2.5 h-2.5 shrink-0" />
             <span className="truncate">{lab.dockerImage.split(':')[0]}</span>
           </span>
+        )}
+        {lab.buildContextPath && (
+          <TacticalBadge
+            label="Buildable"
+            variant="accent"
+            size="sm"
+          />
         )}
       </div>
 

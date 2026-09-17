@@ -41,6 +41,7 @@ export interface Lab {
   sourceRef: string;
   exposedPorts: string[];
   env: Record<string, unknown>;
+  buildContextPath?: string;
   resources?: Array<{
     title: string;
     url: string;

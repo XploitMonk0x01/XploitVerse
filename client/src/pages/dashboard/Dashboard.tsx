@@ -48,6 +48,16 @@ const getEntityId = (obj: { id?: number; _id?: number } | null | undefined): str
   return toIdString(obj.id ?? obj._id ?? "");
 };
 
+const getServerMessage = (err: unknown, fallback: string): string => {
+  if (err && typeof err === 'object' && 'response' in err) {
+    const data = (err as { response?: { data?: { message?: string } } }).response?.data;
+    if (data?.message) return data.message;
+  }
+  return err instanceof Error ? err.message : fallback;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getSessionLabRef = (session: LabSession | null): string => {
   if (!session) return "";
   if (session.lab != null) {
@@ -65,6 +75,9 @@ export const Dashboard = () => {
   const [activeLab, setActiveLab] = useState<Lab | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startingLabId, setStartingLabId] = useState<number | string | null>(null);
+  const [staleSessionId, setStaleSessionId] = useState<number | null>(null);
+  const [pendingLabId, setPendingLabId] = useState<number | string | null>(null);
+  const [terminatingStale, setTerminatingStale] = useState(false);
 
   // Session history
   const [sessionHistory, setSessionHistory] = useState<LabSessionsListResponse['sessions']>([]);
@@ -186,6 +199,97 @@ export const Dashboard = () => {
     return () => clearInterval(pollInterval);
   }, [checkActiveSession]);
 
+  // Poll a session until it reaches a terminal provisioning state.
+  // Returns true when the container is running.
+  const waitForRunning = async (sessionIdNum: number): Promise<boolean> => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      await sleep(3000);
+      try {
+        const detail = await labSessionService.getById(sessionIdNum);
+        const status = String(detail.session?.status || "").toLowerCase();
+        if (status === "running") return true;
+        if (status === "error" || status === "stopped" || status === "terminated") return false;
+      } catch {
+        // Keep polling through transient read failures.
+      }
+    }
+    return false;
+  };
+
+  // Drive an initializing session through docker build + spawn, then open it.
+  const provisionAndOpen = async (sessionIdNum: number) => {
+    setDashboardState(DASHBOARD_STATE.PROVISIONING);
+    try {
+      await labService.completeProvisioning(sessionIdNum);
+    } catch (provisionErr: unknown) {
+      // Provisioning is idempotent on the server for non-initializing states;
+      // fall through to polling so a completed-but-unread spawn still resolves.
+      const msg = getServerMessage(provisionErr, "");
+      if (!/not in initializing state/i.test(msg)) {
+        throw provisionErr;
+      }
+    }
+    const running = await waitForRunning(sessionIdNum);
+    if (!running) {
+      throw new Error("Lab failed to start. Check the session log and try again.");
+    }
+    const detail = await labSessionService.getById(sessionIdNum);
+    setActiveSession(detail.session);
+    setDashboardState(DASHBOARD_STATE.RUNNING);
+    navigate(`/workspace/${sessionIdNum}`);
+  };
+
+  // A previous attempt left an initializing/running row behind: resume it
+  // instead of failing with "already have an active lab session".
+  // Returns the blocker session id when one exists but could not be resumed.
+  const resumeActiveSession = async (): Promise<number | null> => {
+    const isResumableStatus = (s: string) => {
+      const st = s.toLowerCase();
+      return st === "running" || st === "initializing" || st === "pending";
+    };
+    try {
+      const response = await labService.getActiveSession();
+      const active = response?.session;
+      if (active?.id && isResumableStatus(String(active.status || ""))) {
+        const status = String(active.status).toLowerCase();
+        if (status === "running") {
+          navigate(`/workspace/${active.id}`);
+        } else {
+          await provisionAndOpen(active.id);
+        }
+        return null;
+      }
+    } catch {
+      // Fall through to the session-list fallback below.
+    }
+    try {
+      const list = await labSessionService.getAll();
+      const blocker = (list.sessions || []).find((s) =>
+        isResumableStatus(String(s.status || "")),
+      );
+      return blocker ? Number(blocker.id) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleTerminateStaleAndRetry = async (labId: number | string | null | undefined) => {
+    if (staleSessionId == null) return;
+    try {
+      setTerminatingStale(true);
+      setError(null);
+      await labSessionService.terminate(staleSessionId);
+      setStaleSessionId(null);
+      await fetchSessionHistory();
+      await handleStartLab(labId);
+    } catch (err: unknown) {
+      setError(getServerMessage(err, "Failed to terminate the stale session."));
+      setDashboardState(DASHBOARD_STATE.ERROR);
+    } finally {
+      setTerminatingStale(false);
+    }
+  };
+
   const handleStartLab = async (labId: number | string | null | undefined) => {
     if (labId == null) return;
     const labIdNum = typeof labId === "string" ? parseInt(labId, 10) : labId;
@@ -193,8 +297,10 @@ export const Dashboard = () => {
 
     try {
       setStartingLabId(labId);
+      setPendingLabId(labId);
       setDashboardState(DASHBOARD_STATE.STARTING_LAB);
       setError(null);
+      setStaleSessionId(null);
 
       const targetLab = labs.find((l) => sameId(getEntityId(l), labId));
       if (targetLab) setActiveLab(targetLab);
@@ -202,26 +308,24 @@ export const Dashboard = () => {
       const response = await labService.startLab(labIdNum);
       const newSession = response.session;
 
-      if (newSession) {
-        // Convert LabStartResponse session to LabSession
-        const labSession: LabSession = {
-          id: newSession.id,
-          userId: 0,
-          lab: newSession.lab,
-          status: newSession.status.toLowerCase() as LabSession['status'],
-          startedAt: new Date().toISOString(),
-          connectionInfo: {},
-        };
-        setActiveSession(labSession);
-        setDashboardState(DASHBOARD_STATE.RUNNING);
-        const targetSessionId = getEntityId(labSession);
-        if (targetSessionId) {
-          navigate(`/workspace/${targetSessionId}`);
-        }
+      if (newSession?.id) {
+        await provisionAndOpen(newSession.id);
       }
     } catch (err: unknown) {
-      console.error("Failed to launch lab:", err);
-      setError(err instanceof Error ? err.message : "Failed to initialize lab container.");
+      const message = getServerMessage(err, "Failed to initialize lab container.");
+      if (/already have an active lab session/i.test(message)) {
+        const blockerId = await resumeActiveSession();
+        if (blockerId == null) {
+          setStaleSessionId(null);
+          setStartingLabId(null);
+          return;
+        }
+        setStaleSessionId(blockerId);
+        setError(`Session #${blockerId} is still active and could not be resumed. Terminate it to free the slot, then retry.`);
+      } else {
+        console.error("Failed to launch lab:", err);
+        setError(message);
+      }
       setDashboardState(DASHBOARD_STATE.ERROR);
     } finally {
       setStartingLabId(null);
@@ -299,6 +403,18 @@ export const Dashboard = () => {
       {error && (
         <FadeIn className="mb-6">
           <ErrorState error={error} onRetry={() => setError(null)} />
+          {staleSessionId != null && (
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={terminatingStale}
+                onClick={() => void handleTerminateStaleAndRetry(pendingLabId)}
+              >
+                {terminatingStale ? "Terminating..." : `Terminate session #${staleSessionId} and retry`}
+              </Button>
+            </div>
+          )}
         </FadeIn>
       )}
 

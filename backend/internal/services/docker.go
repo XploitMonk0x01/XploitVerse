@@ -80,6 +80,31 @@ func (d *DockerService) ensureNetwork(ctx context.Context) error {
 	return nil
 }
 
+// BuildImage runs docker build in the given context path, tagging the result
+// as imageName. Returns an error if the build fails. In mock mode it logs and
+// returns nil.
+func (d *DockerService) BuildImage(ctx context.Context, contextPath string, imageName string) error {
+	if !d.available {
+		log.Printf("🔧 [Docker Mock] build context=%s tag=%s", contextPath, imageName)
+		return nil
+	}
+
+	buildArgs := []string{
+		"build",
+		"-t", imageName,
+		contextPath,
+	}
+	var stdout, stderr bytes.Buffer
+	buildCmd := exec.CommandContext(ctx, "docker", buildArgs...)
+	buildCmd.Stdout = &stdout
+	buildCmd.Stderr = &stderr
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("docker build %s: %w\n%s", contextPath, err, stderr.String())
+	}
+	log.Printf("🐳 Image built: tag=%s context=%s", imageName, contextPath)
+	return nil
+}
+
 // SpawnContainer pulls (if necessary) and starts a hardened lab container via
 // the docker CLI. Returns the container ID and its lab-network IP.
 // In mock mode it returns fake values so callers continue to work.

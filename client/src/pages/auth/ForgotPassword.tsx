@@ -100,7 +100,7 @@ const ForgotPassword = () => {
               )}
 
               <Input
-                label="Registered Identity (Email)"
+                label="Email"
                 type="email"
                 name="email"
                 placeholder="operative@xploitverse.io"

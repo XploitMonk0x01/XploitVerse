@@ -61,24 +61,13 @@ const Landing = () => {
       {/* ── HERO ── */}
       <section className="min-h-[100dvh] flex items-center pt-[60px] px-4 relative overflow-hidden">
         {/* Large background number */}
-        <div
-          className="absolute right-0 top-1/2 -translate-y-1/2 font-display font-black text-[clamp(12rem,28vw,26rem)] leading-none text-border/20 select-none pointer-events-none"
-          aria-hidden="true"
-        >
-          XV
-        </div>
 
         <div className="max-w-7xl mx-auto w-full">
           <div className="grid lg:grid-cols-[1fr_420px] gap-10 xl:gap-16 items-center">
 
             {/* Left: Copy */}
             <FadeIn direction="up" distance={20}>
-              <div className="flex items-center gap-3 mb-8">
-                <span className="beacon-online" />
-                <span className="text-[11px] text-success font-bold tracking-[0.18em] uppercase">
-                  Node Active — AWS Isolated
-                </span>
-              </div>
+
 
               <h1 className="font-display font-black uppercase leading-[0.92] tracking-[-0.03em] mb-8">
                 <span className="block text-[clamp(3.5rem,9vw,8rem)] text-ink">Hack</span>

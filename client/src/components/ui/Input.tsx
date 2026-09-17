@@ -1,155 +1,98 @@
+import React, { forwardRef, type InputHTMLAttributes } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
-interface InputProps {
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   hint?: string;
   error?: string;
   required?: boolean;
-  icon?: LucideIcon;
+  icon?: LucideIcon | React.ComponentType<{ className?: string }>;
   iconRight?: React.ReactNode;
-  type?: string;
-  id?: string;
-  className?: string;
-  [key: string]: unknown;
 }
 
-const styles = `
-  .field { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; }
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      label,
+      hint,
+      error,
+      required,
+      icon: Icon,
+      iconRight,
+      className = '',
+      id,
+      ...props
+    },
+    ref
+  ) => {
+    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
-  .field-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 700;
-    color: var(--color-ink);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .field-label.required::after {
-    content: ' *';
-    color: var(--color-accent);
-  }
-
-  .field-input {
-    width: 100%;
-    padding: 0.75rem var(--space-4);
-    font-family: var(--font-mono);
-    font-size: var(--text-base);
-    color: var(--color-ink);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 0;
-    outline: none;
-    transition: all var(--ease-out);
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  
-  .field-input::placeholder { 
-    color: var(--color-muted); 
-    font-size: var(--text-sm);
-    letter-spacing: 0;
-  }
-  
-  .field-input:hover:not(:disabled) { 
-    border-color: var(--color-muted); 
-  }
-  
-  .field-input:focus { 
-    border-color: var(--color-border-focus); 
-    background: var(--color-paper);
-    box-shadow: 2px 2px 0px rgba(240, 236, 230, 0.1);
-  }
-  
-  .field-input.error { 
-    border-color: var(--color-error); 
-    color: var(--color-error);
-  }
-  .field-input.error:focus {
-    box-shadow: 2px 2px 0px rgba(255, 42, 42, 0.2);
-  }
-  
-  .field-input:disabled { 
-    background: var(--color-subtle); 
-    color: var(--color-muted); 
-    cursor: not-allowed; 
-    border-style: dashed;
-  }
-
-  textarea.field-input { 
-    resize: vertical; 
-    min-height: 120px; 
-    line-height: var(--leading-base); 
-  }
-
-  .field-hint { 
-    font-size: var(--text-xs); 
-    color: var(--color-muted); 
-    font-family: var(--font-mono); 
-  }
-  
-  .field-error { 
-    font-size: var(--text-xs); 
-    color: var(--color-error); 
-    font-family: var(--font-mono); 
-    font-weight: 700;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .field-error::before {
-    content: '>>';
-    letter-spacing: -2px;
-  }
-
-  .input-wrap { position: relative; }
-  .input-icon-left { position: absolute; left: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
-  .input-icon-right { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--color-muted); }
-  .has-icon-left .field-input { padding-left: 2.5rem; }
-  .has-icon-right .field-input { padding-right: 2.5rem; }
-`;
-
-export function Input({
-  label,
-  hint,
-  error,
-  required,
-  icon: Icon,
-  iconRight,
-  type = 'text',
-  id,
-  className,
-  ...props
-}: InputProps) {
-  const fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : Math.random().toString());
-
-  return (
-    <>
-      <style>{styles}</style>
-      <div className={`field ${className || ''}`}>
+    return (
+      <div className="flex flex-col gap-1.5 w-full font-mono group">
         {label && (
-          <label htmlFor={fieldId} className={`field-label${required ? ' required' : ''}`}>
-            {label}
+          <label
+            htmlFor={inputId}
+            className={cn(
+              'text-xs font-bold uppercase tracking-wider text-muted flex items-center justify-between',
+              required && 'required'
+            )}
+          >
+            <span>
+              <span className="text-accent mr-1.5">#</span>
+              {label}
+              {required && <span className="text-accent ml-1">*</span>}
+            </span>
           </label>
         )}
-        <div className={`input-wrap${Icon ? ' has-icon-left' : ''}${iconRight ? ' has-icon-right' : ''}`}>
-          {Icon && <span className="input-icon-left"><Icon size={18} /></span>}
+
+        <div className="relative flex items-center w-full">
+          {Icon && (
+            <div className="absolute left-3 text-muted pointer-events-none z-10">
+              <Icon className="w-4 h-4" />
+            </div>
+          )}
+
           <input
-            id={fieldId}
-            type={type}
-            className={`field-input${error ? ' error' : ''}`}
-            aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
-            aria-invalid={!!error}
-            required={required}
+            ref={ref}
+            id={inputId}
+            aria-invalid={Boolean(error)}
+            className={cn(
+              'w-full bg-surface border text-ink placeholder:text-dim text-sm px-3.5 py-2.5 outline-none transition-all font-mono rounded-none',
+              Icon ? 'pl-9' : '',
+              iconRight ? 'pr-9' : '',
+              error
+                ? 'error border-error text-error focus:border-error focus:ring-1 focus:ring-error/40'
+                : 'border-border hover:border-muted focus:border-cyan focus:bg-paper',
+              'disabled:bg-subtle disabled:text-dim disabled:border-dashed disabled:cursor-not-allowed',
+              className
+            )}
             {...props}
           />
-          {iconRight && <span className="input-icon-right">{iconRight}</span>}
+
+          {iconRight && (
+            <div className="absolute right-3 text-muted flex items-center">
+              {iconRight}
+            </div>
+          )}
         </div>
-        {hint && !error && <span id={`${fieldId}-hint`} className="field-hint">{hint}</span>}
-        {error && <span id={`${fieldId}-error`} className="field-error" role="alert">{error}</span>}
+
+        {error && (
+          <p role="alert" className="text-[11px] font-bold text-error uppercase tracking-wider flex items-center gap-1 mt-0.5">
+            <span>[ERR]:</span> {error}
+          </p>
+        )}
+
+        {!error && hint && (
+          <p className="text-[11px] text-dim font-mono tracking-wide mt-0.5">
+            // {hint}
+          </p>
+        )}
       </div>
-    </>
-  );
-}
+    );
+  }
+);
+
+Input.displayName = 'Input';
 
 export default Input;

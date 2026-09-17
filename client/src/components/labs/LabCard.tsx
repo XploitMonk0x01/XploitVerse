@@ -1,13 +1,13 @@
 import {
   Clock,
-  Shield,
-  Target,
   Play,
   Loader2,
   Terminal,
-  Zap,
+  Cpu,
 } from "lucide-react";
 import type { Lab } from '../../types';
+import { SpotlightCard } from '../ui/motion/SpotlightCard';
+import { TacticalBadge } from '../ui/motion/TacticalBadge';
 
 interface LabCardProps {
   lab: Lab;
@@ -16,117 +16,120 @@ interface LabCardProps {
   disabled?: boolean;
 }
 
-interface DifficultyConfig {
-  color: string;
-  icon: typeof Zap;
-}
-
-const difficultyConfig: Record<string, DifficultyConfig> = {
-  Easy: {
-    color: "text-info border-info",
-    icon: Zap,
-  },
-  Medium: {
-    color: "text-accent border-accent",
-    icon: Shield,
-  },
-  Hard: {
-    color: "text-error border-error",
-    icon: Target,
-  },
-};
-
-const categoryConfig: Record<string, DifficultyConfig> = {
-  "Red Team": {
-    color: "text-error border-error",
-    icon: Target,
-  },
-  "Blue Team": {
-    color: "text-info border-info",
-    icon: Shield,
-  },
-  Mixed: {
-    color: "text-muted border-muted",
-    icon: Terminal,
-  },
-};
-
-const LabCard = ({ lab, onStartLab, isStarting, disabled }: LabCardProps) => {
+export const LabCard = ({ lab, onStartLab, isStarting, disabled }: LabCardProps) => {
   const labIdRaw = lab?.id;
   const labId = labIdRaw !== null && labIdRaw !== undefined ? String(labIdRaw) : "";
-  const difficulty = difficultyConfig[lab.difficulty] || difficultyConfig.Easy;
-  const category = categoryConfig[lab.category] || categoryConfig.Mixed;
-  const DifficultyIcon = difficulty.icon;
-  const CategoryIcon = category.icon;
+
+  const getDifficultyVariant = (diff: string): 'cyan' | 'warning' | 'error' | 'muted' => {
+    switch (diff?.toLowerCase()) {
+      case 'easy':
+      case 'beginner':
+        return 'cyan';
+      case 'medium':
+      case 'intermediate':
+        return 'warning';
+      case 'hard':
+      case 'advanced':
+      case 'expert':
+        return 'error';
+      default:
+        return 'muted';
+    }
+  };
+
+  const targetCode = `L-${labId ? labId.padStart(3, '0') : '001'}`;
 
   return (
-    <div className="bg-surface border border-border p-6 hover:-translate-y-1 hover:shadow-[4px_4px_0px_rgba(0,0,0,0.2)] transition-all duration-300 group flex flex-col h-full font-mono relative">
-      <div className="absolute top-0 right-0 p-2 text-[10px] text-muted font-bold opacity-30">
-        L-{labId ? labId.slice(-4).toUpperCase() : "UNKN"}
+    <SpotlightCard
+      className="group flex flex-col h-full font-mono p-5 relative select-none"
+      spotlightColor="rgba(0, 240, 255, 0.08)"
+      borderColor="rgba(0, 240, 255, 0.25)"
+    >
+      {/* Corner Blueprint Crosshairs */}
+      <span className="absolute top-1 left-1 text-[9px] text-border pointer-events-none">+</span>
+      <span className="absolute top-1 right-1 text-[9px] text-border pointer-events-none">+</span>
+      <span className="absolute bottom-1 left-1 text-[9px] text-border pointer-events-none">+</span>
+      <span className="absolute bottom-1 right-1 text-[9px] text-border pointer-events-none">+</span>
+
+      {/* Target Identifier Header */}
+      <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3.5">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 bg-accent inline-block animate-pulse" />
+          <span className="text-[11px] font-bold text-accent tracking-widest uppercase">
+            [ TARGET // {targetCode} ]
+          </span>
+        </div>
+        <TacticalBadge label="STANDBY" variant="success" pulse size="sm" />
       </div>
 
-      {/* Header */}
-      <div className="mb-4 pr-6">
-        <h3 className="text-base font-bold text-ink group-hover:text-accent transition-colors uppercase tracking-wider mb-2 line-clamp-1">
+      {/* Title & Description */}
+      <div className="mb-4">
+        <h3 className="text-sm sm:text-base font-bold text-ink group-hover:text-accent transition-colors uppercase tracking-wider mb-1.5 line-clamp-1">
           {lab.title}
         </h3>
         <p className="text-muted text-xs leading-relaxed line-clamp-2">
-          {lab.description}
+          {lab.description || "Containerized offensive testing target with isolated networking."}
         </p>
       </div>
 
-      {/* Badges */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <span
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border border-dashed ${difficulty.color}`}
-        >
-          <DifficultyIcon className="w-3 h-3" />
-          {lab.difficulty}
-        </span>
-        <span
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border border-dashed ${category.color}`}
-        >
-          <CategoryIcon className="w-3 h-3" />
-          {lab.category}
-        </span>
+      {/* Tactical Badges & Category */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <TacticalBadge
+          label={lab.difficulty}
+          variant={getDifficultyVariant(lab.difficulty)}
+          size="sm"
+        />
+        <TacticalBadge
+          label={lab.category || "RED TEAM"}
+          variant="accent"
+          size="sm"
+        />
+        {lab.dockerImage && (
+          <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] text-dim border border-border/80 bg-paper truncate max-w-[140px]" title={lab.dockerImage}>
+            <Cpu className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{lab.dockerImage.split(':')[0]}</span>
+          </span>
+        )}
       </div>
 
-      {/* Duration and Tools */}
-      <div className="flex items-center gap-6 text-xs text-muted mb-6 font-bold uppercase tracking-widest border-t border-border pt-4">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3 h-3" />
-          <span>{lab.estimatedDuration}m</span>
+      {/* Telemetry Hardware Metrics */}
+      <div className="grid grid-cols-2 gap-2 text-[11px] text-muted border-t border-border pt-3 mb-4 tracking-wider uppercase">
+        <div className="flex items-center gap-1.5">
+          <Clock className="w-3 h-3 text-dim" />
+          <span>SESSION: {lab.estimatedDuration || 60}M</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Terminal className="w-3 h-3" />
-          <span>{lab.tools?.length || 0} tls</span>
+        <div className="flex items-center gap-1.5">
+          <Terminal className="w-3 h-3 text-dim" />
+          <span>NETWORK: ISOLATED</span>
         </div>
       </div>
 
       <div className="flex-grow" />
 
-      {/* Start Button */}
+      {/* Execute Target Button */}
       <button
+        type="button"
         onClick={() => onStartLab(labIdRaw)}
         disabled={isStarting || disabled || !labId}
-        className={`w-full py-3 px-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 border ${isStarting || disabled
-          ? "bg-surface text-muted border-border cursor-not-allowed border-dashed"
-          : "bg-paper text-ink border-border hover:bg-ink hover:text-paper shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
-          }`}
+        className={`w-full py-2.5 px-4 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all border select-none rounded-none active:translate-x-[1px] active:translate-y-[1px] ${
+          isStarting || disabled
+            ? "bg-surface text-muted border-border cursor-not-allowed border-dashed opacity-60"
+            : "bg-paper text-ink border-border hover:bg-accent hover:text-paper hover:border-accent shadow-sm"
+        }`}
       >
         {isStarting ? (
           <>
-            <Loader2 className="w-3 h-3 animate-spin" />
-            INITIATING...
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+            <span>PROVISIONING_CONTAINER...</span>
           </>
         ) : (
           <>
-            <Play className="w-3 h-3" />
-            EXECUTE_LAB
+            <Play className="w-3.5 h-3.5 text-accent group-hover:text-paper transition-colors" />
+            <span>{">>>"} EXECUTE_LAB</span>
           </>
         )}
       </button>
-    </div>
+    </SpotlightCard>
   );
 };
 

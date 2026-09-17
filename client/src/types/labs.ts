@@ -12,18 +12,6 @@ export interface LabSession {
   connectionInfo: Record<string, unknown>;
   lab?: number;
   publicIp?: string;
-  instanceDetails?: {
-    publicIp?: string;
-    instanceType?: string;
-    region?: string;
-  };
-  instanceType?: string;
-  region?: string;
-  cost?: number;
-  duration?: number;
-  endedAt?: string;
-  createdAt?: string;
-  labName?: string;
 }
 
 export interface LabSessionSummary {
@@ -88,4 +76,20 @@ export interface ProvisionResponse {
     expiresAt: string;
     containerId: string;
   };
+}
+
+export interface LabSessionsListResponse {
+  sessions: LabSessionSummary[];
+}
+
+export interface LabSessionDetailResponse {
+  session: LabSession;
+}
+
+export interface LabsListResponse {
+  labs: Lab[];
+}
+
+export interface LabDetailResponse {
+  lab: Lab;
 }

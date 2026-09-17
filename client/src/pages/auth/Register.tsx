@@ -3,157 +3,14 @@ import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Input } from '../../components/ui';
-
-const styles = `
-  .auth-root {
-    min-height: 100vh;
-    background: var(--color-paper);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-6);
-    background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-  
-  .auth-card {
-    width: 100%;
-    max-width: 460px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    padding: var(--space-8);
-    position: relative;
-    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
-  }
-  
-  .auth-card::before {
-    content: '[ SYS_AUTH ]';
-    position: absolute;
-    top: -12px;
-    left: var(--space-6);
-    background: var(--color-paper);
-    padding: 0 var(--space-2);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    color: var(--color-muted);
-    letter-spacing: 0.1em;
-  }
-  
-  .auth-header {
-    margin-bottom: var(--space-8);
-    border-bottom: 1px dashed var(--color-border);
-    padding-bottom: var(--space-6);
-  }
-  
-  .auth-title {
-    font-family: var(--font-display);
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--color-ink);
-    margin-bottom: var(--space-2);
-    text-transform: uppercase;
-  }
-  
-  .auth-subtitle {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  
-  .auth-form { display: flex; flex-direction: column; gap: var(--space-6); }
-  
-  .signup-grid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .checkbox-row {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-muted);
-    line-height: 1.5;
-  }
-  
-  .checkbox-row input[type=checkbox] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 16px; 
-    height: 16px;
-    border: 1px solid var(--color-border);
-    background: var(--color-paper);
-    cursor: pointer;
-    position: relative;
-    margin-top: 2px;
-  }
-  
-  .checkbox-row input[type=checkbox]:checked {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-  }
-  
-  .checkbox-row input[type=checkbox]:checked::after {
-    content: '';
-    position: absolute;
-    left: 4px;
-    top: 1px;
-    width: 4px;
-    height: 8px;
-    border: solid var(--color-paper);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-  
-  .auth-footer {
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-muted);
-    border-top: 1px dashed var(--color-border);
-    margin-top: var(--space-8);
-    padding-top: var(--space-6);
-    text-transform: uppercase;
-  }
-  
-  .auth-link {
-    color: var(--color-accent);
-    font-weight: 700;
-    text-decoration: none;
-    transition: all var(--ease-out);
-    padding: 0 var(--space-1);
-  }
-  
-  .auth-link:hover { 
-    background: var(--color-accent);
-    color: var(--color-paper);
-  }
-  
-  .form-error-banner {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-error);
-    padding: var(--space-3);
-    border: 1px solid var(--color-error);
-    background: rgba(255, 42, 42, 0.05);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-  }
-  
-  .form-error-banner::before {
-    content: '[!]';
-    font-weight: 700;
-  }
-`;
+import {
+  SpotlightCard,
+  BorderBeam,
+  TacticalBadge,
+  FadeIn,
+  ScalePress,
+} from '../../components/ui/motion';
+import { UserPlus, AlertTriangle } from 'lucide-react';
 
 interface FormData {
   username: string;
@@ -181,7 +38,13 @@ interface TouchedFields {
 }
 
 export function Register() {
-  const [form, setForm] = useState<FormData>({ username: '', email: '', password: '', confirmPassword: '', agree: false });
+  const [form, setForm] = useState<FormData>({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    agree: false,
+  });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<TouchedFields>({});
   const [loading, setLoading] = useState(false);
@@ -233,26 +96,62 @@ export function Register() {
     }
   };
 
+  const handleSubmitVoid = (e: FormEvent) => {
+    void handleSubmit(e);
+  };
+
   return (
-    <>
-      <style>{styles}</style>
-      <div className="auth-root">
-        <div className="auth-card">
-          <div className="auth-header">
-            <h1 className="auth-title">Initialize User</h1>
-            <p className="auth-subtitle">{'>'} Provisioning access to XPLOITVERSE infrastructure</p>
+    <div
+      className="min-h-screen bg-paper flex items-center justify-center p-4 font-mono relative overflow-hidden"
+      style={{
+        backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }}
+    >
+      <FadeIn className="w-full max-w-lg my-8">
+        <SpotlightCard
+          spotlightColor="rgba(0, 230, 153, 0.15)"
+          className="bg-surface border border-border p-6 sm:p-8 shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative overflow-hidden"
+        >
+          <BorderBeam size={200} duration={14} colorFrom="#00E699" colorTo="#00F0FF" />
+          <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+
+          {/* System Badge */}
+          <div className="flex items-center justify-between border-b border-dashed border-border pb-4 mb-6">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-accent" />
+              <span className="text-[10px] font-bold text-accent tracking-widest uppercase">
+                [ REGISTER // PROVISIONING ]
+              </span>
+            </div>
+            <TacticalBadge variant="info" size="sm">
+              CLEARANCE_LVL_1
+            </TacticalBadge>
           </div>
 
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-display font-black text-ink uppercase tracking-wider mb-1">
+              REGISTER
+            </h1>
+            <p className="text-xs text-muted font-mono tracking-wide">
+              {'>'} Provision credentials to access challenge infrastructure
+            </p>
+          </div>
+
+          <form className="space-y-5" onSubmit={handleSubmitVoid} noValidate>
             {errors.form && (
-              <div className="form-error-banner">
-                {errors.form}
+              <div className="p-3 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-error" />
+                <span>[!] {errors.form}</span>
               </div>
             )}
 
-            <div className="signup-grid">
+            <div className="space-y-4">
               <Input
-                label="Handle"
+                label="Username"
                 type="text"
                 name="username"
                 placeholder="e.g. cyberwarrior"
@@ -264,10 +163,10 @@ export function Register() {
               />
 
               <Input
-                label="Comms Channel"
+                label="Email"
                 type="email"
                 name="email"
-                placeholder="you@example.com"
+                placeholder="operative@xploitverse.io"
                 value={form.email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
                 onBlur={() => touch('email')}
@@ -275,72 +174,76 @@ export function Register() {
                 required
               />
 
-              <Input
-                label="Access Key"
-                type="password"
-                name="password"
-                placeholder="Min. 8 Characters"
-                value={form.password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
-                onBlur={() => touch('password')}
-                error={touched.password && errors.password ? errors.password : undefined}
-                required
-              />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Input
+                  label="Password"
+                  type="password"
+                  name="password"
+                  placeholder="Min. 8 Characters"
+                  value={form.password}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
+                  onBlur={() => touch('password')}
+                  error={touched.password && errors.password ? errors.password : undefined}
+                  required
+                />
 
-              <Input
-                label="Verify Key"
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Access Key"
-                value={form.confirmPassword}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
-                onBlur={() => touch('confirmPassword')}
-                error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
-                required
-              />
+                <Input
+                  label="Confirm Password"
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm Password"
+                  value={form.confirmPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
+                  onBlur={() => touch('confirmPassword')}
+                  error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
+                  required
+                />
+              </div>
             </div>
 
             <div>
-              <label className="checkbox-row">
+              <label className="flex items-start gap-2.5 cursor-pointer text-muted hover:text-ink select-none text-xs font-mono">
                 <input
                   type="checkbox"
                   checked={form.agree}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('agree', e.target.checked)}
+                  className="accent-accent w-4 h-4 rounded-none cursor-pointer mt-0.5"
                 />
-                <span>
-                  I acknowledge the{' '}
-                  <a href="#" className="auth-link">Terms_Of_Service</a>{' '}
-                  and{' '}
-                  <a href="#" className="auth-link">Privacy_Policy</a>.
-                  Unauthorized access is prohibited.
+                <span className="text-[11px] leading-relaxed">
+                  I acknowledge operational rules & ethics agreements. Unauthorized intrusions outside lab parameters are strictly forbidden.
                 </span>
               </label>
               {touched.agree && errors.agree && (
-                <span className="field-error" style={{ display: 'flex', marginTop: '8px', color: 'var(--color-error)' }} role="alert">
-                  {errors.agree}
+                <span className="text-xs text-error font-mono mt-1.5 flex items-center gap-1" role="alert">
+                  <AlertTriangle className="w-3 h-3" /> {errors.agree}
                 </span>
               )}
             </div>
 
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              isLoading={loading}
-            >
-              EXECUTE REGISTRATION
-            </Button>
+            <ScalePress scale={0.98}>
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                isLoading={loading}
+              >
+                EXECUTE REGISTRATION
+              </Button>
+            </ScalePress>
           </form>
 
-          <div className="auth-footer">
-            Existing credentials found?{' '}
-            <Link to="/login" className="auth-link">
-              AUTHENTICATE
+          <div className="mt-8 pt-5 border-t border-dashed border-border text-center text-xs text-muted">
+            <span>EXISTING CREDENTIALS FOUND? </span>
+            <Link
+              to="/login"
+              className="text-accent font-bold uppercase tracking-wider hover:underline underline-offset-4 decoration-dashed ml-1"
+            >
+              [ AUTHENTICATE ]
             </Link>
           </div>
-        </div>
-      </div>
-    </>
+        </SpotlightCard>
+      </FadeIn>
+    </div>
   );
 }
 

@@ -29,6 +29,7 @@ export interface Task {
   type: 'flag' | 'question' | 'interactive';
   flagType: string;
   contentMd: string;
+  bodyMarkdown?: string;
   prompt: string;
   hints: string[];
   order: number;
@@ -59,4 +60,22 @@ export interface Room {
 
 export interface RoomWithTasks extends Room {
   tasks: Task[];
+}
+
+export interface CoursesListResponse {
+  courses: Course[];
+}
+
+export interface CourseDetailResponse {
+  course: Course;
+  modules: Module[];
+}
+
+export interface ModuleDetailResponse {
+  module: Module;
+  tasks: Task[];
+}
+
+export interface TaskDetailResponse {
+  task: Task;
 }

@@ -16,7 +16,13 @@ import {
   PowerOff,
 } from "lucide-react";
 import TerminalWindow from "../components/workspace/TerminalWindow";
-import api from "../services/api";
+import {
+  BorderBeam,
+  DecryptedText,
+  TacticalBadge,
+  ScalePress,
+} from "../components/ui/motion";
+import { labSessionService, labService } from "../services";
 import type { Lab, LabSession } from "../types";
 
 const LabWorkspace = () => {
@@ -37,14 +43,8 @@ const LabWorkspace = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getEntityId = (entity: { id?: number } | number | null | undefined) => {
-  if (typeof entity === 'number') return entity;
-  return entity?.id ?? null;
-};
-
-  const normalizeSessionPayload = (payload: unknown) => {
-    const data = (payload as Record<string, unknown>)?.data || payload || {};
-    const session = (data as Record<string, unknown>).session || data;
-    return session;
+    if (typeof entity === 'number') return entity;
+    return entity?.id ?? null;
   };
 
   const effectiveSessionId = getEntityId(session) || sessionId;
@@ -57,22 +57,35 @@ const LabWorkspace = () => {
         let sessionData: LabSession | null = null;
 
         try {
-          const response = await api.get(`/lab-sessions/${sessionId}`);
-          sessionData = normalizeSessionPayload(response.data) as LabSession;
+          const response = await labSessionService.getById(Number(sessionId));
+          sessionData = response.session;
         } catch (err: unknown) {
-          const notFound = (err as { response?: { status?: number } }).response?.status === 404;
+          const notFound = err instanceof Error && 'status' in err && (err as { status?: number }).status === 404;
           if (!notFound) {
             throw err;
           }
 
           // If the route carries a stale session id, recover by using the current active session.
-          const activeResponse = await api.get("/labs/active-session");
-          const activeData = activeResponse?.data?.data;
+          const activeResponse = await labService.getActiveSession();
+          const activeData = activeResponse.session;
           if (!activeData) {
             throw err;
           }
 
-          sessionData = normalizeSessionPayload(activeData) as LabSession;
+          // Convert ActiveSessionResponse to LabSession
+          sessionData = {
+            id: activeData.id,
+            userId: 0,
+            roomId: activeData.roomId,
+            taskId: activeData.taskId,
+            status: activeData.status.toLowerCase() as LabSession['status'],
+            startedAt: activeData.startedAt,
+            expiresAt: activeData.expiresAt,
+            networkName: activeData.networkName,
+            targetContainerId: activeData.containerId,
+            connectionInfo: {},
+            publicIp: activeData.containerId, // placeholder
+          };
           const activeId = getEntityId(sessionData);
           if (activeId && String(activeId) !== String(sessionId)) {
             navigate(`/workspace/${activeId}`, { replace: true });
@@ -87,21 +100,21 @@ const LabWorkspace = () => {
           sessionData?.lab ||
           sessionData?.roomId;
         if (labId) {
-          const labResponse = await api.get(`/labs/${labId}`);
-          setLab(labResponse.data.data.lab);
+          const labResponse = await labService.getById(labId);
+          setLab(labResponse.lab);
         }
       } catch (err: unknown) {
         console.error("Failed to fetch session:", err);
-        setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load session");
+        setError(err instanceof Error ? err.message : "Failed to load session");
       } finally {
         setLoading(false);
       }
     };
 
     if (sessionId) {
-      fetchSessionData();
+      void fetchSessionData();
     }
-  }, [sessionId]);
+  }, [sessionId, navigate]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -152,7 +165,7 @@ const LabWorkspace = () => {
     if (!token) return;
 
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const explicitWsBase = (import.meta as any).env.VITE_WS_BASE || "";
+    const explicitWsBase = (import.meta as { env: { VITE_WS_BASE?: string } }).env.VITE_WS_BASE || "";
     let hostPart = "";
 
     if (explicitWsBase) {
@@ -182,7 +195,8 @@ const LabWorkspace = () => {
       };
 
       ws.onmessage = (evt) => {
-        setLogs((prev) => [...prev, { type: "output", message: evt.data }]);
+        const message = typeof evt.data === 'string' ? evt.data : String(evt.data);
+        setLogs((prev) => [...prev, { type: "output", message }]);
       };
 
       ws.onclose = () => {
@@ -218,28 +232,13 @@ const LabWorkspace = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Difficulty color
-  const getDifficultyColor = (difficulty: string | undefined) => {
-    const colors: Record<string, string> = {
-      easy: "text-info",
-      beginner: "text-info",
-      medium: "text-accent",
-      intermediate: "text-accent",
-      hard: "text-error",
-      advanced: "text-error",
-      expert: "text-error",
-    };
-    const key = difficulty?.toLowerCase();
-    return key && colors[key] ? colors[key] : "text-muted";
-  };
-
   const handleTerminate = async () => {
     if (!window.confirm("Are you sure you want to terminate this lab session? All progress will be lost.")) {
       return;
     }
     setTerminating(true);
     try {
-      await api.post(`/lab-sessions/${effectiveSessionId}/terminate`);
+      await labSessionService.terminate(Number(effectiveSessionId));
       navigate("/dashboard");
     } catch (err) {
       console.error("Failed to terminate lab:", err);
@@ -248,10 +247,14 @@ const LabWorkspace = () => {
     }
   };
 
+  const handleTerminateVoid = () => {
+    void handleTerminate();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center p-4" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
-        <div className="card-cyber p-8 w-full max-w-sm flex items-center justify-center">
+        <div className="border border-border bg-surface p-8 w-full max-w-sm flex items-center justify-center shadow-[8px_8px_0px_rgba(0,0,0,0.2)]">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="font-mono text-accent text-xs font-bold tracking-widest uppercase animate-pulse">
               [ INITIALIZING_WORKSPACE ]
@@ -266,7 +269,7 @@ const LabWorkspace = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center p-4" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
-        <div className="card-cyber p-8 w-full max-w-md border-error">
+        <div className="border border-error bg-surface p-8 w-full max-w-md shadow-[8px_8px_0px_rgba(0,0,0,0.2)]">
           <div className="text-center">
             <AlertTriangle className="w-12 h-12 text-error mx-auto mb-6 animate-pulse" />
             <h1 className="text-xl font-display font-bold text-ink mb-4 uppercase tracking-wider">WORKSPACE_FAULT</h1>
@@ -286,8 +289,11 @@ const LabWorkspace = () => {
   return (
     <div className="min-h-screen bg-paper flex flex-col font-sans text-ink">
       {/* Top Header Bar */}
-      <header className="bg-surface border-b border-border px-4 py-3 relative z-10 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="bg-surface border-b border-border px-4 py-3 relative z-10 shadow-sm overflow-hidden">
+        {connected && (
+          <BorderBeam size={180} duration={12} colorFrom="#00E699" colorTo="#00F0FF" />
+        )}
+        <div className="flex items-center justify-between relative z-10">
           {/* Left section */}
           <div className="flex items-center gap-6">
             <button
@@ -306,33 +312,45 @@ const LabWorkspace = () => {
               </div>
               <div>
                 <h1 className="text-ink font-display font-bold text-lg leading-none uppercase tracking-wider mb-1">
-                  {lab?.title || "WORKSPACE"}
+                  <DecryptedText text={lab?.title || "WORKSPACE"} animateOn="view" speed={25} />
                 </h1>
                 <div className="flex items-center gap-2 text-xs font-mono uppercase font-bold tracking-widest">
-                  <span className={getDifficultyColor(lab?.difficulty)}>
-                    [{lab?.difficulty || "UNKNOWN"}]
-                  </span>
+                  <TacticalBadge
+                    variant={
+                      lab?.difficulty?.toLowerCase() === "hard"
+                        ? "danger"
+                        : lab?.difficulty?.toLowerCase() === "medium"
+                        ? "warning"
+                        : "info"
+                    }
+                    size="sm"
+                  >
+                    {lab?.difficulty || "UNKNOWN"}
+                  </TacticalBadge>
                   <span className="text-border">•</span>
-                  <span className="text-muted">{lab?.category}</span>
+                  <span className="text-muted text-[11px]">{lab?.category || "SYS_OP"}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Connection status */}
-            <div className={`flex items-center gap-2 px-3 py-1.5 border font-mono text-xs font-bold tracking-widest uppercase ${connected ? "bg-success/10 border-success/30 text-success" : "bg-error/10 border-error/30 text-error"
-              }`}>
+            <TacticalBadge
+              variant={connected ? "success" : "danger"}
+              size="md"
+              pulse={!connected}
+            >
               {connected ? (
-                <Wifi className="w-3 h-3" />
+                <Wifi className="w-3 h-3 mr-1 inline" />
               ) : (
-                <WifiOff className="w-3 h-3 animate-pulse" />
+                <WifiOff className="w-3 h-3 mr-1 inline animate-pulse" />
               )}
               <span className="hidden sm:inline">
                 {connected ? "LINK_ACTIVE" : "NO_LINK"}
               </span>
-            </div>
+            </TacticalBadge>
 
             {/* Timer */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-paper border border-border text-muted font-mono text-xs font-bold tracking-widest">
@@ -342,21 +360,23 @@ const LabWorkspace = () => {
 
             {/* VM IP */}
             {session?.publicIp && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-paper border border-border text-muted font-mono text-xs font-bold tracking-widest">
-                <Server className="w-3 h-3 text-info" />
+              <TacticalBadge variant="info" size="md">
+                <Server className="w-3 h-3 mr-1 inline text-info" />
                 <span>{session.publicIp}</span>
-              </div>
+              </TacticalBadge>
             )}
 
             {/* Terminate Button */}
-            <button
-              onClick={handleTerminate}
-              disabled={terminating}
-              className="flex items-center gap-2 px-3 py-1.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error font-mono text-xs font-bold tracking-widest uppercase transition-colors"
-            >
-              {terminating ? <Loader2 className="w-3 h-3 animate-spin" /> : <PowerOff className="w-3 h-3" />}
-              <span className="hidden sm:inline">{terminating ? "TERMINATING..." : "TERMINATE"}</span>
-            </button>
+            <ScalePress scale={0.97}>
+              <button
+                onClick={handleTerminateVoid}
+                disabled={terminating}
+                className="flex items-center gap-2 px-3 py-1.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error font-mono text-xs font-bold tracking-widest uppercase transition-colors"
+              >
+                {terminating ? <Loader2 className="w-3 h-3 animate-spin" /> : <PowerOff className="w-3 h-3" />}
+                <span className="hidden sm:inline">{terminating ? "TERMINATING..." : "TERMINATE"}</span>
+              </button>
+            </ScalePress>
           </div>
         </div>
       </header>

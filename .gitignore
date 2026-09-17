@@ -52,9 +52,11 @@ coverage/
 *.pem
 *.key
 .cache/
-
+.agents/
 .terraform/
 *.tfstate
 *.tfstate.*
 crash.log
 terraform.tfvars
+docs/
+scratch/

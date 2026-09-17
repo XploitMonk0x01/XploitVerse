@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import Button from './Button';
+import { Terminal, Database } from 'lucide-react';
 
-interface EmptyStateProps {
-  icon?: ReactNode | string;
+export interface EmptyStateProps {
+  icon?: ReactNode;
   title?: string;
   description?: string;
   action?: {
@@ -12,85 +13,37 @@ interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({
-  icon = '[-]',
-  title = 'NO_DATA_FOUND',
-  description = 'The requested query returned zero localized results.',
+export const EmptyState = ({
+  icon,
+  title = 'TELEMETRY_EMPTY',
+  description = 'No localized assets or records were detected in the target database.',
   action,
   className = '',
-}: EmptyStateProps) {
-  const styles = `
-  .empty-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: var(--space-4);
-      padding: var(--space-12) var(--space-6);
-      background: var(--color-surface);
-      border: 1px dashed var(--color-border);
-      color: var(--color-ink);
-      text-align: center;
-      width: 100%;
-  }
-
-  .empty-icon {
-      font-family: var(--font-mono);
-      font-size: var(--text-3xl);
-      color: var(--color-subtle);
-      font-weight: 700;
-      margin-bottom: var(--space-2);
-  }
-
-  .empty-title {
-      font-family: var(--font-mono);
-      font-size: var(--text-lg);
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--color-ink);
-      margin: 0;
-  }
-
-  .empty-message {
-      font-family: var(--font-mono);
-      font-size: var(--text-sm);
-      color: var(--color-muted);
-      max-width: 400px;
-      line-height: var(--leading-base);
-      margin: 0;
-  }
-  `;
-
+}: EmptyStateProps) => {
   return (
-    <div className={`empty-container ${className}`}>
-      <style>{styles}</style>
+    <div
+      className={`flex flex-col items-center justify-center text-center p-10 sm:p-14 border border-dashed border-border font-mono ${className}`}
+    >
+      <div className="w-10 h-10 bg-surface border border-border flex items-center justify-center text-muted mb-4">
+        {icon || <Database className="w-5 h-5 text-dim" />}
+      </div>
 
-      {typeof icon === 'string' ? (
-        <span className="empty-icon">{icon}</span>
-      ) : (
-        <div className="text-subtle mb-2">
-          {icon}
-        </div>
-      )}
+      <h3 className="text-sm font-display font-black text-ink uppercase tracking-tight mb-2">
+        {title}
+      </h3>
 
-      <h3 className="empty-title">{title}</h3>
-
-      {description && (
-        <p className="empty-message">
-          {'// '}{description}
-        </p>
-      )}
+      <p className="text-xs text-muted max-w-[36ch] leading-relaxed mb-5">
+        {description}
+      </p>
 
       {action && (
-        <div className="mt-4">
-          <Button variant="primary" onClick={action.onClick}>
-            {action.label}
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={action.onClick}>
+          <Terminal className="w-3 h-3" />
+          {action.label}
+        </Button>
       )}
     </div>
   );
-}
+};
 
 export default EmptyState;

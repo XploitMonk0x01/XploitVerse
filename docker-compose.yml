@@ -1,9 +1,19 @@
-# XploitVerse Development Stack
-# Usage: docker compose up -d
-# Then run the Go backend and Vite dev server locally.
+# ==============================================================================
+# XploitVerse Core Infrastructure Stack
+# Compose Specification (Standard / Latest)
+#
+# Quickstart Modes:
+#   1. Development (Databases only, run Go & Vite locally):
+#      docker compose up -d
+#
+#   2. Full Stack (Containerized DBs, Go Backend, and React Frontend):
+#      docker compose --profile full up -d --build
+# ==============================================================================
+
+name: xploitverse
 
 services:
-  # ── PostgreSQL ─────────────────────────────────────────────────
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: xv-postgres
@@ -18,11 +28,20 @@ services:
       POSTGRES_PASSWORD: postgres
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d xploitverse']
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    networks:
+      - xploitverse-net
 
-  # ── Redis ──────────────────────────────────────────────────────
+  # ── Redis Cache & Session Store ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: xv-redis
@@ -31,37 +50,99 @@ services:
       - '6379:6379'
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    networks:
+      - xploitverse-net
+
+  # ── Go Backend (Optional: --profile full) ────────────────────────────────────
+  backend:
+    profiles:
+      - full
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xv-backend
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      GIN_MODE: release
+      POSTGRES_URI: postgres://postgres:postgres@postgres:5432/xploitverse?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      CLIENT_URL: http://localhost:5173
+    volumes:
+      # Allows backend container to orchestrate challenge containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:5000/health']
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 15s
+    networks:
+      - xploitverse-net
 
-  # ── MongoDB (for Express branch compatibility) ───────────────────
-  # mongodb:
-  #   image: mongo:6
-  #   container_name: xv-mongodb
-  #   restart: unless-stopped
-  #   ports:
-  #     - '27017:27017'
-  #   volumes:
-  #     - mongodb_data:/data/db
-  #   healthcheck:
-  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # ── React/Vite Client (Optional: --profile full) ──────────────────────────────
+  client:
+    profiles:
+      - full
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: xv-client
+    restart: unless-stopped
+    ports:
+      - '5173:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/nginx-health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - xploitverse-net
 
+# ── Volumes ───────────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
+    name: xv_postgres_data
     driver: local
   redis_data:
+    name: xv_redis_data
     driver: local
-  # mongodb_data:
-  #   driver: local
 
-# ── Lab Network (created separately by DockerService) ────────────
-# The xploitverse-labs network (172.30.0.0/16) is created by the
-# Go backend's DockerService.ensureNetwork() at startup.
-# Lab containers are attached to that network, NOT this compose stack.
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  xploitverse-net:
+    name: xploitverse-network
+    driver: bridge
+
+# ── Lab Containers Network Note ───────────────────────────────────────────────
+# The dynamic lab network (xploitverse-labs / 172.30.0.0/16) is managed
+# programmatically by the Go backend DockerService for ephemeral challenge targets.

@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { LoadingSpinner } from "../../components/ui";
+import { LoadingSpinner, EmptyState } from "../../components/ui";
+import {
+  SpotlightCard,
+  DecryptedText,
+  TacticalBadge,
+  StaggerContainer,
+  FadeIn,
+  ScalePress,
+} from "../../components/ui/motion";
 import { courseService } from "../../services";
-import { Lock, ChevronRight } from "lucide-react";
+import { Lock, ChevronRight, ArrowLeft, Layers, Award } from "lucide-react";
 import type { Course, Module } from "../../types";
 
-const difficultyStyle: Record<string, string> = {
-  Easy: "text-green-400 border-green-900 bg-green-900/20",
-  Medium: "text-yellow-400 border-yellow-900 bg-yellow-900/20",
-  Hard: "text-red-400 border-red-900 bg-red-900/20",
-};
-
-const CourseDetail = () => {
+export const CourseDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -25,135 +27,201 @@ const CourseDetail = () => {
         setLoading(true);
         setError(null);
         const res = await courseService.getBySlug(slug || "");
-        const data = res.data?.data;
         if (!cancelled) {
-          setCourse(data?.course || null);
-          setModules(data?.modules || []);
+          setCourse(res.course || null);
+          setModules(res.modules || []);
         }
       } catch (e: unknown) {
-        if (!cancelled) setError((e as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load course");
+        if (!cancelled)
+          setError(
+            e instanceof Error ? e.message : "Failed to load mission track"
+          );
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-    load();
-    return () => { cancelled = true; };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <LoadingSpinner size="lg" className="py-24" />
+      <div className="py-24">
+        <LoadingSpinner message="DECRYPTING_MISSION_BRIEFING" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {error && (
-        <div className="mb-6 card-cyber px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
+    <StaggerContainer className="max-w-5xl mx-auto space-y-8 font-mono">
+      {/* Return Link */}
+      <FadeIn>
+        <div>
+          <Link
+            to="/courses"
+            className="inline-flex items-center gap-2 text-xs font-bold text-muted hover:text-accent uppercase tracking-wider transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>[ // BACK_TO_CATALOG ]</span>
+          </Link>
         </div>
+      </FadeIn>
+
+      {error && (
+        <FadeIn>
+          <div className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider">
+            [ERR]: {error}
+          </div>
+        </FadeIn>
       )}
 
       {!course ? (
-        <div className="card-cyber p-6">
-          <p className="text-gray-300">Course not found.</p>
-          <Link to="/courses" className="text-green-400 hover:text-green-300 text-sm mt-2 inline-block">
-            ← Back to courses
-          </Link>
-        </div>
+        <FadeIn>
+          <EmptyState
+            title="MISSION_NOT_FOUND"
+            description="The requested challenge track does not exist or has been declassified."
+          />
+        </FadeIn>
       ) : (
         <>
-          {/* Header */}
-          <div className="mb-8">
-            <Link to="/courses" className="text-sm text-gray-400 hover:text-white inline-flex items-center gap-1">
-              ← Courses
-            </Link>
+          {/* Mission Dossier Header Card */}
+          <FadeIn>
+            <SpotlightCard
+              spotlightColor="rgba(0, 230, 153, 0.12)"
+              className="bg-surface border border-border p-6 sm:p-8 shadow-sm relative overflow-hidden"
+            >
+              <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
 
-            <div className="flex flex-wrap items-start gap-3 mt-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white flex-1">
-                {course.title}
-              </h1>
-              {course.isPremium && (
-                <span className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 mt-1">
-                  <Lock className="h-3 w-3" /> Premium
-                </span>
-              )}
-            </div>
-
-            {course.description && (
-              <p className="text-gray-400 mt-3 max-w-3xl">{course.description}</p>
-            )}
-
-            {/* Meta row */}
-            <div className="flex flex-wrap items-center gap-3 mt-4">
-              {course.difficulty && (
-                <span className={`text-xs px-2 py-0.5 rounded border font-medium ${difficultyStyle[course.difficulty] || "text-gray-400 border-gray-700"}`}>
-                  {course.difficulty}
-                </span>
-              )}
-              {course.category && (
-                <span className="text-xs text-gray-500">{course.category}</span>
-              )}
-              <span className="text-xs text-gray-600">
-                {modules.length} module{modules.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* Tags */}
-            {Array.isArray(course.tags) && course.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {course.tags.map((tag) => (
-                  <span key={tag} className="text-xs px-2 py-0.5 rounded border border-gray-800 text-gray-500">
-                    {tag}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-accent inline-block animate-pulse" />
+                  <span className="text-xs font-bold text-accent tracking-widest uppercase">
+                    [ MISSION_BRIEFING // {course.slug} ]
                   </span>
-                ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  {course.isPremium && (
+                    <TacticalBadge variant="warning" size="sm" pulse>
+                      <Lock className="w-3 h-3 mr-1 inline" /> RESTRICTED
+                    </TacticalBadge>
+                  )}
+                  <TacticalBadge variant="neutral" size="sm">
+                    SYS_TRACK
+                  </TacticalBadge>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Modules list */}
-          <div className="card-cyber p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Modules</h2>
-            {modules.length === 0 ? (
-              <p className="text-gray-400">No modules published yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {modules.map((m, idx) => {
-                  const moduleId = m.id;
-                  return (
-                    <Link
-                      key={moduleId}
-                      to={`/modules/${moduleId}`}
-                      className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-gray-800 hover:border-gray-600 hover:bg-gray-800/30 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xs text-gray-600 w-5 shrink-0 text-right">
-                          {m.order ?? idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-white font-medium truncate">{m.title}</p>
-                          {m.description && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">{m.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {typeof m.pointsReward === "number" && (
-                          <span className="text-xs text-green-500">{m.pointsReward} pts</span>
-                        )}
-                        <ChevronRight className="h-4 w-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
-                      </div>
-                    </Link>
-                  );
-                })}
+              <h1 className="text-2xl sm:text-4xl font-display font-black text-ink uppercase tracking-wider mb-3">
+                <DecryptedText text={course.title} animateOn="view" speed={30} />
+              </h1>
+
+              <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-3xl mb-6">
+                {course.description ||
+                  "Operational challenge room targeting real attack surfaces and vulnerability vectors."}
+              </p>
+
+              {/* Tactical Specs Row */}
+              <div className="flex flex-wrap items-center gap-4 text-xs border-t border-border pt-4 text-dim uppercase">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted font-bold">DIFFICULTY:</span>
+                  <TacticalBadge
+                    variant={
+                      course.difficulty?.toLowerCase() === "hard"
+                        ? "danger"
+                        : course.difficulty?.toLowerCase() === "medium"
+                        ? "warning"
+                        : "info"
+                    }
+                    size="sm"
+                  >
+                    {course.difficulty || "EASY"}
+                  </TacticalBadge>
+                </div>
+                <span>::</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted font-bold">MODULES:</span>
+                  <span className="text-ink font-bold">{modules.length}</span>
+                </div>
+                <span>::</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted font-bold">CONTAINER_ENGINE:</span>
+                  <TacticalBadge variant="success" size="sm" pulse>
+                    ONLINE
+                  </TacticalBadge>
+                </div>
               </div>
-            )}
-          </div>
+            </SpotlightCard>
+          </FadeIn>
+
+          {/* Module Hierarchy */}
+          <FadeIn delay={0.1}>
+            <div className="bg-surface border border-border p-6 shadow-sm relative">
+              <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-accent" />
+                  <h2 className="text-sm font-display font-bold text-ink uppercase tracking-wider">
+                    MISSION_MODULES
+                  </h2>
+                </div>
+                <span className="text-[10px] text-muted tracking-widest uppercase">
+                  TOTAL_BLOCKS: {modules.length}
+                </span>
+              </div>
+
+              {modules.length === 0 ? (
+                <p className="text-xs text-muted">No tactical modules assigned to this room yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {modules.map((m, idx) => {
+                    const moduleId = m.id;
+                    return (
+                      <ScalePress key={moduleId} scale={0.99}>
+                        <Link
+                          to={`/modules/${moduleId}`}
+                          className="flex items-center justify-between gap-4 p-4 bg-paper border border-border hover:border-accent group transition-all duration-200 relative overflow-hidden"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <span className="text-xs font-bold text-dim group-hover:text-accent w-7 shrink-0 font-mono">
+                              [{String(m.order ?? idx + 1).padStart(2, "0")}]
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm font-bold text-ink group-hover:text-accent transition-colors uppercase truncate">
+                                {m.title}
+                              </p>
+                              {m.description && (
+                                <p className="text-[11px] text-muted truncate mt-1">
+                                  {m.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            {typeof m.pointsReward === "number" && (
+                              <TacticalBadge variant="cyan" size="sm">
+                                <Award className="w-3 h-3 mr-1 inline" />+{m.pointsReward} PTS
+                              </TacticalBadge>
+                            )}
+                            <div className="w-7 h-7 bg-surface border border-border flex items-center justify-center group-hover:border-accent group-hover:bg-accent/10 transition-colors">
+                              <ChevronRight className="w-4 h-4 text-dim group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+                            </div>
+                          </div>
+                        </Link>
+                      </ScalePress>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </FadeIn>
         </>
       )}
-    </div>
+    </StaggerContainer>
   );
 };
 

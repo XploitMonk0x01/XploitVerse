@@ -3,16 +3,11 @@ export interface LeaderboardEntry {
   userId: number;
   username: string;
   points: number;
-  totalPoints?: number;
-  tasksCompleted?: number;
-  userID?: number;
 }
 
 export interface MyRank {
   rank: number;
   points: number;
-  totalPoints?: number;
-  tasksCompleted?: number;
 }
 
 export interface LeaderboardResponse {
@@ -22,8 +17,6 @@ export interface LeaderboardResponse {
 export interface MyRankResponse {
   rank: number;
   points: number;
-  totalPoints?: number;
-  tasksCompleted?: number;
 }
 
 export interface ProgressEntry {

@@ -1,60 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
-interface LoadingSpinnerProps {
+export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   message?: string;
 }
 
-const LoadingSpinner = ({ size = 'md', className = '', message = 'LOADING...' }: LoadingSpinnerProps) => {
-  const [dots, setDots] = useState('');
+export const LoadingSpinner = ({
+  size = 'md',
+  className = '',
+  message = 'INITIALIZING_STREAM',
+}: LoadingSpinnerProps) => {
+  const [phase, setPhase] = useState(0);
+  const frames = useMemo(() => ['[ - ]', '[ \\ ]', '[ | ]', '[ / ]'], []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
-    }, 500);
+      setPhase((prev) => (prev + 1) % frames.length);
+    }, 120);
     return () => clearInterval(interval);
-  }, []);
+  }, [frames]);
 
   const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16',
-  };
-
-  const styles = `
-  .technical-spinner {
-      border: 2px solid var(--color-border);
-      border-top-color: var(--color-accent);
-      border-right-color: var(--color-accent);
-      border-radius: 0;
-      animation: technical-spin 1s steps(4) infinite;
-  }
-  
-  @keyframes technical-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-  }
-  
-  .loading-pulse {
-      animation: opacity-pulse 1.5s ease-in-out infinite;
-  }
-  
-  @keyframes opacity-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-  }
-  `;
+    sm: 'w-4 h-4 border',
+    md: 'w-8 h-8 border-2',
+    lg: 'w-12 h-12 border-2',
+    xl: 'w-16 h-16 border-2',
+  }[size];
 
   return (
-    <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
-      <style>{styles}</style>
-      <div className={`${sizeClasses[size]} technical-spinner`} />
+    <div className={`flex flex-col items-center justify-center gap-3 font-mono ${className}`}>
+      <div className="relative flex items-center justify-center">
+        {/* Mechanical square spinner */}
+        <div
+          className={`${sizeClasses} border-border border-t-accent border-r-accent animate-spin`}
+          style={{ animationDuration: '0.8s' }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[9px] font-bold text-accent">
+            {frames[phase]}
+          </span>
+        </div>
+      </div>
 
       {message && (
-        <div className="font-mono text-sm text-muted font-bold tracking-widest uppercase loading-pulse">
-          {message}{dots}
+        <div className="text-xs text-muted font-bold tracking-widest uppercase flex items-center gap-1.5">
+          <span className="text-accent">{'>'}</span>
+          <span>{message}</span>
+          <span className="animate-ping text-[10px] text-accent">_</span>
         </div>
       )}
     </div>

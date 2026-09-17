@@ -4,6 +4,7 @@ import type { User, RegisterData, LoginCredentials, AuthResult, AuthState } from
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -26,8 +27,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const response = await authService.getMe();
-      if (response.data.user) {
-        setUser(response.data.user);
+      const fetchedUser = response.user;
+      if (fetchedUser) {
+        setUser(fetchedUser);
       }
     } catch (err) {
       console.error('Auth check failed:', err);
@@ -46,7 +48,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setError(null);
       const response = await authService.register(userData);
-      const { user: newUser, token } = response.data;
+      const newUser = response.user;
+      const token = response.token;
 
       if (token) {
         localStorage.setItem('token', token);
@@ -57,7 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { success: true, user: newUser };
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed';
+      const message = err instanceof Error ? err.message : 'Registration failed';
       setError(message);
       return { success: false, error: message };
     }
@@ -67,7 +70,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setError(null);
       const response = await authService.login(credentials);
-      const { user: newUser, token } = response.data;
+      const newUser = response.user;
+      const token = response.token;
 
       if (token) {
         localStorage.setItem('token', token);
@@ -78,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { success: true, user: newUser };
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Login failed';
+      const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
       return { success: false, error: message };
     }

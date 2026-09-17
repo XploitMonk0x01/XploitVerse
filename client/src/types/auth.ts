@@ -70,3 +70,21 @@ export interface AuthResult {
   token?: string;
   error?: string;
 }
+
+export interface RegisterResponse {
+  user: User;
+  token: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  token: string;
+}
+
+export interface MeResponse {
+  user: User;
+}
+
+export interface RefreshTokenResponse {
+  token: string;
+}

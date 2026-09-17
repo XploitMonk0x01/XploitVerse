@@ -23,7 +23,11 @@ type API struct {
 func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerSvc *services.DockerService, redisSvc *services.RedisService) {
 	api := &API{DB: db, Cfg: cfg, DockerSvc: dockerSvc, RedisSvc: redisSvc}
 	auth := VerifyToken(cfg, db)
-	authLimiter := baseMiddleware.NewRateLimiter(10, 15*time.Minute)
+	authMax := 20
+	if cfg.NodeEnv != "production" {
+		authMax = 1000
+	}
+	authLimiter := baseMiddleware.NewRateLimiter(authMax, 15*time.Minute)
 
 	v1 := r.Group("/api")
 

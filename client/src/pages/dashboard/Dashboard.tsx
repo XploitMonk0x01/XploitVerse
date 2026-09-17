@@ -1,54 +1,62 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Button } from "../../components/ui";
 import { labService, labSessionService } from "../../services";
-import LabCard from "../../components/labs/LabCard";
-import ActiveSession from "../../components/labs/ActiveSession";
-import { LoadingSpinner, ErrorState, EmptyState } from "../../components/ui";
+import { LabCard } from "../../components/labs/LabCard";
+import { ActiveSession } from "../../components/labs/ActiveSession";
+import { Button, LoadingSpinner, EmptyState, ErrorState } from "../../components/ui";
 import {
   Clock,
   DollarSign,
-  Terminal,
   Server,
   RefreshCw,
-  Sparkles,
+  Target,
+  Activity,
+  Radio,
+  Layers,
 } from "lucide-react";
-import type { Lab, LabSession } from "../../types";
+import type { Lab, LabSession, LabSessionsListResponse } from "../../types";
+import { SpotlightCard } from "../../components/ui/motion/SpotlightCard";
+import { StaggerContainer, FadeIn } from "../../components/ui/motion/MotionWrappers";
+import { DecryptedText } from "../../components/ui/motion/DecryptedText";
+import { TacticalBadge } from "../../components/ui/motion/TacticalBadge";
 
-// Dashboard States
 const DASHBOARD_STATE = {
-  IDLE: "IDLE",
-  LOADING_LABS: "LOADING_LABS",
-  STARTING_LAB: "STARTING_LAB",
-  PROVISIONING: "PROVISIONING",
-  RUNNING: "RUNNING",
-  STOPPING: "STOPPING",
-  ERROR: "ERROR",
+  LOADING_LABS: "loading_labs",
+  IDLE: "idle",
+  STARTING_LAB: "starting_lab",
+  PROVISIONING: "provisioning",
+  RUNNING: "running",
+  STOPPING: "stopping",
+  ERROR: "error",
 } as const;
 
-type DashboardState = keyof typeof DASHBOARD_STATE;
+type DashboardState = (typeof DASHBOARD_STATE)[keyof typeof DASHBOARD_STATE];
 
-const getEntityId = (entity: { id?: number } | number | null | undefined) => {
-  if (typeof entity === 'number') return entity;
-  return entity?.id ?? null;
+const sameId = (a: unknown, b: unknown): boolean => {
+  if (a == null || b == null) return false;
+  return String(a) === String(b);
 };
 
-const toIdString = (value: number | string | null | undefined) => {
-  if (value === null || value === undefined) return null;
-  return String(value);
+const toIdString = (val: unknown): string => {
+  if (val == null) return "";
+  return String(val);
 };
 
-const sameId = (a: number | string | null | undefined, b: number | string | null | undefined) => {
-  const left = toIdString(a);
-  const right = toIdString(b);
-  return left !== null && right !== null && left === right;
+const getEntityId = (obj: { id?: number; _id?: number } | null | undefined): string => {
+  if (!obj) return "";
+  return toIdString(obj.id ?? obj._id ?? "");
 };
 
-const getSessionLabRef = (session: LabSession | null | undefined) =>
-  getEntityId(session?.lab) ?? session?.lab ?? session?.roomId ?? null;
+const getSessionLabRef = (session: LabSession | null): string => {
+  if (!session) return "";
+  if (session.lab != null) {
+    return toIdString(session.lab);
+  }
+  return "";
+};
 
-const Dashboard = () => {
+export const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [dashboardState, setDashboardState] = useState<DashboardState>(DASHBOARD_STATE.LOADING_LABS);
@@ -59,404 +67,398 @@ const Dashboard = () => {
   const [startingLabId, setStartingLabId] = useState<number | string | null>(null);
 
   // Session history
-  const [sessionHistory, setSessionHistory] = useState<LabSession[]>([]);
+  const [sessionHistory, setSessionHistory] = useState<LabSessionsListResponse['sessions']>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Stats calculations
+  // Stats calculations - using real backend data only
   const stats = [
     {
-      label: "Total Lab Time",
-      value: `${user?.totalLabTime || 0} min`,
+      label: "TOTAL_LAB_TIME",
+      value: `${user?.totalLabTime || 0}m`,
+      subtext: "AGGREGATE UPTIME",
       icon: Clock,
       color: "text-ink",
-      bg: "bg-surface",
     },
     {
-      label: "Total Spent",
+      label: "TOTAL_SPENT",
       value: `$${(user?.totalSpent || 0).toFixed(2)}`,
+      subtext: "ACCUMULATED COST",
       icon: DollarSign,
       color: "text-accent",
-      bg: "bg-surface",
     },
     {
-      label: "Sessions",
-      value: "0",
-      icon: Terminal,
-      color: "text-info",
-      bg: "bg-surface",
-    },
-    {
-      label: "Active Labs",
-      value: activeSession ? "1" : "0",
+      label: "ACTIVE_TARGETS",
+      value: activeSession ? "01" : "00",
+      subtext: activeSession ? "SYSTEM ONLINE" : "STANDBY POOL",
       icon: Server,
-      color: "text-warning",
-      bg: "bg-surface",
+      color: activeSession ? "text-success" : "text-muted",
+    },
+    {
+      label: "OPERATIVE_CLEARANCE",
+      value: user?.role?.toUpperCase() || "ROLE_UNKNOWN",
+      subtext: "ACCESS_LEVEL",
+      icon: Target,
+      color: "text-cyan",
     },
   ];
 
-  // Fetch labs on mount
-  const fetchLabs = useCallback(async () => {
-    try {
-      setDashboardState(DASHBOARD_STATE.LOADING_LABS);
-      setError(null);
-
-      const [labsResponse, sessionResponse] = await Promise.all([
-        labService.getAll(),
-        labService.getActiveSession(),
-      ]);
-
-      // API returns { data: { labs: [...], pagination: {...} } }
-      const labsData = labsResponse.data.data?.labs || labsResponse.data.labs || [];
-      setLabs(labsData);
-
-      // Check if there's an active session
-      if (sessionResponse.data.data) {
-        const session = sessionResponse.data.data;
-        setActiveSession(session);
-
-        // Find the lab details
-        const lab = labsData.find(
-          (l: Lab) => sameId(getEntityId(l), getSessionLabRef(session))
-        );
-        setActiveLab(lab || session.lab);
-        setDashboardState(
-          String(session.status || "").toUpperCase() === "INITIALIZING"
-            ? DASHBOARD_STATE.PROVISIONING
-            : DASHBOARD_STATE.RUNNING
-        );
-      } else {
-        setDashboardState(DASHBOARD_STATE.IDLE);
-      }
-    } catch (err: unknown) {
-      console.error("Failed to fetch labs:", err);
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load labs");
-      setDashboardState(DASHBOARD_STATE.ERROR);
-    }
-  }, []);
-
-  // Fetch recent session history
-  const fetchHistory = useCallback(async () => {
+  const fetchSessionHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
-      const res = await labSessionService.getAll({ limit: 5, sort: '-createdAt' });
-      const sessions =
-        res.data.data?.sessions ||
-        res.data.data?.labSessions ||
-        res.data.sessions ||
-        [];
-      setSessionHistory(sessions);
+      const res = await labSessionService.getAll();
+      setSessionHistory(res.sessions || []);
     } catch {
-      // Non-critical — silently ignore
+      // Non-critical telemetry error
     } finally {
       setHistoryLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchLabs();
-    fetchHistory();
-  }, [fetchLabs, fetchHistory]);
-
-  // Start a lab
-  const handleStartLab = async (labId: number | string | null | undefined) => {
-    if (labId === null || labId === undefined) return;
+  const fetchLabs = useCallback(async () => {
     try {
-      setStartingLabId(toIdString(labId));
+      setDashboardState(DASHBOARD_STATE.LOADING_LABS);
+      setError(null);
+      const response = await labService.getAll();
+      const labList = response.labs || [];
+      setLabs(labList);
+      setDashboardState(DASHBOARD_STATE.IDLE);
+    } catch (err) {
+      console.error("Failed to fetch labs:", err);
+      setError("Failed to load targets. Database unreachable.");
+      setDashboardState(DASHBOARD_STATE.ERROR);
+    }
+  }, []);
+
+  const checkActiveSession = useCallback(async () => {
+    try {
+      const response = await labService.getActiveSession();
+      const session = response.session;
+
+      if (session) {
+        // Convert ActiveSessionResponse to LabSession
+        const labSession: LabSession = {
+          id: session.id,
+          userId: 0,
+          roomId: session.roomId,
+          taskId: session.taskId,
+          status: session.status.toLowerCase() as LabSession['status'],
+          startedAt: session.startedAt,
+          expiresAt: session.expiresAt,
+          networkName: session.networkName,
+          targetContainerId: session.containerId,
+          connectionInfo: {},
+          publicIp: session.containerId,
+        };
+        setActiveSession(labSession);
+        setDashboardState(DASHBOARD_STATE.RUNNING);
+
+        const currentLabRef = getSessionLabRef(labSession);
+        if (currentLabRef && labs.length > 0) {
+          const matchedLab = labs.find((l) => sameId(getEntityId(l), currentLabRef));
+          if (matchedLab) {
+            setActiveLab(matchedLab);
+          }
+        }
+      } else {
+        setActiveSession(null);
+        setActiveLab(null);
+      }
+    } catch (err) {
+      console.error("Failed to check active session:", err);
+    }
+  }, [labs]);
+
+  useEffect(() => {
+    void fetchLabs();
+    void fetchSessionHistory();
+  }, [fetchLabs, fetchSessionHistory]);
+
+  useEffect(() => {
+    if (labs.length > 0) {
+      void checkActiveSession();
+    }
+  }, [labs, checkActiveSession]);
+
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      void checkActiveSession();
+    }, 15000);
+    return () => clearInterval(pollInterval);
+  }, [checkActiveSession]);
+
+  const handleStartLab = async (labId: number | string | null | undefined) => {
+    if (labId == null) return;
+    const labIdNum = typeof labId === "string" ? parseInt(labId, 10) : labId;
+    if (isNaN(labIdNum)) return;
+
+    try {
+      setStartingLabId(labId);
       setDashboardState(DASHBOARD_STATE.STARTING_LAB);
       setError(null);
 
-      // Start the lab session
-      const response = await labService.startLab(Number(labId));
-      console.log("Start lab response:", response.data);
+      const targetLab = labs.find((l) => sameId(getEntityId(l), labId));
+      if (targetLab) setActiveLab(targetLab);
 
-      // API returns { success, data: { session: { id, status, labName } } }
-      const sessionData = response.data.data?.session || response.data.session || response.data.data;
-      console.log("Session data extracted:", sessionData);
+      const response = await labService.startLab(labIdNum);
+      const newSession = response.session;
 
-      const sessionId = sessionData?.id;
-      if (!sessionId) {
-        throw new Error("Failed to get session ID from server response");
-      }
-
-      // Find the lab details
-      const lab = labs.find((l) => sameId(getEntityId(l), Number(labId)));
-      setActiveSession(sessionData);
-      setActiveLab(lab || null);
-      setDashboardState(DASHBOARD_STATE.PROVISIONING);
-
-      // Simulate provisioning delay (mock cloud service)
-      setTimeout(async () => {
-        try {
-          const provisionResponse = await labService.completeProvisioning(sessionId);
-          console.log("Provision response:", provisionResponse.data);
-
-          // Normalize the provisioned session data
-          const provisionedData = provisionResponse.data.data?.session || provisionResponse.data.session || provisionResponse.data.data;
-          setActiveSession(provisionedData);
-          setDashboardState(DASHBOARD_STATE.RUNNING);
-        } catch (provisionError) {
-          console.error("Provisioning failed:", provisionError);
-          setError("Failed to provision lab environment");
-          setDashboardState(DASHBOARD_STATE.ERROR);
+      if (newSession) {
+        // Convert LabStartResponse session to LabSession
+        const labSession: LabSession = {
+          id: newSession.id,
+          userId: 0,
+          lab: newSession.lab,
+          status: newSession.status.toLowerCase() as LabSession['status'],
+          startedAt: new Date().toISOString(),
+          connectionInfo: {},
+        };
+        setActiveSession(labSession);
+        setDashboardState(DASHBOARD_STATE.RUNNING);
+        const targetSessionId = getEntityId(labSession);
+        if (targetSessionId) {
+          navigate(`/workspace/${targetSessionId}`);
         }
-      }, 3500); // Slightly longer than server delay for UX
+      }
     } catch (err: unknown) {
-      console.error("Failed to start lab:", err);
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to start lab");
+      console.error("Failed to launch lab:", err);
+      setError(err instanceof Error ? err.message : "Failed to initialize lab container.");
       setDashboardState(DASHBOARD_STATE.ERROR);
     } finally {
       setStartingLabId(null);
     }
   };
 
-  // Stop the active session
   const handleStopSession = async () => {
     if (!activeSession) return;
+    const activeSessionId = getEntityId(activeSession);
+    const sessionIdNum = parseInt(activeSessionId, 10);
+    if (isNaN(sessionIdNum)) return;
 
     try {
       setDashboardState(DASHBOARD_STATE.STOPPING);
-      setError(null);
-
-      const sessionId = activeSession.id;
-      console.log("Stopping session with ID:", sessionId, "Full session:", activeSession);
-
-      if (!sessionId) {
-        throw new Error("No session ID available");
-      }
-
-      await labService.stopLab(sessionId);
-
+      await labService.stopLab(sessionIdNum);
       setActiveSession(null);
       setActiveLab(null);
       setDashboardState(DASHBOARD_STATE.IDLE);
+      void fetchSessionHistory();
     } catch (err: unknown) {
       console.error("Failed to stop session:", err);
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || (err as Error).message || "Failed to stop session");
+      setError(err instanceof Error ? err.message : "Failed to terminate session.");
       setDashboardState(DASHBOARD_STATE.RUNNING);
     }
   };
 
   const handleOpenWorkspace = () => {
-    const sessionId = getEntityId(activeSession);
-    if (!sessionId) return;
-    navigate(`/workspace/${sessionId}`);
+    if (activeSession) {
+      const activeSessionId = getEntityId(activeSession);
+      navigate(`/workspace/${activeSessionId}`);
+    }
   };
 
-  // Render loading state
-  if (dashboardState === DASHBOARD_STATE.LOADING_LABS) {
+  const handleStartLabVoid = (labId: number | string | null | undefined) => {
+    void handleStartLab(labId);
+  };
+
+  const handleStopSessionVoid = () => {
+    void handleStopSession();
+  };
+
+  const handleOpenWorkspaceVoid = () => {
+    void handleOpenWorkspace();
+  };
+
+  if (dashboardState === DASHBOARD_STATE.LOADING_LABS && labs.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[60vh] flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-[60vh] flex items-center justify-center p-8">
+        <LoadingSpinner size="lg" message="Loading targets" />
       </div>
     );
   }
 
-  // Check if session is active (running or provisioning)
-  const hasActiveSession = (["PROVISIONING", "RUNNING", "STOPPING"] as const).includes(dashboardState as any);
+  const hasActiveSession = activeSession && activeSession.status !== "terminated" && activeSession.status !== "stopped";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-mono">
-      {/* Welcome Header */}
-      <div className="mb-8 border-b border-dashed border-border pb-6 flex items-end justify-between">
+    <StaggerContainer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-mono">
+      {/* Page Header */}
+      <FadeIn direction="down" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1 className="text-3xl font-display font-bold text-ink mb-2 uppercase tracking-wide">
-            OPERATOR_ID: {" "}
-            <span className="text-accent">{user?.username}</span>
+          <h1 className="text-2xl sm:text-3xl font-display font-black text-ink tracking-tight uppercase leading-none">
+            <DecryptedText text="Dashboard" speed={20} />
           </h1>
-          <p className="text-muted text-sm tracking-widest uppercase">
-            {hasActiveSession
-              ? "[ SYSTEM: ACTIVE SESSION DETECTED ]"
-              : "[ SYSTEM: AWAITING COMMAND ]"}
+          <p className="text-xs text-muted mt-1.5">
+            Operative: <span className="text-ink font-bold">{user?.username?.toUpperCase()}</span>
           </p>
         </div>
-        {!hasActiveSession && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={fetchLabs}
-            className="flex items-center gap-2 font-mono text-xs shadow-[2px_2px_0px_rgba(0,0,0,1)]"
-          >
-            <RefreshCw className="w-4 h-4" />
-            SYNC
-          </Button>
-        )}
-      </div>
+        <Button variant="secondary" size="sm" onClick={() => void fetchLabs()}>
+          <RefreshCw className="w-3 h-3" />
+          Sync
+        </Button>
+      </FadeIn>
 
-      {/* Error Banner */}
+      {/* Error State */}
       {error && (
-        <div className="mb-6">
+        <FadeIn className="mb-6">
           <ErrorState error={error} onRetry={() => setError(null)} />
-        </div>
+        </FadeIn>
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-surface border border-border p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,0.2)]">
-            <div className="absolute top-0 left-0 w-1 h-full bg-border" />
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-2 border border-border ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <SpotlightCard
+              key={stat.label}
+              className="p-5 sm:p-6 bg-surface"
+              spotlightColor="rgba(0, 229, 255, 0.06)"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] text-muted font-bold tracking-[0.15em] uppercase">
+                  {stat.label}
+                </span>
+                <Icon className={`w-3.5 h-3.5 ${stat.color}`} />
               </div>
-            </div>
-            <p className="text-2xl font-display font-bold text-ink leading-none mb-1">{stat.value}</p>
-            <p className="text-xs text-muted uppercase tracking-widest">{stat.label}</p>
-          </div>
-        ))}
+              <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-display font-black text-ink leading-none mb-1">
+                {stat.value}
+              </p>
+              <p className="text-[10px] text-dim tracking-wider uppercase mt-1">
+                {stat.subtext}
+              </p>
+            </SpotlightCard>
+          );
+        })}
       </div>
 
-      {/* Active Session or Lab Grid */}
+      {/* Active Session Mission HUD */}
       {hasActiveSession ? (
-        <div className="mb-8">
+        <FadeIn direction="up">
+          <div className="flex items-center gap-2 mb-4">
+            <Radio className="w-4 h-4 text-accent animate-pulse" />
+            <h2 className="text-sm font-bold text-ink uppercase tracking-wider">
+              CURRENT_ENGAGEMENT_TARGET
+            </h2>
+          </div>
           <ActiveSession
             session={activeSession}
             lab={activeLab}
-            onOpenWorkspace={handleOpenWorkspace}
-            onStopSession={handleStopSession}
+            onOpenWorkspace={handleOpenWorkspaceVoid}
+            onStopSession={handleStopSessionVoid}
             isStopping={dashboardState === DASHBOARD_STATE.STOPPING}
           />
-        </div>
-      ) : (
-        <>
-          {/* Available Labs */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-6 border-b border-border pb-2">
-              <Sparkles className="w-4 h-4 text-accent" />
-              <h2 className="text-lg font-display font-bold text-ink uppercase tracking-wider">
-                DEPLOYABLE_TARGETS
-              </h2>
-              <span className="ml-auto px-2 py-1 bg-surface border border-border text-ink text-xs font-bold tracking-widest">
-                AMT: {labs.length}
-              </span>
-            </div>
+        </FadeIn>
+      ) : null}
 
-            {labs.length === 0 ? (
-              <EmptyState
-                title="TARGET_DB_EMPTY"
-                description="No deployable templates found. Await system admin provisioning."
-              />
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {labs.map((lab) => {
-                  const labId = getEntityId(lab);
-                  return (
-                    <LabCard
-                      key={toIdString(labId) || lab.title}
-                      lab={lab}
-                      onStartLab={handleStartLab}
-                      isStarting={sameId(startingLabId, labId)}
-                      disabled={
-                        dashboardState === DASHBOARD_STATE.STARTING_LAB &&
-                        !sameId(startingLabId, labId)
-                      }
-                    />
-                  );
-                })}
-              </div>
-            )}
+      {/* Deployable Targets Grid */}
+      <FadeIn direction="up">
+        <div className="flex items-center justify-between gap-3 mb-5 border-b border-border pb-3">
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-3.5 h-3.5 text-accent" />
+            <h2 className="text-sm font-display font-black text-ink uppercase tracking-tight">
+              Deployable Targets
+            </h2>
           </div>
-        </>
-      )}
+          <TacticalBadge label={`${labs.length} available`} variant="muted" size="sm" />
+        </div>
 
-      {/* Recent Activity */}
-      <div>
-        <h2 className="text-lg font-display font-bold text-ink mb-4 uppercase tracking-wider border-b border-border pb-2">
-          EXECUTION_LOG
-        </h2>
-        <div className="bg-surface border border-border shadow-[4px_4px_0px_rgba(0,0,0,0.1)]">
+        {labs.length === 0 ? (
+          <EmptyState
+            title="TARGET_DB_EMPTY"
+            description="No deployable templates found in registry. Await system admin provisioning."
+          />
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {labs.map((lab) => {
+              const labId = getEntityId(lab);
+              return (
+                <LabCard
+                  key={toIdString(labId) || lab.title}
+                  lab={lab}
+                  onStartLab={handleStartLabVoid}
+                  isStarting={sameId(startingLabId, labId)}
+                  disabled={
+                    dashboardState === DASHBOARD_STATE.STARTING_LAB &&
+                    !sameId(startingLabId, labId)
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
+      </FadeIn>
+
+      {/* Execution Log */}
+      <FadeIn direction="up">
+        <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-cyan" />
+            <h2 className="text-sm font-display font-black text-ink uppercase tracking-tight">
+              Session Log
+            </h2>
+          </div>
+          <span className="text-[10px] text-muted tracking-widest uppercase">
+            {sessionHistory.length} records
+          </span>
+        </div>
+
+        <div className="bg-surface border border-border">
           {historyLoading ? (
-            <div className="p-6">
-              <LoadingSpinner />
+            <div className="p-8">
+              <LoadingSpinner message="Loading logs" />
             </div>
           ) : sessionHistory.length === 0 ? (
             <EmptyState
-              icon={<Clock className="w-8 h-8 text-muted" />}
-              title="NO_PRIOR_EXECUTIONS"
-              description="Boot a lab to populate trace tables."
+              icon={<Clock className="w-6 h-6 text-muted" />}
+              title="No sessions yet"
+              description="Deploy a target to start recording session history."
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border bg-paper">
-                    {['TARGET', 'STATUS', 'UPTIME', 'BURN_RATE', 'TIMESTAMP'].map((h) => (
-                      <th
-                        key={h}
-                        className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-widest"
-                      >
-                        {h}
-                      </th>
-                    ))}
+                  <tr className="border-b border-border bg-paper/60 text-[10px] text-muted tracking-[0.12em] uppercase">
+                    <th className="px-5 py-3 text-left">Target</th>
+                    <th className="px-5 py-3 text-left">Status</th>
+                    <th className="px-5 py-3 text-left">Started</th>
+                    <th className="px-5 py-3 text-left">Expires</th>
+                    <th className="px-5 py-3 text-left">Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border font-mono">
                   {sessionHistory.map((s) => {
-                    const getStatusColor = (status: string) => {
-                      const colors: Record<string, string> = {
-                        COMPLETED: 'text-success bg-success/10 border-success/30',
-                        RUNNING: 'text-info bg-info/10 border-info/30',
-                        TERMINATED: 'text-error bg-error/10 border-error/30',
-                        INITIALIZING: 'text-warning bg-warning/10 border-warning/30',
-                        PENDING: 'text-muted bg-surface/50 border-border',
-                        STOPPED: 'text-muted bg-surface/50 border-border',
-                        ERROR: 'text-error bg-error/10 border-error/30',
-                        initializing: 'text-warning bg-warning/10 border-warning/30',
-                        running: 'text-info bg-info/10 border-info/30',
-                        stopped: 'text-muted bg-surface/50 border-border',
-                        terminated: 'text-error bg-error/10 border-error/30',
-                        error: 'text-error bg-error/10 border-error/30',
-                        pending: 'text-muted bg-surface/50 border-border',
-                      };
-                      return colors[status.toUpperCase()] || colors[status] || 'text-muted bg-surface/50 border-border';
+                    const getStatusBadge = (status: string) => {
+                      const st = String(status || "").toUpperCase();
+                      if (st === "RUNNING" || st === "INITIALIZING") {
+                        return <TacticalBadge label={st} variant="success" pulse size="sm" />;
+                      }
+                      if (st === "STOPPED" || st === "TERMINATED") {
+                        return <TacticalBadge label={st} variant="muted" size="sm" />;
+                      }
+                      return <TacticalBadge label={st || "UNKNOWN"} variant="error" size="sm" />;
                     };
-                    const statusColor = getStatusColor(s.status);
 
-                    const labName =
-                      (s as any).lab?.name ||
-                      (s as any).labName ||
-                      'UNKNOWN_TARGET';
+                    const labName = "TARGET_CONTAINER";
 
-                    const duration =
-                      (s as any).duration != null
-                        ? `${(s as any).duration} min`
-                        : (s as any).startedAt && (s as any).endedAt
-                          ? `${Math.round(
-                              (new Date((s as any).endedAt).getTime() - new Date((s as any).startedAt).getTime()) /
-                              60000
-                            )} min`
-                          : '—';
-
-                    const cost =
-                      (s as any).cost != null
-                        ? `$${(s as any).cost.toFixed(2)}`
-                        : '—';
-
-                    const date = (s as any).createdAt
-                      ? new Date((s as any).createdAt).toLocaleDateString('en-US', {
-                          month: '2-digit',
-                          day: '2-digit',
-                          year: '2-digit',
-                        }).replace(/\//g, '.')
-                      : '—';
+                    const date = s.createdAt
+                      ? new Date(s.createdAt).toLocaleString("en-US", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })
+                      : "—";
 
                     return (
-                      <tr
-                        key={s.id}
-                        className="hover:bg-paper transition-colors"
-                      >
-                        <td className="px-5 py-4 text-ink font-bold font-mono text-xs uppercase">
+                      <tr key={s.id} className="hover:bg-paper/40 transition-colors">
+                        <td className="px-5 py-3.5 text-ink font-bold uppercase">
                           {labName}
                         </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`px-2 py-1 border text-xs font-bold tracking-widest uppercase ${statusColor}`}
-                          >
-                            {s.status}
-                          </span>
+                        <td className="px-5 py-3.5">
+                          {getStatusBadge(s.status)}
                         </td>
-                        <td className="px-5 py-4 text-muted font-mono">{duration}</td>
-                        <td className="px-5 py-4 text-muted font-mono">{cost}</td>
-                        <td className="px-5 py-4 text-muted font-mono">{date}</td>
+                        <td className="px-5 py-3.5 text-muted">{s.startedAt ? new Date(s.startedAt).toLocaleString() : "—"}</td>
+                        <td className="px-5 py-3.5 text-muted">{s.expiresAt ? new Date(s.expiresAt).toLocaleString() : "—"}</td>
+                        <td className="px-5 py-3.5 text-dim">{date}</td>
                       </tr>
                     );
                   })}
@@ -465,23 +467,8 @@ const Dashboard = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Week 2 Status Notice */}
-      <div className="mt-8 p-4 bg-paper border-[2px] border-dashed border-accent">
-        <div className="flex items-start space-x-4">
-          <Sparkles className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-          <div>
-            <h3 className="text-accent font-bold font-mono text-xs uppercase tracking-widest">
-              [ NOTICE: WEEK_2_PROTOCOL_ACTIVE ]
-            </h3>
-            <p className="text-muted font-mono text-xs mt-2 leading-relaxed max-w-2xl">
-              Simulated Provisioning System operational. Target environments will broadcast a 3-second build latency. Virtualized AWS-analog endpoints will be assigned for penetration testing workflows.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+      </FadeIn>
+    </StaggerContainer>
   );
 };
 

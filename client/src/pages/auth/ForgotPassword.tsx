@@ -2,9 +2,16 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input } from '../../components/ui';
-import { Mail, Terminal, ArrowLeft, Shield } from 'lucide-react';
-import toast from 'react-hot-toast';
-import api from '../../services/api';
+import {
+  SpotlightCard,
+  BorderBeam,
+  DecryptedText,
+  TacticalBadge,
+  FadeIn,
+  ScalePress,
+} from '../../components/ui/motion';
+import { KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { authService } from '../../services';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -15,12 +22,12 @@ const ForgotPassword = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!email) {
-      setError('Email is required');
+    if (!email.trim()) {
+      setError('Identity (Email) required');
       return;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email');
+      setError('Invalid email format');
       return;
     }
 
@@ -28,114 +35,137 @@ const ForgotPassword = () => {
     setError('');
 
     try {
-      const { data } = await api.post('/auth/forgot-password', { email });
+      await authService.forgotPassword(email);
       setIsSubmitted(true);
-      toast.success('Reset instructions sent!');
-
-      if (data.data?.resetURL) {
-        console.log('🔑 Reset URL:', data.data.resetURL);
-        console.log('🔑 Reset Token:', data.data.resetToken);
-      }
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Something went wrong. Please try again.';
-      toast.error(message);
+      const message = err instanceof Error ? err.message : 'Transmission error. Please try again.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSubmitVoid = (e: FormEvent) => {
+    void handleSubmit(e);
+  };
+
   return (
-    <div className="min-h-screen bg-cyber-dark flex">
-      {/* Left Panel - Form */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 mb-8">
-            <div className="w-10 h-10 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center">
-              <Terminal className="w-6 h-6 text-green-400" />
+    <div
+      className="min-h-screen bg-paper flex items-center justify-center p-4 font-mono relative overflow-hidden"
+      style={{
+        backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }}
+    >
+      <FadeIn className="w-full max-w-md">
+        <SpotlightCard
+          spotlightColor="rgba(0, 230, 153, 0.15)"
+          className="bg-surface border border-border p-6 sm:p-8 shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative overflow-hidden"
+        >
+          <BorderBeam size={180} duration={12} colorFrom="#00E699" colorTo="#00F0FF" />
+          <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+
+          {/* System Badge */}
+          <div className="flex items-center justify-between border-b border-dashed border-border pb-4 mb-6">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-accent" />
+              <span className="text-[10px] font-bold text-accent tracking-widest uppercase">
+                [ SYS_RECOVERY // DISPATCH ]
+              </span>
             </div>
-            <span className="text-2xl font-bold gradient-text">XploitVerse</span>
-          </Link>
+            <TacticalBadge variant="neutral" size="sm">
+              RELAY_01
+            </TacticalBadge>
+          </div>
+
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-display font-black text-ink uppercase tracking-wider mb-1">
+              <DecryptedText text="RECOVER_ACCESS" animateOn="view" speed={25} />
+            </h1>
+            <p className="text-xs text-muted font-mono tracking-wide">
+              {'>'} Transmit recovery token to registered comms channel
+            </p>
+          </div>
 
           {!isSubmitted ? (
-            <>
-              <h1 className="text-3xl font-bold text-white mb-2">Forgot password?</h1>
-              <p className="text-gray-400 mb-8">
-                No worries. Enter your email and we'll send you reset instructions.
-              </p>
+            <form className="space-y-5" onSubmit={handleSubmitVoid} noValidate>
+              {error && (
+                <div className="p-3 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-error" />
+                  <span>[!] {error}</span>
+                </div>
+              )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <Input
-                  label="Email"
-                  type="email"
-                  name="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setEmail(e.target.value);
-                    if (error) setError('');
-                  }}
-                  error={error}
-                  icon={Mail}
-                />
+              <Input
+                label="Registered Identity (Email)"
+                type="email"
+                name="email"
+                placeholder="operative@xploitverse.io"
+                value={email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setEmail(e.target.value);
+                  if (error) setError('');
+                }}
+                error={error}
+                required
+              />
 
+              <ScalePress scale={0.98}>
                 <Button
                   type="submit"
                   variant="primary"
-                  size="lg"
                   className="w-full"
                   isLoading={isLoading}
                 >
-                  Send Reset Instructions
+                  TRANSMIT RECOVERY LINK
                 </Button>
-              </form>
-            </>
+              </ScalePress>
+            </form>
           ) : (
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse-slow">
-                <Mail className="w-8 h-8 text-green-400" />
+            <div className="space-y-5">
+              <div className="p-4 bg-accent/10 border border-accent text-xs font-mono space-y-2">
+                <div className="flex items-center gap-2 text-accent font-bold uppercase tracking-wider">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>[+] RECOVERY_DISPATCHED</span>
+                </div>
+                <div className="text-ink">
+                  Instructions transmitted to <span className="text-accent font-bold">{email}</span>.
+                </div>
+                <div className="text-[11px] text-muted">
+                  Check spam filters if unreceived within 60 seconds.
+                </div>
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Check your email</h1>
-              <p className="text-gray-400 mb-6">
-                We've sent password reset instructions to{' '}
-                <span className="text-green-400 font-medium">{email}</span>
-              </p>
-              <p className="text-gray-500 text-sm mb-8">
-                Didn't receive the email? Check your spam folder or{' '}
-                <button
-                  onClick={() => setIsSubmitted(false)}
-                  className="text-green-400 hover:text-green-300 underline"
+
+              <ScalePress scale={0.98}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => {
+                    setIsSubmitted(false);
+                    setEmail('');
+                  }}
                 >
-                  try again
-                </button>
-              </p>
+                  RE-TRANSMIT REQUEST
+                </Button>
+              </ScalePress>
             </div>
           )}
 
-          <Link
-            to="/login"
-            className="mt-8 flex items-center justify-center text-gray-400 hover:text-green-400 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to login
-          </Link>
-        </div>
-      </div>
-
-      {/* Right Panel - Decoration */}
-      <div className="hidden lg:flex flex-1 bg-gray-900 border-l border-gray-800 items-center justify-center p-12">
-        <div className="max-w-lg text-center">
-          <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse-slow">
-            <Shield className="w-16 h-16 text-green-400" />
+          <div className="mt-8 pt-5 border-t border-dashed border-border text-center text-xs text-muted">
+            <span>REMEMBER CREDENTIALS? </span>
+            <Link
+              to="/login"
+              className="text-accent font-bold uppercase tracking-wider hover:underline underline-offset-4 decoration-dashed ml-1"
+            >
+              [ AUTHENTICATE ]
+            </Link>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Account Recovery
-          </h2>
-          <p className="text-gray-400">
-            We take security seriously. Your password reset link will expire in 10 minutes.
-          </p>
-        </div>
-      </div>
+        </SpotlightCard>
+      </FadeIn>
     </div>
   );
 };

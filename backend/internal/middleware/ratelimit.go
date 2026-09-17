@@ -62,8 +62,6 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		v.count++
-		v.lastSeen = time.Now()
-
 		if v.count > rl.max {
 			rl.mu.Unlock()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{

@@ -17,10 +17,15 @@ var _ *services.DockerService
 
 func (a *API) GetAllLabs(c *gin.Context) {
 	rows, err := a.DB.Query(c.Request.Context(), `
-		SELECT id, name, COALESCE(source_ref,''), COALESCE(docker_image,''), is_active
-		FROM assets
-		WHERE is_active=true
-		ORDER BY id DESC
+		SELECT a.id, a.name, COALESCE(a.source_ref,''), COALESCE(a.docker_image,''), a.is_active,
+			COALESCE(r.difficulty, 'Easy') AS difficulty
+		FROM assets a
+		LEFT JOIN (
+			SELECT DISTINCT ON (asset_id) asset_id, room_id FROM tasks WHERE asset_id IS NOT NULL
+		) t ON t.asset_id = a.id
+		LEFT JOIN rooms r ON r.id = t.room_id
+		WHERE a.is_active=true
+		ORDER BY a.id ASC
 	`)
 	if err != nil {
 		writeErr(c, http.StatusInternalServerError, "Failed to fetch labs")
@@ -31,9 +36,9 @@ func (a *API) GetAllLabs(c *gin.Context) {
 	labs := make([]gin.H, 0)
 	for rows.Next() {
 		var id int64
-		var name, sourceRef, image string
+		var name, sourceRef, image, difficulty string
 		var active bool
-		if err := rows.Scan(&id, &name, &sourceRef, &image, &active); err != nil {
+		if err := rows.Scan(&id, &name, &sourceRef, &image, &active, &difficulty); err != nil {
 			writeErr(c, http.StatusInternalServerError, "Failed to decode labs")
 			return
 		}
@@ -41,7 +46,7 @@ func (a *API) GetAllLabs(c *gin.Context) {
 			"id":                id,
 			"title":             name,
 			"description":       sourceRef,
-			"difficulty":        "Easy",
+			"difficulty":        difficulty,
 			"category":          "Red Team",
 			"estimatedDuration": 60,
 			"isActive":          active,

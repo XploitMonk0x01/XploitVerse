@@ -35,6 +35,15 @@ func (a *API) Register(c *gin.Context) {
 		return
 	}
 
+	var existingCount int
+	_ = a.DB.QueryRow(c.Request.Context(), `
+		SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($2)
+	`, strings.TrimSpace(body.Email), strings.TrimSpace(body.Username)).Scan(&existingCount)
+	if existingCount > 0 {
+		writeErr(c, http.StatusBadRequest, "User with this email or username already exists")
+		return
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), 12)
 	if err != nil {
 		writeErr(c, http.StatusInternalServerError, "Failed to hash password")

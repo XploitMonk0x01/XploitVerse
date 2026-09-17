@@ -36,11 +36,15 @@ func parseInt64Param(c *gin.Context, name string) (int64, bool) {
 }
 
 func pgUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == "23505"
+	if err == nil {
+		return false
 	}
-	return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "23505") || strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
 }
 
 func parseJSONStringArray(raw []byte) []string {

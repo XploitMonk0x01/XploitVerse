@@ -87,14 +87,18 @@ const Profile = () => {
     e.preventDefault();
     try {
       setProfileSaving(true);
-      const { data } = await userService.updateProfile(profileForm);
-      updateUser(data.data?.user || profileForm);
+      const response = await userService.updateProfile(profileForm);
+      updateUser(response.data);
       toast.success('Profile updated successfully!');
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update profile');
+      toast.error(err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
       setProfileSaving(false);
     }
+  };
+
+  const handleProfileSaveVoid = (e: FormEvent) => {
+    void handleProfileSave(e);
   };
 
   const handlePasswordSave = async (e: FormEvent) => {
@@ -119,12 +123,16 @@ const Profile = () => {
       toast.success('Password changed successfully!');
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to change password';
+      const msg = err instanceof Error ? err.message : 'Failed to change password';
       setPwError(msg);
       toast.error(msg);
     } finally {
       setPwSaving(false);
     }
+  };
+
+  const handlePasswordSaveVoid = (e: FormEvent) => {
+    void handlePasswordSave(e);
   };
 
   const toggle = (key: 'current' | 'new' | 'confirm') => setShowPw((p) => ({ ...p, [key]: !p[key] }));
@@ -214,7 +222,7 @@ const Profile = () => {
 
           {/* Edit Profile */}
           <SectionCard title="Edit Profile" icon={<User className="w-5 h-5 text-green-400" />}>
-            <form onSubmit={handleProfileSave} className="space-y-4">
+            <form onSubmit={handleProfileSaveVoid} className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="First Name">
                   <input
@@ -279,7 +287,7 @@ const Profile = () => {
 
           {/* Change Password */}
           <SectionCard title="Change Password" icon={<Lock className="w-5 h-5 text-green-400" />}>
-            <form onSubmit={handlePasswordSave} className="space-y-4">
+            <form onSubmit={handlePasswordSaveVoid} className="space-y-4">
 
               {pwError && (
                 <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">

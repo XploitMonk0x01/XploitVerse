@@ -1,5 +1,28 @@
-import api from './api';
-import type { User, RegisterData, LoginCredentials, AuthResult, LabSession, FlagSubmitResponse } from '../types';
+import { apiClient } from './api';
+import type {
+  User,
+  RegisterData,
+  LoginCredentials,
+  LabSession,
+  ActiveSessionResponse,
+  LabStartResponse,
+  ProvisionResponse,
+  LabSessionsListResponse,
+  LabSessionDetailResponse,
+  LabsListResponse,
+  LabDetailResponse,
+  CoursesListResponse,
+  CourseDetailResponse,
+  ModuleDetailResponse,
+  TaskDetailResponse,
+  LeaderboardResponse,
+  MyRankResponse,
+  FlagSubmitResponse,
+  RegisterResponse,
+  LoginResponse,
+  MeResponse,
+  RefreshTokenResponse,
+} from '../types';
 
 export const flagService = {
   submit: ({ taskId, flag }: { taskId: string | number; flag: string }) => {
@@ -8,65 +31,61 @@ export const flagService = {
         ? Number.parseInt(taskId, 10)
         : taskId;
 
-    return api.post<FlagSubmitResponse>('/flags/submit', { taskId: normalizedTaskId, flag });
+    return apiClient.post<FlagSubmitResponse>('/flags/submit', { taskId: normalizedTaskId, flag });
   },
 };
 
 export const authService = {
-  register: (userData: RegisterData) => api.post<AuthResult>('/auth/register', userData),
-  login: (credentials: LoginCredentials) => api.post<AuthResult>('/auth/login', credentials),
-  logout: () => api.post('/auth/logout'),
-  getMe: () => api.get<{ user: User }>('/auth/me'),
-  updatePassword: (passwords: { currentPassword: string; newPassword: string }) => api.put('/auth/update-password', passwords),
-  refreshToken: () => api.post<{ token: string }>('/auth/refresh-token'),
+  register: (userData: RegisterData) => apiClient.post<RegisterResponse>('/auth/register', userData),
+  login: (credentials: LoginCredentials) => apiClient.post<LoginResponse>('/auth/login', credentials),
+  logout: () => apiClient.post<{ success: boolean; message: string }>('/auth/logout'),
+  getMe: () => apiClient.get<MeResponse>('/auth/me'),
+  updatePassword: (passwords: { currentPassword: string; newPassword: string }) =>
+    apiClient.put<{ success: boolean; message: string; data: { token: string } }>('/auth/update-password', passwords),
+  refreshToken: () => apiClient.post<RefreshTokenResponse>('/auth/refresh-token'),
+  forgotPassword: (email: string) =>
+    apiClient.post<{ success: boolean; message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string, confirmPassword: string) =>
+    apiClient.post<{ success: boolean; message: string; data: { token: string } }>(`/auth/reset-password/${token}`, { password, confirmPassword }),
 };
 
 export const userService = {
-  getAll: (params?: Record<string, unknown>) => api.get('/users', { params }),
-  getById: (id: number) => api.get(`/users/${id}`),
-  updateProfile: (data: Partial<User>) => api.put('/users/profile', data),
-  updateRole: (id: number, role: string) => api.put(`/users/${id}/role`, { role }),
-  deactivate: (id: number) => api.put(`/users/${id}/deactivate`),
-  reactivate: (id: number) => api.put(`/users/${id}/reactivate`),
-  getStats: () => api.get('/users/stats'),
-  getMyProgress: () => api.get('/users/me/progress'),
+  updateProfile: (data: Partial<User>) => apiClient.put<{ success: boolean; message: string; data: User }>('/users/profile', data),
+  getMyProgress: () => apiClient.get<{ progress: Array<{ taskId: string; state: string; startedAt: string; completedAt?: string; attempts: number; pointsEarned: number }>; summary: { completedTasks: number; totalPoints: number } }>('/users/me/progress'),
 };
 
 export const labSessionService = {
-  create: (data: Partial<LabSession>) => api.post('/lab-sessions', data),
-  getAll: (params?: Record<string, unknown>) => api.get('/lab-sessions', { params }),
-  getById: (id: number) => api.get(`/lab-sessions/${id}`),
-  getActive: () => api.get('/lab-sessions/active'),
-  updateStatus: (id: number, data: Record<string, unknown>) => api.patch(`/lab-sessions/${id}/status`, data),
-  terminate: (id: number) => api.post(`/lab-sessions/${id}/terminate`),
-  updateNotes: (id: number, notes: string) => api.patch(`/lab-sessions/${id}/notes`, { notes }),
-  getStats: () => api.get('/lab-sessions/stats'),
+  getAll: () => apiClient.get<LabSessionsListResponse>('/lab-sessions'),
+  getById: (id: number) => apiClient.get<LabSessionDetailResponse>(`/lab-sessions/${id}`),
+  getActive: () => apiClient.get<{ session: LabSession | null }>('/lab-sessions/active'),
+  terminate: (id: number) => apiClient.post<{ success: boolean; message: string; data: { id: number; status: string } }>(`/lab-sessions/${id}/terminate`),
 };
 
 export const courseService = {
-  getAll: (params?: Record<string, unknown>) => api.get('/courses', { params }),
-  getBySlug: (slug: string) => api.get(`/courses/${slug}`),
+  getAll: () => apiClient.get<CoursesListResponse>('/courses'),
+  getBySlug: (slug: string) => apiClient.get<CourseDetailResponse>(`/courses/${slug}`),
 };
 
 export const moduleService = {
-  getById: (id: number) => api.get(`/modules/${id}`),
+  getById: (id: number) => apiClient.get<ModuleDetailResponse>(`/modules/${id}`),
 };
 
 export const taskService = {
-  getById: (id: number) => api.get(`/tasks/${id}`),
+  getById: (id: number) => apiClient.get<TaskDetailResponse>(`/tasks/${id}`),
 };
 
 export const labService = {
-  getAll: () => api.get('/labs'),
-  startLab: (labId: number) => api.post('/labs/start', { labId }),
-  stopLab: (sessionId: number) => api.post('/labs/stop', { sessionId }),
-  getActiveSession: () => api.get('/labs/active-session'),
-  completeProvisioning: (sessionId: number) => api.post(`/labs/session/${sessionId}/provision`),
+  getAll: () => apiClient.get<LabsListResponse>('/labs'),
+  getById: (labId: number) => apiClient.get<LabDetailResponse>(`/labs/${labId}`),
+  startLab: (labId: number) => apiClient.post<LabStartResponse>('/labs/start', { labId }),
+  stopLab: (sessionId: number) => apiClient.post<{ success: boolean; message: string }>('/labs/stop', { sessionId }),
+  getActiveSession: () => apiClient.get<{ session: ActiveSessionResponse | null }>('/labs/active-session'),
+  completeProvisioning: (sessionId: number) => apiClient.post<ProvisionResponse>(`/labs/session/${sessionId}/provision`),
 };
 
 export const leaderboardService = {
-  getTop: () => api.get('/leaderboard'),
-  getMyRank: () => api.get('/leaderboard/me'),
+  getTop: () => apiClient.get<LeaderboardResponse>('/leaderboard'),
+  getMyRank: () => apiClient.get<MyRankResponse>('/leaderboard/me'),
 };
 
 export default {

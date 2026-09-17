@@ -1,115 +1,21 @@
-import type { ElementType, ReactNode } from 'react';
+import React, { type ElementType, type ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
-interface ButtonProps {
+export interface ButtonProps {
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'cyan';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   disabled?: boolean;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   type?: 'button' | 'submit' | 'reset';
   as?: ElementType;
+  href?: string;
 }
 
-const styles = `
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 0.75rem var(--space-4);
-    border: 1px solid var(--color-border);
-    cursor: pointer;
-    text-decoration: none;
-    transition: all var(--ease-out);
-    white-space: nowrap;
-    user-select: none;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .btn:disabled { 
-    opacity: 0.5; 
-    cursor: not-allowed; 
-    pointer-events: none; 
-    filter: grayscale(1);
-  }
-
-  /* Primary Action */
-  .btn-primary {
-    background: var(--color-accent);
-    color: var(--color-paper);
-    border-color: var(--color-accent);
-  }
-  .btn-primary:hover { 
-    background: var(--color-accent-hover); 
-    border-color: var(--color-accent-hover);
-    box-shadow: 4px 4px 0px rgba(255, 69, 0, 0.2);
-    transform: translate(-2px, -2px);
-  }
-  .btn-primary:active { 
-    transform: translate(0, 0);
-    box-shadow: none;
-  }
-
-  /* Secondary Action */
-  .btn-secondary {
-    background: transparent;
-    color: var(--color-ink);
-    border-color: var(--color-border);
-  }
-  .btn-secondary:hover { 
-    background: var(--color-ink); 
-    color: var(--color-paper);
-    border-color: var(--color-ink); 
-  }
-
-  /* Ghost/Subtle Action */
-  .btn-ghost {
-    background: transparent;
-    color: var(--color-muted);
-    border-color: transparent;
-  }
-  .btn-ghost:hover { 
-    color: var(--color-ink); 
-    background: var(--color-subtle); 
-  }
-
-  /* Danger/Error Action */
-  .btn-danger {
-    background: transparent;
-    color: var(--color-error);
-    border-color: var(--color-error);
-  }
-  .btn-danger:hover {
-    background: var(--color-error);
-    color: var(--color-paper);
-  }
-
-  /* Sizes */
-  .btn-sm { font-size: var(--text-xs); padding: 0.5rem var(--space-3); }
-  .btn-lg { font-size: var(--text-base); padding: 1rem var(--space-6); }
-  .btn-full { width: 100%; }
-
-  /* Loading state spinner */
-  .btn-spinner {
-    width: 1em; 
-    height: 1em;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: btn-spin 0.6s linear infinite;
-  }
-  @keyframes btn-spin { to { transform: rotate(360deg); } }
-`;
-
-export function Button({
+export const Button = ({
   children,
   variant = 'primary',
   size = 'md',
@@ -118,28 +24,49 @@ export function Button({
   className = '',
   onClick,
   type = 'button',
-  as: Tag = 'button',
-}: ButtonProps) {
+  as: Component = 'button',
+  ...props
+}: ButtonProps) => {
+  const baseClasses =
+    'relative inline-flex items-center justify-center font-mono font-bold uppercase tracking-[0.1em] select-none transition-all duration-100 active:translate-x-[1px] active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none border rounded-none group whitespace-nowrap';
+
+  const sizeClasses = {
+    sm: 'text-[11px] px-3 py-1.5 gap-1.5',
+    md: 'text-xs px-4 py-2 gap-2',
+    lg: 'text-sm px-6 py-3 gap-2',
+  }[size];
+
+  const variantClasses = {
+    primary:
+      'bg-accent text-paper border-accent hover:bg-accent-hover hover:border-accent-hover shadow-accent hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]',
+    secondary:
+      'bg-surface text-ink border-border hover:border-border-bright hover:bg-surface-elevated',
+    cyan:
+      'bg-cyan text-paper border-cyan hover:opacity-90 shadow-cyan hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]',
+    ghost:
+      'bg-transparent text-muted border-border hover:text-ink hover:bg-surface hover:border-border-bright',
+    danger:
+      'bg-error text-paper border-error hover:opacity-90',
+  }[variant];
+
   return (
-    <>
-      <style>{styles}</style>
-      <Tag
-        type={Tag === 'button' ? type : undefined}
-        className={[
-          'btn',
-          `btn-${variant}`,
-          size !== 'md' && `btn-${size}`,
-          className,
-          className.includes('w-full') && 'btn-full'
-        ].filter(Boolean).join(' ')}
-        disabled={disabled || isLoading}
-        onClick={onClick}
-      >
-        {isLoading && <span className="btn-spinner" />}
-        {isLoading ? 'WORKING...' : children}
-      </Tag>
-    </>
+    <Component
+      type={Component === 'button' ? type : undefined}
+      disabled={disabled || isLoading}
+      onClick={onClick}
+      className={cn(baseClasses, sizeClasses, variantClasses, className)}
+      {...props}
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <span>Working</span>
+        </>
+      ) : (
+        children
+      )}
+    </Component>
   );
-}
+};
 
 export default Button;

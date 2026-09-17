@@ -1,6 +1,14 @@
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui';
 import {
+  SpotlightCard,
+  DecryptedText,
+  TacticalBadge,
+  StaggerContainer,
+  FadeIn,
+  ScalePress,
+} from '../../components/ui/motion';
+import {
   Users,
   Server,
   DollarSign,
@@ -20,7 +28,7 @@ interface OverviewStat {
   change: string;
   icon: typeof Users;
   color: string;
-  bg: string;
+  badgeVariant?: 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'cyan' | 'neutral';
 }
 
 interface SystemHealth {
@@ -32,61 +40,58 @@ interface SystemHealth {
 const AdminDashboard = () => {
   useAuth();
 
-  // Placeholder stats for admin demo
   const overviewStats: OverviewStat[] = [
     {
-      label: 'Total Users',
+      label: 'TOTAL_OPERATIVES',
       value: '0',
-      change: '+0%',
+      change: '+0.0%',
       icon: Users,
-      color: 'text-blue-400',
-      bg: 'bg-blue-500/10',
+      color: 'text-ink',
+      badgeVariant: 'neutral',
     },
     {
-      label: 'Active Sessions',
+      label: 'ACTIVE_SESSIONS',
       value: '0',
-      change: '+0%',
+      change: '+0.0%',
       icon: Server,
-      color: 'text-green-400',
-      bg: 'bg-green-500/10',
+      color: 'text-success',
+      badgeVariant: 'success',
     },
     {
-      label: 'Revenue (This Month)',
+      label: 'REVENUE_MTD',
       value: '$0.00',
-      change: '+0%',
+      change: '+0.0%',
       icon: DollarSign,
-      color: 'text-cyber-orange',
-      bg: 'bg-cyber-orange/10',
+      color: 'text-accent',
+      badgeVariant: 'accent',
     },
     {
-      label: 'Cost Savings',
+      label: 'COMPUTE_OPTIMIZATION',
       value: '68%',
-      change: 'vs Traditional',
+      change: 'VS_STATIC',
       icon: TrendingUp,
-      color: 'text-cyber-blue',
-      bg: 'bg-cyber-blue/10',
+      color: 'text-cyan',
+      badgeVariant: 'cyan',
     },
   ];
 
   const systemHealth: SystemHealth[] = [
-    { name: 'API Server', status: 'healthy', uptime: '99.9%' },
-    { name: 'PostgreSQL', status: 'healthy', uptime: '99.9%' },
-    { name: 'AWS EC2', status: 'pending', uptime: 'Phase 2' },
-    { name: 'Auto Scaling', status: 'pending', uptime: 'Phase 2' },
+    { name: 'API_GATEWAY_NODE_01', status: 'healthy', uptime: '99.9%' },
+    { name: 'POSTGRES_CLUSTER_PRIMARY', status: 'healthy', uptime: '99.9%' },
+    { name: 'AWS_ISOLATED_VPC_FABRIC', status: 'pending', uptime: 'PHASE_2' },
+    { name: 'AUTOSCALE_CONTAINER_AGENT', status: 'pending', uptime: 'PHASE_2' },
   ];
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string): 'success' | 'warning' | 'danger' | 'neutral' => {
     switch (status) {
       case 'healthy':
-        return 'text-green-400 bg-green-500/20';
+        return 'success';
       case 'warning':
-        return 'text-cyber-orange bg-cyber-orange/20';
+        return 'warning';
       case 'error':
-        return 'text-red-400 bg-red-500/20';
-      case 'pending':
-        return 'text-gray-400 bg-gray-500/20';
+        return 'danger';
       default:
-        return 'text-gray-400 bg-gray-500/20';
+        return 'neutral';
     }
   };
 
@@ -95,7 +100,6 @@ const AdminDashboard = () => {
       case 'healthy':
         return CheckCircle;
       case 'warning':
-        return AlertTriangle;
       case 'error':
         return AlertTriangle;
       default:
@@ -104,153 +108,169 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <StaggerContainer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-mono">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-          <p className="text-gray-400 mt-1">
-            Monitor system health, users, and lab sessions
-          </p>
+      <FadeIn>
+        <div className="border border-border bg-surface p-6 shadow-[8px_8px_0px_rgba(0,0,0,0.2)] flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+          <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+          <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+
+          <div>
+            <div className="flex items-center gap-2 text-xs text-accent font-bold tracking-widest uppercase mb-1">
+              <span className="w-2 h-2 bg-accent inline-block animate-pulse" />
+              ADMINISTRATIVE_CONTROL_CONSOLE // TIER-0
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink uppercase tracking-wider">
+              <DecryptedText text="SYSTEM_SURVEILLANCE" animateOn="view" speed={25} />
+            </h1>
+            <p className="text-muted text-xs uppercase tracking-wider mt-1">
+              Telemetry for node health, identity allocations, and containerized session lifecycles
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <ScalePress scale={0.97}>
+              <Button variant="secondary" size="sm">
+                <Download className="w-3.5 h-3.5 mr-2" />
+                EXPORT_LOGS
+              </Button>
+            </ScalePress>
+            <ScalePress scale={0.97}>
+              <Button variant="secondary" size="sm">
+                <Settings className="w-3.5 h-3.5 mr-2" />
+                SYS_CONFIG
+              </Button>
+            </ScalePress>
+          </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button variant="secondary">
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
-          <Button variant="secondary">
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
-        </div>
-      </div>
+      </FadeIn>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {overviewStats.map((stat) => (
-          <div key={stat.label} className="card-cyber p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className={`p-2 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+      <FadeIn delay={0.05}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {overviewStats.map((stat) => (
+            <SpotlightCard
+              key={stat.label}
+              spotlightColor="rgba(0, 230, 153, 0.12)"
+              className="border border-border bg-surface p-5 shadow-[4px_4px_0px_rgba(0,0,0,0.15)] relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted tracking-widest uppercase">{stat.label}</span>
+                <stat.icon className={`w-4 h-4 ${stat.color}`} />
               </div>
-              <span className="text-xs text-green-400">{stat.change}</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stat.value}</p>
-            <p className="text-sm text-gray-400">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+              <div className="text-2xl sm:text-3xl font-display font-bold text-ink">{stat.value}</div>
+              <div className="text-[10px] text-accent mt-1 tracking-wider">{stat.change}</div>
+            </SpotlightCard>
+          ))}
+        </div>
+      </FadeIn>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* System Health */}
-        <div className="lg:col-span-1">
-          <div className="card-cyber p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-green-400" />
-              System Health
+        <FadeIn delay={0.1} className="lg:col-span-1">
+          <div className="border border-border bg-surface p-6 shadow-[6px_6px_0px_rgba(0,0,0,0.15)] h-full">
+            <h2 className="text-sm font-bold text-ink mb-4 uppercase tracking-widest flex items-center gap-2 border-b border-dashed border-border pb-3">
+              <Activity className="w-4 h-4 text-success" />
+              CORE_SUBSYSTEMS
             </h2>
             <div className="space-y-3">
               {systemHealth.map((system) => {
                 const StatusIcon = getStatusIcon(system.status);
+                const badgeVariant = getStatusBadge(system.status);
                 return (
                   <div
                     key={system.name}
-                    className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg"
+                    className="flex items-center justify-between p-3 border border-border bg-paper hover:border-accent/60 transition-colors"
                   >
-                    <div className="flex items-center space-x-3">
-                      <StatusIcon className={`w-4 h-4 ${getStatusColor(system.status).split(' ')[0]}`} />
-                      <span className="text-white text-sm">{system.name}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <StatusIcon className="w-3.5 h-3.5 text-muted shrink-0" />
+                      <span className="text-ink text-xs font-bold tracking-wider truncate">
+                        {system.name}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(system.status)}`}>
+                    <TacticalBadge
+                      variant={badgeVariant}
+                      size="sm"
+                      pulse={system.status === 'healthy'}
+                    >
                       {system.uptime}
-                    </span>
+                    </TacticalBadge>
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
+        </FadeIn>
 
         {/* Recent Users */}
-        <div className="lg:col-span-2">
-          <div className="card-cyber p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Users className="w-5 h-5 mr-2 text-blue-400" />
-              Recent Users
+        <FadeIn delay={0.15} className="lg:col-span-2">
+          <div className="border border-border bg-surface p-6 shadow-[6px_6px_0px_rgba(0,0,0,0.15)] h-full">
+            <h2 className="text-sm font-bold text-ink mb-4 uppercase tracking-widest flex items-center gap-2 border-b border-dashed border-border pb-3">
+              <Users className="w-4 h-4 text-cyan" />
+              REGISTERED_IDENTITIES
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-gray-400 text-sm">
-                    <th className="pb-3">User</th>
-                    <th className="pb-3">Role</th>
-                    <th className="pb-3">Status</th>
-                    <th className="pb-3">Joined</th>
+                  <tr className="text-left text-muted border-b border-border uppercase tracking-widest">
+                    <th className="pb-3 font-bold">OPERATIVE</th>
+                    <th className="pb-3 font-bold">CLEARANCE</th>
+                    <th className="pb-3 font-bold">STATUS</th>
+                    <th className="pb-3 font-bold">PROVISIONED</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/40">
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-gray-500">
-                      No users yet. They will appear here after registration.
+                    <td colSpan={4} className="py-8 text-center text-muted uppercase tracking-wider">
+                      [ RECORD_EMPTY: NO EXTERNAL IDENTITIES REGISTERED ]
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
+        </FadeIn>
       </div>
 
       {/* Active Sessions */}
-      <div className="mt-8">
-        <div className="card-cyber p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Server className="w-5 h-5 mr-2 text-cyber-blue" />
-            Active Lab Sessions
+      <FadeIn delay={0.2}>
+        <div className="border border-border bg-surface p-6 shadow-[6px_6px_0px_rgba(0,0,0,0.15)]">
+          <h2 className="text-sm font-bold text-ink mb-4 uppercase tracking-widest flex items-center gap-2 border-b border-dashed border-border pb-3">
+            <Server className="w-4 h-4 text-accent" />
+            ACTIVE_TARGET_RUNTIMES
           </h2>
-          <div className="text-center py-8">
-            <Server className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No active sessions</p>
-            <p className="text-gray-500 text-sm mt-1">
-              Active lab sessions will be displayed here in real-time (Phase 2)
+          <div className="text-center py-10 border border-dashed border-border bg-paper">
+            <Server className="w-10 h-10 text-muted mx-auto mb-3 opacity-60" />
+            <p className="text-ink text-xs font-bold uppercase tracking-wider">
+              NO RUNTIME CONTAINERS PROVISIONED
+            </p>
+            <p className="text-muted text-[11px] mt-1 uppercase tracking-widest">
+              Telemetry streams live as operatives launch mission challenges
             </p>
           </div>
         </div>
-      </div>
+      </FadeIn>
 
       {/* Cost Analytics Placeholder */}
-      <div className="mt-8">
-        <div className="card-cyber p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2 text-cyber-orange" />
-            Cost Analytics
+      <FadeIn delay={0.25}>
+        <div className="border border-border bg-surface p-6 shadow-[6px_6px_0px_rgba(0,0,0,0.15)]">
+          <h2 className="text-sm font-bold text-ink mb-4 uppercase tracking-widest flex items-center gap-2 border-b border-dashed border-border pb-3">
+            <BarChart3 className="w-4 h-4 text-cyan" />
+            COMPUTE_EXPENDITURE_MATRIX
           </h2>
-          <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-700 rounded-lg">
-            <div className="text-center">
-              <BarChart3 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Cost analytics coming in Phase 2</p>
-              <p className="text-gray-500 text-sm mt-1">
-                Track hourly usage, revenue, and AWS costs
+          <div className="h-44 flex items-center justify-center border border-dashed border-border bg-paper text-center">
+            <div>
+              <BarChart3 className="w-8 h-8 text-muted mx-auto mb-2 opacity-50" />
+              <p className="text-ink text-xs font-bold uppercase tracking-wider">
+                HOURLY EC2 ALLOCATION MONITOR
+              </p>
+              <p className="text-muted text-[10px] mt-1 uppercase tracking-widest">
+                Live consumption curves unlock with target container clusters
               </p>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Phase 2 Notice */}
-      <div className="mt-8 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
-        <div className="flex items-start space-x-3">
-          <Settings className="w-5 h-5 text-green-400 mt-0.5" />
-          <div>
-            <h3 className="text-green-400 font-medium">Admin Panel - Phase 1</h3>
-            <p className="text-gray-400 text-sm mt-1">
-              Full admin functionality including user management, real-time session monitoring,
-              and AWS instance control will be available in Phase 2. This is the dashboard layout preview.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+      </FadeIn>
+    </StaggerContainer>
   );
 };
 

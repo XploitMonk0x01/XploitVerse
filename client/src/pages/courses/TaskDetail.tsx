@@ -2,24 +2,18 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { CheckCircle, Flag, HelpCircle, Terminal } from "lucide-react";
-import { Button, Input, LoadingSpinner } from "../../components/ui";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle, ArrowLeft, Key, Lightbulb } from "lucide-react";
+import { Button, Input, LoadingSpinner, EmptyState } from "../../components/ui";
 import { flagService, taskService, userService } from "../../services";
 import type { Task } from "../../types";
+import { SpotlightCard } from "../../components/ui/motion/SpotlightCard";
+import { BorderBeam } from "../../components/ui/motion/BorderBeam";
+import { DecryptedText } from "../../components/ui/motion/DecryptedText";
+import { TacticalBadge } from "../../components/ui/motion/TacticalBadge";
+import { FadeIn } from "../../components/ui/motion/MotionWrappers";
 
-interface TaskTypeConfig {
-  label: string;
-  icon: typeof Flag;
-  cls: string;
-}
-
-const taskTypeConfig: Record<string, TaskTypeConfig> = {
-  flag: { label: "Flag", icon: Flag, cls: "text-green-400 border-green-900 bg-green-900/20" },
-  question: { label: "Quiz", icon: HelpCircle, cls: "text-blue-400 border-blue-900 bg-blue-900/20" },
-  interactive: { label: "Lab", icon: Terminal, cls: "text-purple-400 border-purple-900 bg-purple-900/20" },
-};
-
-const TaskDetail = () => {
+export const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +22,7 @@ const TaskDetail = () => {
   const [submittingFlag, setSubmittingFlag] = useState(false);
   const [completedAt, setCompletedAt] = useState<string | null>(null);
   const [pointsEarned, setPointsEarned] = useState<number | null>(null);
+  const [shake, setShake] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,14 +37,14 @@ const TaskDetail = () => {
 
         if (!cancelled) {
           if (taskRes.status === "fulfilled") {
-            setTask(taskRes.value.data?.data?.task || null);
+            setTask(taskRes.value.task || null);
           } else {
-            setError((taskRes.reason as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load task");
+            setError(taskRes.reason instanceof Error ? taskRes.reason.message : "Failed to load task");
           }
 
           if (progressRes.status === "fulfilled") {
-            const prog = (progressRes.value.data)?.data?.progress || (progressRes.value.data)?.progress || [];
-            const mine = prog.find((p: any) => String(p.taskId) === String(id));
+            const prog = progressRes.value.progress || [];
+            const mine = prog.find((p: { taskId: string | number }) => String(p.taskId) === String(id));
             if (mine?.completedAt) {
               setCompletedAt(mine.completedAt);
               setPointsEarned(mine.pointsEarned ?? null);
@@ -60,7 +55,7 @@ const TaskDetail = () => {
         if (!cancelled) setLoading(false);
       }
     };
-    load();
+    void load();
     return () => { cancelled = true; };
   }, [id]);
 
@@ -71,159 +66,192 @@ const TaskDetail = () => {
 
     const parsedTaskId = Number.parseInt(String(id), 10);
     if (!Number.isFinite(parsedTaskId) || parsedTaskId <= 0) {
-      toast.error("Invalid task id");
+      toast.error("Invalid task ID");
       return;
     }
 
     try {
       setSubmittingFlag(true);
-      const res = await flagService.submit({ taskId: parsedTaskId, flag: trimmed });
-      const data = (res.data as any)?.data || res.data;
+      const data = await flagService.submit({ taskId: parsedTaskId, flag: trimmed });
       if (data?.alreadySolved) {
-        toast.success("Already solved!");
+        toast.success("Flag verified (already solved)");
         setCompletedAt(data.completedAt || new Date().toISOString());
         setPointsEarned(data.pointsEarned ?? null);
       } else {
-        toast.success(res.data?.message || "Correct flag! 🎯");
+        toast.success("Flag accepted! Access granted.");
         setCompletedAt(new Date().toISOString());
         setPointsEarned(data?.pointsEarned ?? null);
       }
       setFlag("");
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to submit flag");
+      setShake(true);
+      setTimeout(() => setShake(false), 600);
+      toast.error(err instanceof Error ? err.message : "Incorrect flag. Re-evaluate payload.");
     } finally {
       setSubmittingFlag(false);
     }
   };
 
+  const submitFlagVoid = (e: FormEvent) => {
+    void submitFlag(e);
+  };
+
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <LoadingSpinner size="lg" className="py-24" />
+      <div className="py-24">
+        <LoadingSpinner message="INITIALIZING_TASK_TELEMETRY" />
       </div>
     );
   }
 
-  const typeCfg = task && taskTypeConfig[task.type?.toLowerCase()];
-
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-4xl mx-auto space-y-8 font-mono">
+      {/* Return Link */}
+      <div>
+        <Link
+          to="/courses"
+          className="inline-flex items-center gap-2 text-xs font-bold text-muted hover:text-accent uppercase tracking-wider transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>[ // BACK_TO_MISSIONS ]</span>
+        </Link>
+      </div>
+
       {error && (
-        <div className="mb-6 card-cyber px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-widest">
+          [ERR]: {error}
         </div>
       )}
 
       {!task ? (
-        <div className="card-cyber p-6">
-          <p className="text-gray-300">Task not found.</p>
-          <Link to="/courses" className="text-green-400 hover:text-green-300 text-sm mt-2 inline-block">
-            ← Back to courses
-          </Link>
-        </div>
+        <EmptyState
+          title="TASK_NOT_FOUND"
+          description="The requested task objective is unrecorded or unauthorized."
+        />
       ) : (
         <>
-          <div className="mb-8">
-            <Link to="/courses" className="text-sm text-gray-400 hover:text-white">
-              ← Courses
-            </Link>
+          {/* Header Dossier with SpotlightCard */}
+          <SpotlightCard className="p-6 sm:p-8 relative">
+            <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+            <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
 
-            <div className="flex flex-wrap items-start gap-3 mt-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white flex-1">{task.title}</h1>
-              {completedAt && (
-                <span className="flex items-center gap-1.5 text-sm text-green-400 mt-1">
-                  <CheckCircle className="h-4 w-4" />
-                  Solved
-                </span>
-              )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 mb-4">
+              <span className="text-xs font-bold text-accent tracking-widest uppercase">
+                [ OBJECTIVE // TASK_#{task.id} ]
+              </span>
+              <div className="flex items-center gap-3">
+                {completedAt ? (
+                  <TacticalBadge label="OBJECTIVE_ACCOMPLISHED" variant="success" size="sm" />
+                ) : (
+                  <TacticalBadge label="ACTIVE_CHALLENGE" variant="warning" pulse size="sm" />
+                )}
+                {task.points != null && (
+                  <TacticalBadge label={`+${task.points} PTS`} variant="cyan" size="sm" />
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              {typeCfg && (
-                <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border font-medium ${typeCfg.cls}`}>
-                  <typeCfg.icon className="h-3 w-3" />
-                  {typeCfg.label}
-                </span>
-              )}
-              {task.points != null && (
-                <span className="text-xs text-green-500">{task.points} pts</span>
-              )}
-              {pointsEarned != null && completedAt && (
-                <span className="text-xs text-gray-500">
-                  +{pointsEarned} pts earned
-                </span>
-              )}
-            </div>
-          </div>
+            <h1 className="text-xl sm:text-2xl font-display font-black text-ink uppercase tracking-wider mb-2">
+              <DecryptedText text={task.title} speed={25} />
+            </h1>
 
-          {/* Completion banner */}
-          {completedAt && (
-            <div className="mb-6 px-4 py-3 rounded-lg border border-green-900 bg-green-900/20 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
-              <p className="text-sm text-green-300">
-                Task completed on {new Date(completedAt).toLocaleDateString()}.
-                {pointsEarned != null && ` You earned ${pointsEarned} points.`}
+            {task.prompt && (
+              <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                {task.prompt}
               </p>
-            </div>
-          )}
+            )}
+          </SpotlightCard>
 
-          <div className="card-cyber p-6 space-y-5">
-            {task.prompt ? (
-              <div>
-                <h2 className="text-sm font-semibold text-gray-200 mb-2">Prompt</h2>
-                <p className="text-gray-300 whitespace-pre-wrap">{task.prompt}</p>
+          {/* Success Banner */}
+          <AnimatePresence>
+            {completedAt && (
+              <FadeIn direction="up" className="p-4 bg-success/10 border border-success text-success flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                  <CheckCircle className="w-4 h-4 shrink-0 text-success" />
+                  <span>
+                    SOLVED ON {new Date(completedAt).toLocaleDateString()}
+                    {pointsEarned != null ? ` // AWARDED +${pointsEarned} CREDITS` : ""}
+                  </span>
+                </div>
+                <TacticalBadge label="SEALED" variant="success" size="sm" />
+              </FadeIn>
+            )}
+          </AnimatePresence>
+
+          {/* Operational Briefing & Flag Submission Deck */}
+          <div className="bg-surface border border-border p-6 space-y-6 shadow-sm">
+            {/* Task Content / Body Markdown */}
+            {task.contentMd || task.bodyMarkdown ? (
+              <div className="border border-border p-5 bg-paper">
+                <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <span className="text-accent">#</span> OPERATIONAL_INSTRUCTIONS
+                </h2>
+                <div className="text-xs text-ink/90 whitespace-pre-wrap font-mono leading-relaxed">
+                  {task.contentMd || task.bodyMarkdown}
+                </div>
               </div>
             ) : null}
 
-            {task.type === "flag" && !completedAt ? (
-              <div>
-                <h2 className="text-sm font-semibold text-gray-200 mb-3">Submit Flag</h2>
-                <form onSubmit={submitFlag} className="flex flex-col sm:flex-row gap-3">
+            {/* Flag Submission Console with Motion Shake on Error */}
+            {task.type === "flag" && !completedAt && (
+              <motion.div
+                animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+                transition={{ duration: 0.5 }}
+                className="border border-accent/40 bg-accent-dim p-5 relative overflow-hidden"
+              >
+                <BorderBeam size={180} duration={8} colorFrom="#FF4500" colorTo="#00F0FF" />
+
+                <h2 className="text-xs font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2 relative z-10">
+                  <Key className="w-4 h-4" /> SUBMIT_SECURITY_FLAG
+                </h2>
+                <p className="text-[11px] text-muted mb-4 font-mono relative z-10">
+                  Enter the captured flag extracted from the target machine (format: XPLOIT{'{...}'}).
+                </p>
+
+                <form onSubmit={submitFlagVoid} className="flex flex-col sm:flex-row gap-3 relative z-10">
                   <div className="flex-1">
                     <Input
-                      label={undefined}
                       value={flag}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFlag(e.target.value)}
-                      placeholder="FLAG{...}"
+                      placeholder="XPLOIT{...}"
                       autoComplete="off"
+                      className="bg-paper"
                     />
                   </div>
                   <Button
                     type="submit"
+                    variant="primary"
+                    size="md"
                     isLoading={submittingFlag}
                     disabled={submittingFlag || !flag.trim()}
                     className="sm:self-end"
                   >
-                    Submit
+                    <span>{">>>"} TRANSMIT_FLAG</span>
                   </Button>
                 </form>
-              </div>
-            ) : null}
+              </motion.div>
+            )}
 
-            {task.contentMd ? (
-              <div>
-                <h2 className="text-sm font-semibold text-gray-200 mb-2">Notes</h2>
-                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono bg-gray-900/40 border border-gray-800 rounded-lg p-4">
-                  {task.contentMd}
-                </pre>
-              </div>
-            ) : null}
-
-            {Array.isArray(task.hints) && task.hints.length > 0 ? (
-              <div>
-                <h2 className="text-sm font-semibold text-gray-200 mb-2">Hints</h2>
-                <ul className="space-y-2">
+            {/* Intel Hints Accordion */}
+            {Array.isArray(task.hints) && task.hints.length > 0 && (
+              <div className="border border-border p-5 bg-paper">
+                <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-warning" />
+                  <span>INTELLIGENCE_HINTS</span>
+                </h2>
+                <div className="space-y-2">
                   {task.hints.map((h, idx) => (
-                    <li
+                    <div
                       key={idx}
-                      className="text-sm text-gray-300 border border-gray-800 rounded-lg px-3 py-2"
+                      className="p-3 bg-surface border border-border text-xs text-muted font-mono leading-relaxed"
                     >
-                      💡 {h}
-                    </li>
+                      <span className="text-warning font-bold mr-2">[HINT_0{idx + 1}]:</span>
+                      {h}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
-            ) : null}
+            )}
           </div>
         </>
       )}

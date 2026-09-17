@@ -1,53 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { LoadingSpinner } from "../../components/ui";
+import { LoadingSpinner, EmptyState } from "../../components/ui";
+import {
+  SpotlightCard,
+  DecryptedText,
+  TacticalBadge,
+  StaggerContainer,
+  FadeIn,
+  ScalePress,
+} from "../../components/ui/motion";
 import { moduleService } from "../../services";
-import { Flag, HelpCircle, Terminal, ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowLeft, Target, Award } from "lucide-react";
 import type { Module, Task } from "../../types";
 
-interface TaskTypeConfig {
-  label: string;
-  icon: typeof Flag;
-  cls: string;
-}
-
-const taskTypeConfig: Record<string, TaskTypeConfig> = {
-  flag: {
-    label: "Flag",
-    icon: Flag,
-    cls: "text-green-400 border-green-900 bg-green-900/20",
-  },
-  question: {
-    label: "Quiz",
-    icon: HelpCircle,
-    cls: "text-blue-400 border-blue-900 bg-blue-900/20",
-  },
-  interactive: {
-    label: "Lab",
-    icon: Terminal,
-    cls: "text-purple-400 border-purple-900 bg-purple-900/20",
-  },
-};
-
-const TaskTypeBadge = ({ type }: { type?: string }) => {
-  const key = type?.toLowerCase();
-  const cfg = key ? taskTypeConfig[key] : undefined;
-  if (!cfg) {
-    return (
-      <span className="text-xs px-2 py-0.5 rounded border border-gray-800 text-gray-500">
-        {type || "Task"}
-      </span>
-    );
-  }
-  const Icon = cfg.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border font-medium ${cfg.cls}`}>
-      <Icon className="h-3 w-3" />
-      {cfg.label}
-    </span>
-  );
-};
-const ModuleDetail = () => {
+export const ModuleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [module, setModule] = useState<Module | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -61,25 +27,29 @@ const ModuleDetail = () => {
         setLoading(true);
         setError(null);
         const res = await moduleService.getById(Number(id));
-        const data = res.data?.data;
         if (!cancelled) {
-          setModule(data?.module || null);
-          setTasks(data?.tasks || []);
+          setModule(res.module || null);
+          setTasks(res.tasks || []);
         }
       } catch (e: unknown) {
-        if (!cancelled) setError((e as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to load module");
+        if (!cancelled)
+          setError(
+            e instanceof Error ? e.message : "Failed to load tactical module"
+          );
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-    load();
-    return () => { cancelled = true; };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <LoadingSpinner size="lg" className="py-24" />
+      <div className="py-24">
+        <LoadingSpinner message="ANALYZING_MODULE_OPERATIONS" />
       </div>
     );
   }
@@ -87,87 +57,143 @@ const ModuleDetail = () => {
   const totalPoints = tasks.reduce((acc, t) => acc + (t.points || 0), 0);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {error && (
-        <div className="mb-6 card-cyber px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
+    <StaggerContainer className="max-w-5xl mx-auto space-y-8 font-mono">
+      {/* Return Link */}
+      <FadeIn>
+        <div>
+          <Link
+            to="/courses"
+            className="inline-flex items-center gap-2 text-xs font-bold text-muted hover:text-accent uppercase tracking-wider transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>[ // BACK_TO_MISSION ]</span>
+          </Link>
         </div>
+      </FadeIn>
+
+      {error && (
+        <FadeIn>
+          <div className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-widest">
+            [ERR]: {error}
+          </div>
+        </FadeIn>
       )}
 
       {!module ? (
-        <div className="card-cyber p-6">
-          <p className="text-gray-300">Module not found.</p>
-          <Link to="/courses" className="text-green-400 hover:text-green-300 text-sm mt-2 inline-block">
-            ← Back to courses
-          </Link>
-        </div>
+        <FadeIn>
+          <EmptyState
+            title="MODULE_NOT_FOUND"
+            description="The requested operation block is unindexed."
+          />
+        </FadeIn>
       ) : (
         <>
-          {/* Breadcrumb */}
-          <div className="mb-8">
-            <Link to="/courses" className="text-sm text-gray-400 hover:text-white">
-              ← Courses
-            </Link>
+          {/* Module Banner Card */}
+          <FadeIn>
+            <SpotlightCard
+              spotlightColor="rgba(0, 230, 153, 0.12)"
+              className="bg-surface border border-border p-6 sm:p-8 shadow-sm relative overflow-hidden"
+            >
+              <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
+              <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mt-3">{module.title}</h1>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 bg-accent inline-block animate-pulse" />
+                <span className="text-xs font-bold text-accent tracking-widest uppercase">
+                  [ MODULE // SEQUENCE_0{module.order || 1} ]
+                </span>
+              </div>
 
-            {module.description && (
-              <p className="text-gray-400 mt-2 max-w-3xl">{module.description}</p>
-            )}
+              <h1 className="text-2xl sm:text-4xl font-display font-black text-ink uppercase tracking-wider mb-3">
+                <DecryptedText text={module.title} animateOn="view" speed={30} />
+              </h1>
 
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-500">
-              <span>{tasks.length} task{tasks.length !== 1 ? "s" : ""}</span>
-              {totalPoints > 0 && (
-                <span className="text-green-500">{totalPoints} pts total</span>
+              {module.description && (
+                <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-3xl mb-6">
+                  {module.description}
+                </p>
+              )}
+
+              {/* Sub-Metrics */}
+              <div className="flex flex-wrap items-center gap-4 text-xs border-t border-border pt-4 text-dim uppercase">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted font-bold">TOTAL_TASKS:</span>
+                  <TacticalBadge variant="neutral" size="sm">
+                    {tasks.length}
+                  </TacticalBadge>
+                </div>
+                <span>::</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted font-bold">ACCUMULATIVE_POINTS:</span>
+                  <TacticalBadge variant="cyan" size="sm">
+                    <Award className="w-3 h-3 mr-1 inline" />+{totalPoints} PTS
+                  </TacticalBadge>
+                </div>
+              </div>
+            </SpotlightCard>
+          </FadeIn>
+
+          {/* Tasks Execution Matrix */}
+          <FadeIn delay={0.1}>
+            <div className="bg-surface border border-border p-6 shadow-sm relative">
+              <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-accent" />
+                  <h2 className="text-sm font-display font-bold text-ink uppercase tracking-wider">
+                    MISSION_TASKS
+                  </h2>
+                </div>
+                <span className="text-[10px] text-muted tracking-widest uppercase">
+                  COUNT: {tasks.length}
+                </span>
+              </div>
+
+              {tasks.length === 0 ? (
+                <p className="text-xs text-muted">No individual tasks registered for this sequence.</p>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.map((task, idx) => (
+                    <ScalePress key={task.id} scale={0.99}>
+                      <Link
+                        to={`/tasks/${task.id}`}
+                        className="flex items-center justify-between gap-4 p-4 bg-paper border border-border hover:border-accent group transition-all duration-200 relative overflow-hidden"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <span className="text-xs font-bold text-dim group-hover:text-accent w-7 shrink-0 font-mono">
+                            [{String(task.order ?? idx + 1).padStart(2, "0")}]
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-ink group-hover:text-accent transition-colors uppercase truncate">
+                              {task.title}
+                            </p>
+                            {task.prompt && (
+                              <p className="text-[11px] text-muted truncate mt-1">
+                                {task.prompt}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <TacticalBadge variant="cyan" size="sm">
+                            +{task.points || 0} PTS
+                          </TacticalBadge>
+                          <div className="w-7 h-7 bg-surface border border-border flex items-center justify-center group-hover:border-accent group-hover:bg-accent/10 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-dim group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </div>
+                      </Link>
+                    </ScalePress>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Tasks list */}
-          <div className="card-cyber p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Tasks</h2>
-
-            {tasks.length === 0 ? (
-              <p className="text-gray-400">No tasks published yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {tasks.map((t, idx) => {
-                  const taskId = t.id;
-                  return (
-                    <Link
-                      key={taskId}
-                      to={`/tasks/${taskId}`}
-                      className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-gray-800 hover:border-gray-600 hover:bg-gray-800/30 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xs text-gray-600 w-5 shrink-0 text-right">
-                          {t.order ?? idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-white font-medium truncate">{t.title}</p>
-                          {t.description && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">{t.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <TaskTypeBadge type={t.type} />
-                        {typeof t.points === "number" && t.points > 0 && (
-                          <span className="text-xs text-green-500 w-14 text-right">
-                            {t.points} pts
-                          </span>
-                        )}
-                        <ChevronRight className="h-4 w-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          </FadeIn>
         </>
       )}
-    </div>
+    </StaggerContainer>
   );
 };
 

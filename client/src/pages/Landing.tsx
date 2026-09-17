@@ -7,91 +7,50 @@ import {
   ArrowRight,
   Binary,
   Network,
+  Radio,
+  Lock,
+  Zap,
 } from 'lucide-react';
 import { Button } from '../components/ui';
+import { SpotlightCard } from '../components/ui/motion/SpotlightCard';
+import { DecryptedText } from '../components/ui/motion/DecryptedText';
+import { BorderBeam } from '../components/ui/motion/BorderBeam';
+import { FadeIn } from '../components/ui/motion/MotionWrappers';
+import { TacticalBadge } from '../components/ui/motion/TacticalBadge';
 
-interface Feature {
-  icon: typeof Cpu;
-  title: string;
-  description: string;
-  color: string;
-}
-
-interface Stat {
-  value: string;
-  label: string;
-}
-
-interface LabType {
-  name: string;
-  icon: typeof Network;
-  color: string;
-}
+const MARQUEE_ITEMS = [
+  'WEB_EXPLOITATION', 'PRIVILEGE_ESCALATION', 'NETWORK_PENTEST',
+  'CTF_SIMULATION', 'CLOUD_ATTACK', 'REVERSE_ENGINEERING',
+  'BINARY_EXPLOITATION', 'FORENSICS', 'CRYPTOGRAPHY',
+];
 
 const Landing = () => {
-  const features: Feature[] = [
-    {
-      icon: Cpu,
-      title: 'ISOLATED_ENV',
-      description: 'Dedicated EC2 instances. Zero resource sharing. Absolute isolation for critical operations.',
-      color: 'var(--color-ink)',
-    },
-    {
-      icon: DatabaseZap,
-      title: 'ON_DEMAND_INFRA',
-      description: 'Metered billing ($0.50/hr). Infrastructure provisions instantly and self-terminates. Cost optimization: 68%.',
-      color: 'var(--color-accent)',
-    },
-    {
-      icon: TerminalSquare,
-      title: 'RAPID_DEPLOY',
-      description: 'Execute build sequence and acquire a fully configured target environment in < 120s.',
-      color: 'var(--color-info)',
-    },
-    {
-      icon: ShieldAlert,
-      title: 'LIVE_TARGETS',
-      description: 'Interact with authentic AWS infrastructure weaponized with verified vulnerability vectors.',
-      color: 'var(--color-error)',
-    },
-  ];
-
-  const stats: Stat[] = [
-    { value: '$0.50', label: 'RATE/HR' },
-    { value: '68%', label: 'EFFICIENCY' },
-    { value: '<120s', label: 'BOOT_SEQ' },
-    { value: '100%', label: 'ISOLATION' },
-  ];
-
-  const labTypes: LabType[] = [
-    { name: 'WEB_EXPLOIT', icon: Network, color: 'var(--color-ink)' },
-    { name: 'NET_PENTEST', icon: DatabaseZap, color: 'var(--color-ink)' },
-    { name: 'PRIV_ESC', icon: ShieldAlert, color: 'var(--color-accent)' },
-    { name: 'CTF_SIM', icon: Binary, color: 'var(--color-ink)' },
-  ];
-
   return (
-    <div className="min-h-screen bg-paper" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
-      {/* Top Bar - stark industrial */}
-      <nav className="fixed top-0 w-full z-50 bg-paper border-b border-border">
+    <div className="min-h-[100dvh] bg-paper select-none font-mono">
+
+      {/* ── NAV ── */}
+      <nav className="fixed top-0 w-full z-50 bg-paper/96 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-ink border border-border flex items-center justify-center">
-                <TerminalSquare className="w-5 h-5 text-paper" />
+          <div className="flex items-center justify-between h-[60px]">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 bg-accent flex items-center justify-center transition-all group-hover:bg-accent-hover shadow-accent">
+                <TerminalSquare className="w-4 h-4 text-paper" />
               </div>
-              <span className="text-xl font-display font-bold text-ink uppercase tracking-wider">XploitVerse</span>
+              <span className="text-base font-display font-black text-ink uppercase tracking-tight">
+                <DecryptedText text="XPLOITVERSE" speed={22} animateOn="hover" />
+              </span>
             </Link>
-            <div className="flex items-center space-x-6 font-mono text-sm uppercase font-bold tracking-widest">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase font-bold tracking-widest">
               <Link
                 to="/login"
-                className="text-muted hover:text-ink transition-colors pb-1 border-b-2 border-transparent hover:border-ink"
+                className="hidden sm:block px-3 py-1.5 text-muted hover:text-ink border border-transparent hover:border-border transition-all"
               >
-                Authenticate
+                Sign In
               </Link>
               <Link to="/register">
                 <Button variant="primary" size="sm">
-                  Init_Sequence
+                  Get Access
+                  <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -99,90 +58,134 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-40 pb-20 px-4 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="text-left">
-              <div className="inline-flex flex-col gap-2 mb-8 border-l-4 border-accent pl-4">
-                <span className="text-accent font-mono text-xs uppercase tracking-[0.2em] animate-pulse">
-                  [LIVE] STATUS: OPERATIONAL
-                </span>
-                <span className="text-muted font-mono text-xs uppercase tracking-wider">
-                  TARGET: CYBERSECURITY INFRASTRUCTURE
+      {/* ── HERO ── */}
+      <section className="min-h-[100dvh] flex items-center pt-[60px] px-4 relative overflow-hidden">
+        {/* Large background number */}
+        <div
+          className="absolute right-0 top-1/2 -translate-y-1/2 font-display font-black text-[clamp(12rem,28vw,26rem)] leading-none text-border/20 select-none pointer-events-none"
+          aria-hidden="true"
+        >
+          XV
+        </div>
+
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="grid lg:grid-cols-[1fr_420px] gap-10 xl:gap-16 items-center">
+
+            {/* Left: Copy */}
+            <FadeIn direction="up" distance={20}>
+              <div className="flex items-center gap-3 mb-8">
+                <span className="beacon-online" />
+                <span className="text-[11px] text-success font-bold tracking-[0.18em] uppercase">
+                  Node Active — AWS Isolated
                 </span>
               </div>
 
-              <h1 className="text-6xl md:text-8xl font-display font-extrabold mb-8 leading-[0.9] text-ink uppercase tracking-tight">
-                Hack<br />
-                The<br />
-                <span className="text-paper bg-ink px-4 py-2 mt-4 inline-block transform -skew-x-6">Cloud</span>
+              <h1 className="font-display font-black uppercase leading-[0.92] tracking-[-0.03em] mb-8">
+                <span className="block text-[clamp(3.5rem,9vw,8rem)] text-ink">Hack</span>
+                <span className="block text-[clamp(3.5rem,9vw,8rem)] text-ink">Real</span>
+                <span
+                  className="block text-[clamp(3.5rem,9vw,8rem)] glitch-flicker"
+                  style={{ color: 'var(--color-accent)', textShadow: '3px 3px 0 rgba(255,69,0,0.25)' }}
+                >
+                  Cloud.
+                </span>
               </h1>
 
-              <p className="text-lg text-muted max-w-lg mb-12 font-mono leading-relaxed border-t border-dashed border-border pt-6">
-                {'> '} Access authentic, isolated AWS environments.<br />
-                {'> '} Neutralize artificial simulations.<br />
-                {'> '} Pay strictly for operational compute cycles.
+              <p className="text-muted text-sm leading-relaxed max-w-[46ch] mb-10 border-l-2 border-border pl-4">
+                Authentic AWS environments. Zero sandboxing. Pay only for compute you use.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 mb-16">
-                <Link to="/register" className="w-full sm:w-auto">
-                  <Button variant="primary" size="lg" className="w-full">
-                    DEPLOY_TARGET
-                    <ArrowRight className="w-5 h-5 ml-2" />
+              <div className="flex flex-wrap gap-3">
+                <Link to="/register">
+                  <Button variant="primary" size="lg">
+                    Deploy Target
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
                   </Button>
                 </Link>
-                <Link to="/login" className="w-full sm:w-auto">
-                  <Button variant="secondary" size="lg" className="w-full">
-                    READ_DOCS
+                <Link to="/login">
+                  <Button variant="secondary" size="lg">
+                    Sign In
                   </Button>
                 </Link>
               </div>
-            </div>
+            </FadeIn>
 
-            {/* Visual Structural Element replacing generic hero image */}
-            <div className="hidden lg:block relative h-[600px] border border-border bg-surface p-8 shadow-[16px_16px_0px_rgba(0,0,0,0.1)]">
-              <div className="absolute top-0 left-0 w-full h-8 bg-border flex items-center px-4 gap-2">
-                <div className="w-3 h-3 rounded-full bg-error" />
-                <div className="w-3 h-3 rounded-full bg-warning" />
-                <div className="w-3 h-3 rounded-full bg-success" />
-                <span className="ml-4 font-mono text-xs text-muted">root@xploitverse:~# ./launch_env</span>
-              </div>
-              <div className="mt-8 font-mono text-xs text-accent leading-loose">
-                <div>[SYS] INFRASTRUCTURE PROVISIONING INITIALIZED...</div>
-                <div className="text-muted">{'>>>>'} ALLOCATING VPC BOUNDARIES</div>
-                <div className="text-muted">{'>>>>'} DEPLOYING SUBNET ISOLATION</div>
-                <div className="text-info mt-4">EC2 Instance i-0abcd12345efgh678 spinning up</div>
-                <div className="text-warning">WARNING: VULNERABILITY VECTORS LOADED.</div>
-                <div className="mt-8 text-ink text-lg blur-[1px]">AWAITING OPERATOR INPUT_</div>
-              </div>
+            {/* Right: Terminal */}
+            <FadeIn direction="left" distance={24} className="hidden lg:block">
+              <div className="relative border border-border bg-surface shadow-[8px_8px_0px_#000] overflow-hidden">
+                <BorderBeam size={200} duration={9} colorFrom="#00E5FF" colorTo="#FF4500" />
 
-              {/* Decorative technical elements */}
-              <div className="absolute bottom-4 right-4 text-4xl font-display text-border opacity-20 font-bold">
-                XV-01
+                {/* Terminal chrome */}
+                <div className="flex items-center justify-between border-b border-border px-4 py-2.5 bg-paper/60">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-error inline-block" />
+                    <span className="w-2.5 h-2.5 bg-warning inline-block" />
+                    <span className="w-2.5 h-2.5 bg-success inline-block" />
+                  </div>
+                  <span className="text-[10px] text-muted font-mono tracking-wider">
+                    root@xploitverse:~#
+                  </span>
+                  <span className="text-[10px] text-accent flex items-center gap-1">
+                    <Radio className="w-3 h-3 animate-pulse" />
+                    LIVE
+                  </span>
+                </div>
+
+                {/* Output */}
+                <div className="font-mono text-xs p-5 space-y-1.5 leading-relaxed">
+                  <p className="text-dim">$ ./provision --target web-vuln-01 --region us-east-1</p>
+                  <p className="text-muted">[SYS] Allocating VPC 172.30.0.0/16...</p>
+                  <p className="text-muted">[SYS] Deploying subnet isolation...</p>
+                  <p className="text-muted">[SYS] Configuring security groups...</p>
+                  <p className="text-cyan mt-2">[OK]  Instance i-0a3f9c12b45d678e online</p>
+                  <p className="text-warning">[!]  Offensive vectors loaded: 80, 22, 5000</p>
+                  <p className="text-success mt-3 flex items-center gap-2">
+                    <span className="inline-block w-1.5 h-1.5 bg-success animate-ping" />
+                    Ready. Elapsed: 94s
+                  </p>
+                  <p className="text-dim mt-2">$ <span className="animate-pulse">_</span></p>
+                </div>
+
+                <div className="absolute bottom-3 right-4 font-display text-2xl text-border/15 font-black pointer-events-none">
+                  XV-CORE
+                </div>
               </div>
-              <div className="absolute top-1/2 -right-4 w-8 h-32 border border-border bg-paper grid grid-rows-4">
-                <div className="border-b border-border bg-accent opacity-20" />
-                <div className="border-b border-border" />
-                <div className="border-b border-border bg-error opacity-20 animate-pulse" />
-                <div />
-              </div>
-            </div>
+            </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* Stats Band */}
-      <div className="border-y border-border bg-surface overflow-hidden">
+      {/* ── MARQUEE STRIP ── */}
+      <div className="border-y border-border bg-surface overflow-hidden py-3">
+        <div className="flex animate-marquee whitespace-nowrap">
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+            <span key={i} className="inline-flex items-center gap-4 px-6 text-[11px] font-bold text-muted tracking-[0.15em] uppercase">
+              <span className="text-accent">◆</span>
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── STATS ── */}
+      <div className="border-b border-border">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
-            {stats.map((stat) => (
-              <div key={stat.label} className="p-8 text-center group hover:bg-ink transition-colors">
-                <div className="text-4xl font-display font-bold text-ink group-hover:text-paper mb-2">
-                  {stat.value}
+            {[
+              { value: '$0.50', label: 'Per Hour', sub: 'metered billing' },
+              { value: '<120s', label: 'Boot Time', sub: 'avg provision' },
+              { value: '100%', label: 'Isolated', sub: 'dedicated ec2' },
+              { value: '68%', label: 'Cost Saved', sub: 'vs competitors' },
+            ].map((s) => (
+              <div key={s.label} className="px-6 py-10 group hover:bg-accent transition-colors duration-150 cursor-default">
+                <div className="text-[clamp(2rem,4vw,3rem)] font-display font-black text-ink group-hover:text-paper leading-none mb-1 tracking-tight">
+                  {s.value}
                 </div>
-                <div className="font-mono text-xs text-muted group-hover:text-subtle tracking-widest uppercase">
-                  {stat.label}
+                <div className="text-xs font-bold text-ink group-hover:text-paper uppercase tracking-widest mb-0.5">
+                  {s.label}
+                </div>
+                <div className="text-[10px] text-muted group-hover:text-paper/70 uppercase tracking-wider">
+                  {s.sub}
                 </div>
               </div>
             ))}
@@ -190,99 +193,189 @@ const Landing = () => {
         </div>
       </div>
 
-      {/* Architecture / Features */}
-      <section className="py-24 px-4 bg-paper" style={{ backgroundImage: 'linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)', backgroundSize: '100px 100px' }}>
+      {/* ── ARCHITECTURE ── */}
+      <section className="py-24 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-16 border-l-4 border-ink pl-6">
-            <h2 className="text-3xl md:text-5xl font-display font-bold text-ink uppercase tracking-tight">
-              System Architecture
+          {/* Section header — left-aligned, no eyebrow */}
+          <div className="grid lg:grid-cols-[1fr_auto] items-end gap-6 mb-14 border-b border-border pb-8">
+            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-display font-black text-ink uppercase tracking-tight leading-none">
+              System<br />Architecture
             </h2>
-            <p className="font-mono text-muted mt-4 uppercase text-sm tracking-wider">
-              Engineered for uncompromising realism and rapid iteration.
+            <p className="text-muted text-xs max-w-[32ch] leading-relaxed lg:text-right">
+              Every component engineered for uncompromising realism and sub-second telemetry feedback.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, idx) => (
-              <div
-                key={feature.title}
-                className="bg-surface border border-border p-8 relative hover:-translate-y-2 transition-transform duration-300 shadow-[8px_8px_0px_rgba(0,0,0,0.05)]"
+          {/* 2+2 asymmetric grid */}
+          <div className="grid md:grid-cols-2 gap-px bg-border">
+            {[
+              {
+                icon: Cpu,
+                code: '01',
+                title: 'Isolated Environments',
+                description: 'Dedicated EC2 instances per session. Zero resource sharing. Absolute network isolation for critical operations.',
+                accent: 'var(--color-cyan)',
+                large: true,
+              },
+              {
+                icon: DatabaseZap,
+                code: '02',
+                title: 'On-Demand Infrastructure',
+                description: 'Metered at $0.50/hr. Provisions instantly, self-terminates on session end.',
+                accent: 'var(--color-accent)',
+                large: false,
+              },
+              {
+                icon: TerminalSquare,
+                code: '03',
+                title: 'Rapid Deployment',
+                description: 'Fully configured target environment in under 120 seconds.',
+                accent: 'var(--color-info)',
+                large: false,
+              },
+              {
+                icon: ShieldAlert,
+                code: '04',
+                title: 'Live Vulnerability Targets',
+                description: 'Authentic AWS infrastructure with verified, real-world vulnerability vectors.',
+                accent: 'var(--color-error)',
+                large: true,
+              },
+            ].map((f) => (
+              <SpotlightCard
+                key={f.code}
+                className={`p-8 bg-surface ${f.large ? 'md:py-12' : ''}`}
+                spotlightColor="rgba(0, 229, 255, 0.06)"
               >
-                <div className="absolute top-0 right-0 p-2 font-mono text-xs text-muted font-bold opacity-30">
-                  0{idx + 1}
+                <div className="flex items-start justify-between mb-8">
+                  <f.icon className="w-7 h-7" style={{ color: f.accent }} />
+                  <span className="font-mono text-[10px] text-dim font-bold tracking-widest">{f.code}</span>
                 </div>
-                <feature.icon className="w-10 h-10 mb-6" style={{ color: feature.color }} />
-                <h3 className="text-lg font-mono font-bold text-ink mb-4 uppercase tracking-wider">{feature.title}</h3>
-                <p className="text-muted text-sm font-mono leading-relaxed">{feature.description}</p>
-              </div>
+                <h3 className="text-lg font-display font-black text-ink uppercase tracking-tight mb-3">
+                  {f.title}
+                </h3>
+                <p className="text-muted text-xs leading-relaxed max-w-[38ch]">
+                  {f.description}
+                </p>
+              </SpotlightCard>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Modules Grid */}
-      <section className="py-24 px-4 bg-ink text-paper">
+      {/* ── COMBAT MODULES — inverted section ── */}
+      <section className="py-24 px-4 bg-ink">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-border pb-8 gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-14">
+            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-display font-black text-paper uppercase tracking-tight leading-none">
+              Combat<br />Modules
+            </h2>
+            <Link to="/courses">
+              <Button variant="ghost" className="text-paper border-paper/30 hover:border-paper hover:bg-paper hover:text-ink">
+                View All
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* Asymmetric module grid: 1 large + 3 small */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border/30">
+            {/* Large featured module */}
+            <Link
+              to="/courses"
+              className="lg:col-span-1 lg:row-span-2 group relative border border-border/30 bg-[#0D0D0D] p-8 flex flex-col justify-between min-h-[280px] hover:bg-accent transition-colors duration-200"
+            >
+              <div>
+                <Network className="w-10 h-10 text-muted group-hover:text-paper mb-6 transition-colors" />
+                <h3 className="text-xl font-display font-black text-ink group-hover:text-paper uppercase tracking-tight transition-colors">
+                  Web Exploitation
+                </h3>
+                <p className="text-muted group-hover:text-paper/70 text-xs mt-2 leading-relaxed max-w-[28ch] transition-colors">
+                  XSS, SQLi, SSRF, IDOR, and modern web attack chains on live targets.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-muted group-hover:text-paper/60 uppercase tracking-widest transition-colors">
+                <span>Enter Module</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+
+            {[
+              { name: 'Network Pentest', icon: DatabaseZap, desc: 'Recon, scanning, exploitation of network services.' },
+              { name: 'Privilege Escalation', icon: ShieldAlert, desc: 'Linux & Windows privesc paths on real systems.' },
+              { name: 'CTF Simulation', icon: Binary, desc: 'Timed capture-the-flag challenges with scoring.' },
+            ].map((lab) => (
+              <Link
+                key={lab.name}
+                to="/courses"
+                className="group relative border border-border/30 bg-[#0D0D0D] p-6 flex flex-col justify-between min-h-[130px] hover:bg-surface-elevated transition-colors duration-200"
+              >
+                <lab.icon className="w-6 h-6 text-muted group-hover:text-accent transition-colors" />
+                <div>
+                  <h3 className="text-sm font-display font-black text-ink uppercase tracking-tight mb-1">
+                    {lab.name}
+                  </h3>
+                  <p className="text-dim text-[11px] leading-relaxed">{lab.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="py-28 px-4 border-t border-border relative overflow-hidden">
+        {/* Background accent */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 100%, rgba(255,69,0,0.06) 0%, transparent 70%)' }}
+        />
+        <div className="max-w-4xl mx-auto relative">
+          <div className="grid lg:grid-cols-[1fr_auto] gap-10 items-center">
             <div>
-              <h2 className="text-3xl md:text-5xl font-display font-bold uppercase tracking-tight text-paper">
-                Combat Modules
+              <h2 className="text-[clamp(2.5rem,6vw,5rem)] font-display font-black text-ink uppercase tracking-tight leading-[0.92] mb-6">
+                Start Your<br />
+                <span style={{ color: 'var(--color-accent)' }}>First Op.</span>
               </h2>
-              <p className="font-mono text-muted mt-4 uppercase text-sm tracking-wider blur-[0.5px]">
-                Choose your vector of approach.
+              <p className="text-muted text-sm max-w-[40ch] leading-relaxed">
+                Provision credentials, spin up a target, and execute your first attack sequence in under two minutes.
               </p>
             </div>
-            <Button variant="ghost" className="text-paper border-paper hover:bg-paper hover:text-ink">
-              VIEW_ALL_MODULES
-            </Button>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {labTypes.map((lab) => (
-              <div
-                key={lab.name}
-                className="group relative border border-border bg-[#151515] p-8 overflow-hidden hover:bg-paper hover:text-ink transition-colors duration-300"
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(0,0,0,0.1)_10px,rgba(0,0,0,0.1)_20px)]" />
-                <div className="relative z-10 flex flex-col justify-between h-full min-h-[160px]">
-                  <lab.icon className="w-12 h-12 text-muted group-hover:text-ink transition-colors" />
-                  <h3 className="text-xl font-mono font-bold mt-8 tracking-wider">{lab.name}</h3>
-                </div>
+            <div className="flex flex-col gap-3 lg:items-end">
+              <Link to="/register">
+                <Button variant="primary" size="lg" className="w-full lg:w-auto px-10">
+                  Create Account
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+              <div className="flex items-center gap-4 text-[10px] text-dim uppercase tracking-widest">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3 h-3" /> No credit card
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-3 h-3" /> Live in 120s
+                </span>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section className="py-32 px-4 bg-surface border-y border-border text-center">
-        <div className="max-w-3xl mx-auto">
-          <div className="font-mono text-accent font-bold text-xl mb-6 tracking-[0.3em] uppercase">
-            [ SYSTEM READY ]
+      {/* ── FOOTER ── */}
+      <footer className="py-10 px-4 bg-surface border-t border-border">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 bg-accent flex items-center justify-center">
+              <TerminalSquare className="w-3.5 h-3.5 text-paper" />
+            </div>
+            <span className="font-display font-black text-sm text-ink uppercase tracking-tight">
+              XPLOITVERSE
+            </span>
           </div>
-          <h2 className="text-4xl md:text-6xl font-display font-bold text-ink mb-8 uppercase tracking-tighter">
-            Initiate Override
-          </h2>
-          <p className="text-muted font-mono mb-12 max-w-xl mx-auto">
-            Your isolated infrastructure is waiting to be spun up. Create an account and execute your first launch sequence.
+          <p className="text-dim font-mono text-[10px] uppercase tracking-widest">
+            © {new Date().getFullYear()} Xploitverse Systems. All rights reserved.
           </p>
-          <Link to="/register">
-            <Button variant="primary" size="lg" className="px-12 py-6 text-lg">
-              BEGIN_EXECUTION
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-4 bg-paper text-center">
-        <div className="max-w-7xl mx-auto flex flex-col items-center gap-6">
-          <div className="w-12 h-12 border border-border flex items-center justify-center">
-            <TerminalSquare className="w-5 h-5 text-muted" />
-          </div>
-          <p className="text-muted font-mono text-xs uppercase tracking-widest">
-            END OF FILE. © {new Date().getFullYear()} XPLOITVERSE SYSTEMS.
-          </p>
+          <TacticalBadge label="Build 2026.09" variant="muted" size="sm" />
         </div>
       </footer>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import {
   Menu,
@@ -10,272 +11,21 @@ import {
   Trophy,
   LogOut,
   Terminal,
-  Bell,
   UserCircle,
   ChevronDown,
+  Activity,
 } from 'lucide-react';
-
-const styles = `
-  .nav-root {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background: var(--color-surface);
-    border-bottom: 1.5px solid var(--color-border);
-  }
-  .nav-container {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 var(--space-4);
-  }
-  @media (min-width: 640px) { .nav-container { padding: 0 var(--space-6); } }
-  @media (min-width: 1024px) { .nav-container { padding: 0 var(--space-8); } }
-
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 64px;
-  }
-
-  .nav-brand {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    text-decoration: none;
-  }
-  .nav-logo-box {
-    width: 32px;
-    height: 32px;
-    background: var(--color-ink);
-    border-radius: var(--radius-base);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-paper);
-  }
-  .nav-brand-text {
-    font-size: var(--text-lg);
-    font-family: var(--font-display);
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--color-ink);
-    letter-spacing: 0.1em;
-  }
-
-  .nav-links {
-    display: none;
-    align-items: center;
-    gap: var(--space-2);
-  }
-  @media (min-width: 768px) { .nav-links { display: flex; } }
-
-  .nav-link {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0.75rem var(--space-3);
-    border-radius: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-muted);
-    text-decoration: none;
-    transition: all var(--ease-out);
-    border-bottom: 2px solid transparent;
-  }
-  .nav-link:hover {
-    color: var(--color-ink);
-    background: var(--color-surface);
-  }
-  .nav-link.active {
-    color: var(--color-accent);
-    border-bottom-color: var(--color-accent);
-  }
-
-  .nav-actions {
-    display: none;
-    align-items: center;
-    gap: var(--space-4);
-  }
-  @media (min-width: 768px) { .nav-actions { display: flex; } }
-
-  .nav-icon-btn {
-    padding: var(--space-2);
-    color: var(--color-muted);
-    border-radius: 0;
-    transition: all var(--ease-out);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    position: relative;
-  }
-  .nav-icon-btn:hover {
-    color: var(--color-ink);
-    background: var(--color-surface);
-  }
-  .nav-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    background: var(--color-accent);
-    border-radius: 0;
-  }
-
-  .nav-user-menu {
-    position: relative;
-  }
-  .nav-user-trigger {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding-left: var(--space-4);
-    border-left: 1px dotted var(--color-border);
-    background: transparent;
-    border-top: none;
-    border-right: none;
-    border-bottom: none;
-    cursor: pointer;
-    transition: opacity var(--ease-out);
-  }
-  .nav-user-trigger:hover {
-    opacity: 0.8;
-  }
-  .nav-avatar {
-    width: 36px;
-    height: 36px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--text-xs);
-    font-weight: 700;
-    font-family: var(--font-mono);
-    color: var(--color-ink);
-  }
-  .nav-user-info {
-    display: none;
-    text-align: left;
-  }
-  @media (min-width: 1024px) { .nav-user-info { display: block; } }
-
-  .nav-user-name {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 700;
-    color: var(--color-ink);
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-  .nav-user-role {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-accent);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .nav-dropdown {
-    position: absolute;
-    top: calc(100% + var(--space-4));
-    right: 0;
-    width: 240px;
-    background: var(--color-paper);
-    border: 1px solid var(--color-border);
-    padding: var(--space-2);
-    box-shadow: var(--shadow-md);
-    transform-origin: top right;
-    animation: drop-in var(--ease-out);
-    z-index: 100;
-  }
-  @keyframes drop-in {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .nav-dropdown-header {
-    padding: var(--space-3);
-    border-bottom: 1px dotted var(--color-border);
-    margin-bottom: var(--space-2);
-  }
-  .nav-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-    padding: 0.75rem var(--space-3);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--color-ink);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    text-align: left;
-    transition: all var(--ease-out);
-  }
-  .nav-dropdown-item:hover {
-    background: var(--color-surface);
-    color: var(--color-accent);
-  }
-  .nav-dropdown-item.danger {
-    color: var(--color-error);
-    margin-top: var(--space-2);
-    border-top: 1px dotted var(--color-border);
-  }
-  .nav-dropdown-item.danger:hover {
-    background: rgba(255, 42, 42, 0.1);
-    color: var(--color-error);
-  }
-
-  .nav-mobile-btn {
-    display: flex;
-    padding: var(--space-2);
-    color: var(--color-muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  @media (min-width: 768px) { .nav-mobile-btn { display: none; } }
-
-  .nav-mobile-menu {
-    border-top: 1px dashed var(--color-border);
-    background: var(--color-paper);
-  }
-  @media (min-width: 768px) { .nav-mobile-menu { display: none; } }
-
-  .nav-mobile-inner {
-    padding: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-  .nav-mobile-profile {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    margin-bottom: var(--space-4);
-  }
-`;
+import { DecryptedText } from '../ui/motion/DecryptedText';
 
 interface NavLink {
   to: string;
   label: string;
+  code: string;
   icon: typeof LayoutDashboard;
   roles: string[];
 }
 
-const Navbar = () => {
+export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -304,139 +54,205 @@ const Navbar = () => {
   };
 
   const navLinks: NavLink[] = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
-    { to: '/courses', label: 'Courses', icon: BookOpen, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
-    { to: '/leaderboard', label: 'Leaderboard', icon: Trophy, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
-    { to: '/admin', label: 'Admin Panel', icon: Shield, roles: ['INSTRUCTOR', 'ADMIN'] },
+    { to: '/dashboard', label: 'Dashboard', code: '01', icon: LayoutDashboard, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/courses', label: 'Challenges', code: '02', icon: BookOpen, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/leaderboard', label: 'Leaderboard', code: '03', icon: Trophy, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/admin', label: 'Control Deck', code: '04', icon: Shield, roles: ['INSTRUCTOR', 'ADMIN'] },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
   const initials =
     user?.firstName && user?.lastName
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : (user?.username?.[0] || 'U').toUpperCase();
+      : (user?.username?.[0] || 'X').toUpperCase();
 
   return (
-    <>
-      <style>{styles}</style>
-      <nav className="nav-root">
-        <div className="nav-container">
-          <div className="nav-inner">
-            {/* Logo */}
-            <Link to="/dashboard" className="nav-brand">
-              <div className="nav-logo-box">
-                <Terminal size={18} />
-              </div>
-              <span className="nav-brand-text">XploitVerse</span>
-            </Link>
+    <header className="sticky top-0 z-50 bg-paper/96 backdrop-blur-sm border-b border-border font-mono select-none">
+      {/* Main Command Bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-[60px]">
 
-            {/* Desktop Nav */}
-            <div className="nav-links">
-              {navLinks.map((link) =>
-                hasRole(link.roles) && (
+          {/* Brand */}
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-7 h-7 bg-accent flex items-center justify-center transition-all group-hover:bg-accent-hover shadow-accent">
+              <Terminal className="w-3.5 h-3.5 text-paper" />
+            </div>
+            <span className="font-display font-black text-base text-ink tracking-tight uppercase group-hover:text-accent transition-colors">
+              <DecryptedText text="XPLOITVERSE" speed={28} animateOn="hover" />
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center">
+            {navLinks
+              .filter((link) => link.roles.some((role) => hasRole(role)))
+              .map((link) => {
+                const active = isActive(link.to);
+                const Icon = link.icon;
+                return (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`nav-link ${isActive(link.to) ? 'active' : ''}`}
+                    className={`relative flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold tracking-[0.12em] uppercase transition-colors ${active ? 'text-ink' : 'text-muted hover:text-ink'
+                      }`}
                   >
-                    <link.icon size={16} />
+                    <Icon className={`w-3 h-3 ${active ? 'text-accent' : ''}`} />
                     <span>{link.label}</span>
+                    {active && (
+                      <motion.div
+                        layoutId="nav-indicator"
+                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent"
+                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      />
+                    )}
                   </Link>
-                )
-              )}
-            </div>
+                );
+              })}
+          </nav>
 
-            {/* Desktop Right */}
-            <div className="nav-actions">
-              <button className="nav-icon-btn" aria-label="Notifications">
-                <Bell size={20} />
-                <span className="nav-badge"></span>
-              </button>
+          {/* Right: User / Auth */}
+          <div className="hidden md:flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 bg-surface border border-border hover:border-border-bright transition-all"
+                  >
+                    <div className="w-6 h-6 bg-accent flex items-center justify-center text-[10px] font-black text-paper">
+                      {initials}
+                    </div>
+                    <span className="text-[11px] font-bold text-ink uppercase tracking-wider hidden sm:block">
+                      {user.username}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-muted" />
+                  </button>
 
-              <div className="nav-user-menu" ref={dropdownRef}>
-                <button
-                  onClick={() => setDropdownOpen((v) => !v)}
-                  className="nav-user-trigger"
-                >
-                  <div className="nav-avatar">
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute right-0 mt-1.5 w-52 bg-surface border border-border shadow-md py-1 z-50"
+                      >
+                        <div className="px-4 py-2.5 border-b border-border">
+                          <p className="text-[10px] text-muted tracking-widest uppercase mb-0.5">{user.role}</p>
+                          <p className="text-xs font-bold text-ink truncate">{user.email}</p>
+                        </div>
+                        <Link to="/profile" className="flex items-center gap-2 px-4 py-2 text-xs text-muted hover:text-ink hover:bg-paper/60 transition-colors uppercase tracking-wider">
+                          <UserCircle className="w-3.5 h-3.5" />
+                          Profile
+                        </Link>
+                        <Link to="/dashboard" className="flex items-center gap-2 px-4 py-2 text-xs text-muted hover:text-ink hover:bg-paper/60 transition-colors uppercase tracking-wider">
+                          <Activity className="w-3.5 h-3.5" />
+                          Dashboard
+                        </Link>
+                        <div className="border-t border-border my-1" />
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-xs text-error hover:bg-error/10 transition-colors uppercase tracking-wider text-left font-bold"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign Out
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link to="/login" className="px-3 py-1.5 text-[11px] font-bold text-muted hover:text-ink border border-transparent hover:border-border uppercase tracking-wider transition-all">
+                  Sign In
+                </Link>
+                <Link to="/register" className="px-3 py-1.5 text-[11px] font-bold text-paper bg-accent hover:bg-accent-hover uppercase tracking-wider transition-all shadow-accent">
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile toggle */}
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex md:hidden p-2 text-muted hover:text-ink border border-border bg-surface"
+          >
+            {isOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            className="md:hidden border-t border-border bg-paper overflow-hidden"
+          >
+            <div className="p-4 space-y-1">
+              {user && (
+                <div className="flex items-center gap-3 p-3 bg-surface border border-border mb-3">
+                  <div className="w-8 h-8 bg-accent flex items-center justify-center font-black text-paper text-xs">
                     {initials}
                   </div>
-                  <div className="nav-user-info">
-                    <p className="nav-user-name">{user?.username || 'Guest'}</p>
-                    <p className="nav-user-role">{user?.role?.toLowerCase() || 'Role'}</p>
+                  <div>
+                    <p className="text-xs font-bold text-ink uppercase tracking-wider">{user.username}</p>
+                    <p className="text-[10px] text-muted">{user.email}</p>
                   </div>
-                  <ChevronDown size={14} style={{ color: 'var(--color-muted)', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--ease-default)' }} />
-                </button>
-
-                {dropdownOpen && (
-                  <div className="nav-dropdown">
-                    <div className="nav-dropdown-header">
-                      <p className="nav-user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.username}
-                      </p>
-                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user?.email}
-                      </p>
-                    </div>
-                    <Link to="/profile" className="nav-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                      <UserCircle size={16} />
-                      My Profile
-                    </Link>
-                    <button onClick={handleLogout} className="nav-dropdown-item danger">
-                      <LogOut size={16} />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button className="nav-mobile-btn" onClick={() => setIsOpen((v) => !v)}>
-              {isOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Nav */}
-        {isOpen && (
-          <div className="nav-mobile-menu">
-            <div className="nav-mobile-inner">
-              <div className="nav-mobile-profile">
-                <div className="nav-avatar">
-                  {initials}
                 </div>
-                <div>
-                  <p className="nav-user-name">{user?.username}</p>
-                  <p className="nav-user-role">{user?.role?.toLowerCase()}</p>
-                </div>
-              </div>
-
-              {navLinks.map((link) =>
-                hasRole(link.roles) && (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`nav-link ${isActive(link.to) ? 'active' : ''}`}
-                    style={{ padding: '0.75rem var(--space-3)' }}
-                  >
-                    <link.icon size={18} />
-                    <span>{link.label}</span>
-                  </Link>
-                )
               )}
-
-              <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--space-2) 0' }} />
-
-              <button onClick={handleLogout} className="nav-dropdown-item danger" style={{ padding: '0.75rem var(--space-3)' }}>
-                <LogOut size={18} />
-                Logout
-              </button>
+              {navLinks
+                .filter((link) => link.roles.some((role) => hasRole(role)))
+                .map((link) => {
+                  const active = isActive(link.to);
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className={`flex items-center gap-3 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-l-2 transition-colors ${active
+                        ? 'text-ink bg-surface border-l-accent'
+                        : 'text-muted border-l-transparent hover:text-ink hover:bg-surface/50'
+                        }`}
+                    >
+                      <Icon className={`w-4 h-4 ${active ? 'text-accent' : 'text-muted'}`} />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="mt-3 w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-error border border-error/20 bg-error/5 uppercase tracking-wider"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2 pt-3 border-t border-border mt-3">
+                  <Link to="/login" className="px-4 py-2 text-center text-xs font-bold text-ink border border-border uppercase tracking-wider">
+                    Sign In
+                  </Link>
+                  <Link to="/register" className="px-4 py-2 text-center text-xs font-bold text-paper bg-accent uppercase tracking-wider">
+                    Register
+                  </Link>
+                </div>
+              )}
             </div>
-          </div>
+          </motion.div>
         )}
-      </nav>
-    </>
+      </AnimatePresence>
+    </header>
   );
 };
 

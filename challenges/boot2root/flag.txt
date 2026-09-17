@@ -1,0 +1,1 @@
+FLAG{xv_boot2root_root_pwned}

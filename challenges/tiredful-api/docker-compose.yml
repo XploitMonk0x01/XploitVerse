@@ -1,0 +1,7 @@
+services:
+  tiredful-api:
+    container_name: tiredful-api
+    build:
+      context: .
+    ports:
+      - 8000:8000

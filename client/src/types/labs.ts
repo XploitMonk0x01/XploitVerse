@@ -12,6 +12,8 @@ export interface LabSession {
   connectionInfo: Record<string, unknown>;
   lab?: number;
   publicIp?: string;
+  hostUrl?: string;
+  hostPort?: number;
 }
 
 export interface LabSessionSummary {

@@ -89,7 +89,15 @@ func (a *API) submitFlagForTask(c *gin.Context, u *AuthUser, taskID int64, flag 
 		return
 	}
 
-	isCorrect := strings.EqualFold(hashSHA256(flag), strings.TrimSpace(flagHash))
+	submittedHash := hashSHA256(flag)
+	isCorrect := false
+	for _, expected := range strings.Split(strings.TrimSpace(flagHash), ",") {
+		expClean := strings.TrimSpace(expected)
+		if expClean != "" && (strings.EqualFold(submittedHash, expClean) || strings.EqualFold(strings.TrimSpace(flag), expClean)) {
+			isCorrect = true
+			break
+		}
+	}
 	now := time.Now()
 	if isCorrect {
 		err = a.DB.QueryRow(c.Request.Context(), `

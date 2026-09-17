@@ -194,8 +194,8 @@ func RunPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// SeedPostgresBaseline inserts a minimal room/module/task/asset dataset when
-// the database is empty, enabling end-to-end new.md flows immediately.
+// SeedPostgresBaseline inserts rooms, modules, tasks, and assets for the three
+// core XploitVerse labs when the database is empty.
 func SeedPostgresBaseline(ctx context.Context, pool *pgxpool.Pool) error {
 	var roomCount int64
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM rooms`).Scan(&roomCount); err != nil {
@@ -205,54 +205,252 @@ func SeedPostgresBaseline(ctx context.Context, pool *pgxpool.Pool) error {
 		return nil
 	}
 
-	flag := "THM{basic_sqli_1337}"
-	hash := sha256.Sum256([]byte(flag))
-	flagHash := hex.EncodeToString(hash[:])
-
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin seed transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	var assetID int64
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO assets (name, source_type, source_ref, docker_image, build_context_path, exposed_ports_json, env_json, type, is_active)
-		VALUES ($1, $2, $3, $4, $5, '["80/tcp"]'::jsonb, '{}'::jsonb, $6, true)
-		RETURNING id
-	`, "Basic SQLi Web Lab", "custom", "seeded baseline", "xploitverse/web-basic:latest", "challenges/web-basic", "target").Scan(&assetID); err != nil {
-		return fmt.Errorf("failed to seed asset: %w", err)
+	// ── Helper ──────────────────────────────────────────────────────────────
+	hashFlag := func(flag string) string {
+		h := sha256.Sum256([]byte(flag))
+		return hex.EncodeToString(h[:])
 	}
 
-	var roomID int64
+	// ════════════════════════════════════════════════════════════════════════
+	// LAB 1: SQL Injection Lab
+	// ════════════════════════════════════════════════════════════════════════
+	var sqliAssetID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO assets (name, source_type, source_ref, docker_image, build_context_path, exposed_ports_json, env_json, type, is_active)
+		VALUES ($1, $2, $3, $4, NULL, '["22/tcp","5000/tcp"]'::jsonb, '{}'::jsonb, $5, true)
+		RETURNING id
+	`, "SQL Injection Lab", "custom", "challenges/sqli-lab", "xploitverse/sqli-lab:latest", "target").Scan(&sqliAssetID); err != nil {
+		return fmt.Errorf("failed to seed sqli asset: %w", err)
+	}
+
+	var sqliRoomID int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO rooms (slug, title, description, difficulty, is_public)
 		VALUES ($1, $2, $3, $4, true)
 		RETURNING id
-	`, "intro-sqli-room", "Intro to SQL Injection", "Practice basic SQL injection against a vulnerable login page.", "Easy").Scan(&roomID); err != nil {
-		return fmt.Errorf("failed to seed room: %w", err)
+	`, "sqli-lab",
+		"SQL Injection Lab",
+		"Practice SQL injection against a deliberately vulnerable e-commerce application. Learn Union-based injection, authentication bypass, and data exfiltration from a Flask + SQLite stack.",
+		"Easy").Scan(&sqliRoomID); err != nil {
+		return fmt.Errorf("failed to seed sqli room: %w", err)
 	}
 
-	var moduleID int64
+	var sqliModuleID int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO modules (room_id, title, description, order_no, points_reward, is_published)
-		VALUES ($1, $2, $3, 1, 100, true)
+		VALUES ($1, $2, $3, 1, 300, true)
 		RETURNING id
-	`, roomID, "Module 1", "Foundations").Scan(&moduleID); err != nil {
-		return fmt.Errorf("failed to seed module: %w", err)
+	`, sqliRoomID, "SQL Injection Fundamentals", "Learn the three core SQLi techniques: Union injection, auth bypass, and blind extraction.").Scan(&sqliModuleID); err != nil {
+		return fmt.Errorf("failed to seed sqli module: %w", err)
 	}
 
+	// Task 1: Union-based SQLi
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
-		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, '["Try payloads like '' OR 1=1--"]'::jsonb, 1, 100, 0, $7, true)
-	`, roomID, moduleID, assetID, "Dump the users table and find the flag", "Find the flag inside the vulnerable web application.", "Find and submit the flag.", flagHash); err != nil {
-		return fmt.Errorf("failed to seed task: %w", err)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 1, 100, 25, $8, true)
+	`, sqliRoomID, sqliModuleID, sqliAssetID,
+		"Union-Based Data Exfiltration",
+		"# Union-Based SQL Injection\n\nThe VulnShop application at **http://TARGET:5000** has a products page with a category filter that is vulnerable to SQL injection.\n\n## Objective\nUse a UNION-based SQL injection on the `/products` endpoint to discover and dump a hidden database table. The flag is stored inside it.\n\n## Tools\n- `curl` or the web browser inside the terminal\n- The web app shows you the raw SQL query being executed\n\n## Getting Started\n1. Browse to `http://TARGET:5000/products`\n2. Try filtering by category and observe the SQL query\n3. Use UNION SELECT to enumerate tables and extract data",
+		"Find the hidden flag in the secrets table using UNION injection.",
+		`["The category parameter is directly interpolated into SQL","Try: ' UNION SELECT 1,2,3,4--","Use sql_master or sqlite_master to find table names","The flag is in a table called 'secrets'"]`,
+		hashFlag("FLAG{xv_sqli_union_data_exfil}")); err != nil {
+		return fmt.Errorf("failed to seed sqli task 1: %w", err)
+	}
+
+	// Task 2: Auth bypass
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 2, 100, 25, $8, true)
+	`, sqliRoomID, sqliModuleID, sqliAssetID,
+		"Authentication Bypass",
+		"# Authentication Bypass via SQLi\n\nThe login page at **http://TARGET:5000/login** uses unsafe string concatenation in its SQL query.\n\n## Objective\nBypass the authentication to log in as the **admin** user without knowing the password. The flag is displayed upon successful admin login.\n\n## Getting Started\n1. Navigate to the login page\n2. Observe the SQL query shown after each attempt\n3. Craft a username/password payload that always evaluates to true",
+		"Bypass login authentication to get the admin flag.",
+		`["The login query checks: WHERE username='X' AND password='Y'","What happens if you close the quote and add OR 1=1?","Try username: admin' -- and any password","The comment -- ignores the rest of the query"]`,
+		hashFlag("FLAG{xv_sqli_auth_bypass}")); err != nil {
+		return fmt.Errorf("failed to seed sqli task 2: %w", err)
+	}
+
+	// Task 3: Root flag
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 3, 100, 25, $8, true)
+	`, sqliRoomID, sqliModuleID, sqliAssetID,
+		"Escalate to Root Flag",
+		"# Root Flag Challenge\n\nThere is a flag file only readable by root at `/root/flag.txt` on the target machine.\n\n## Objective\nFind a way to read the root flag. You have SSH access as `student:student` on port 22.\n\n## Getting Started\n1. SSH into the target: `ssh student@TARGET`\n2. Look for SUID binaries, writable scripts, or sudo misconfigurations\n3. The flag is in `/root/flag.txt`",
+		"Read the root flag at /root/flag.txt.",
+		`["SSH credentials are student:student","Check for SUID binaries with: find / -perm -4000 2>/dev/null","Look at sudo permissions with: sudo -l","Python3 might be available with elevated privileges"]`,
+		hashFlag("FLAG{xv_sqli_database_compromised}")); err != nil {
+		return fmt.Errorf("failed to seed sqli task 3: %w", err)
+	}
+
+	// ════════════════════════════════════════════════════════════════════════
+	// LAB 2: Web Exploitation Basics
+	// ════════════════════════════════════════════════════════════════════════
+	var webAssetID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO assets (name, source_type, source_ref, docker_image, build_context_path, exposed_ports_json, env_json, type, is_active)
+		VALUES ($1, $2, $3, $4, NULL, '["22/tcp","5000/tcp"]'::jsonb, '{}'::jsonb, $5, true)
+		RETURNING id
+	`, "Web Exploitation Basics", "custom", "challenges/web-basic", "xploitverse/web-basic:latest", "target").Scan(&webAssetID); err != nil {
+		return fmt.Errorf("failed to seed web-basic asset: %w", err)
+	}
+
+	var webRoomID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO rooms (slug, title, description, difficulty, is_public)
+		VALUES ($1, $2, $3, $4, true)
+		RETURNING id
+	`, "web-basic",
+		"Web Exploitation Basics",
+		"Exploit command injection and directory traversal vulnerabilities in a Flask web application. Learn to chain OS commands and escape restricted directories to read sensitive files.",
+		"Easy").Scan(&webRoomID); err != nil {
+		return fmt.Errorf("failed to seed web-basic room: %w", err)
+	}
+
+	var webModuleID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO modules (room_id, title, description, order_no, points_reward, is_published)
+		VALUES ($1, $2, $3, 1, 200, true)
+		RETURNING id
+	`, webRoomID, "Web Attack Vectors", "Master command injection and path traversal — two of the most common web vulnerabilities.").Scan(&webModuleID); err != nil {
+		return fmt.Errorf("failed to seed web-basic module: %w", err)
+	}
+
+	// Task 1: Command injection
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 1, 100, 25, $8, true)
+	`, webRoomID, webModuleID, webAssetID,
+		"Command Injection",
+		"# Command Injection\n\nThe web application at **http://TARGET:5000** has a `/ping` endpoint that takes a `host` parameter and passes it directly to the system shell.\n\n## Objective\nExploit the command injection vulnerability to read the flag at `/opt/flag.txt`.\n\n## Getting Started\n1. Visit `http://TARGET:5000` to see available endpoints\n2. Try the `/ping?host=127.0.0.1` endpoint\n3. Chain additional OS commands using shell metacharacters (`;`, `|`, `&&`)",
+		"Use command injection on /ping to read /opt/flag.txt.",
+		`["The host parameter is passed directly to: ping -c 1 <host>","Shell metacharacters like ; and | can chain commands","Try: /ping?host=127.0.0.1;cat /opt/flag.txt","The flag file is at /opt/flag.txt"]`,
+		hashFlag("FLAG{xv_web_cmd_injection}")); err != nil {
+		return fmt.Errorf("failed to seed web-basic task 1: %w", err)
+	}
+
+	// Task 2: Directory traversal
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 2, 100, 25, $8, true)
+	`, webRoomID, webModuleID, webAssetID,
+		"Directory Traversal",
+		"# Directory Traversal (Path Traversal)\n\nThe `/read` endpoint serves files from `/opt/webapp/files/` but does not sanitize the filename parameter.\n\n## Objective\nEscape the restricted directory and read `/opt/flag.txt` using path traversal.\n\n## Getting Started\n1. Visit `http://TARGET:5000/read?file=welcome.txt` to see normal behavior\n2. Try navigating up directories with `../` sequences\n3. The flag is at `/opt/flag.txt` — calculate how many `../` you need",
+		"Use directory traversal on /read to read /opt/flag.txt.",
+		`["The file parameter is joined with /opt/webapp/files/","Use ../ to go up one directory","Count the depth: /opt/webapp/files/ is 3 levels from /","Try: /read?file=../../../opt/flag.txt"]`,
+		hashFlag("FLAG{xv_web_cmd_injection}")); err != nil {
+		return fmt.Errorf("failed to seed web-basic task 2: %w", err)
+	}
+
+	// ════════════════════════════════════════════════════════════════════════
+	// LAB 3: OWASP Top 10 Lab
+	// ════════════════════════════════════════════════════════════════════════
+	var owaspAssetID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO assets (name, source_type, source_ref, docker_image, build_context_path, exposed_ports_json, env_json, type, is_active)
+		VALUES ($1, $2, $3, $4, NULL, '["22/tcp","5000/tcp"]'::jsonb, '{}'::jsonb, $5, true)
+		RETURNING id
+	`, "OWASP Top 10 Lab", "custom", "challenges/owasp-juice", "xploitverse/owasp-juice:latest", "target").Scan(&owaspAssetID); err != nil {
+		return fmt.Errorf("failed to seed owasp asset: %w", err)
+	}
+
+	var owaspRoomID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO rooms (slug, title, description, difficulty, is_public)
+		VALUES ($1, $2, $3, $4, true)
+		RETURNING id
+	`, "owasp-juice",
+		"OWASP Top 10 Lab",
+		"Exploit 5 different OWASP Top 10 vulnerabilities in a single Flask application: Reflected XSS, Stored XSS, Insecure Direct Object References (IDOR), Server-Side Request Forgery (SSRF), and Directory Traversal.",
+		"Medium").Scan(&owaspRoomID); err != nil {
+		return fmt.Errorf("failed to seed owasp room: %w", err)
+	}
+
+	var owaspModuleID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO modules (room_id, title, description, order_no, points_reward, is_published)
+		VALUES ($1, $2, $3, 1, 500, true)
+		RETURNING id
+	`, owaspRoomID, "OWASP Vulnerability Chain", "Work through five distinct vulnerability classes from the OWASP Top 10 in increasing complexity.").Scan(&owaspModuleID); err != nil {
+		return fmt.Errorf("failed to seed owasp module: %w", err)
+	}
+
+	// Task 1: Reflected XSS
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 1, 100, 25, $8, true)
+	`, owaspRoomID, owaspModuleID, owaspAssetID,
+		"Reflected XSS",
+		"# Reflected Cross-Site Scripting (XSS)\n\nThe search page at **http://TARGET:5000/search** reflects user input directly into the HTML without sanitization.\n\n## Objective\nDemonstrate a reflected XSS attack by injecting JavaScript that triggers an alert box. The flag is shown on the page.\n\n## Getting Started\n1. Navigate to the search page\n2. Try searching for something and observe how the input appears in the response\n3. Inject a `<script>` tag in the search query parameter",
+		"Demonstrate reflected XSS on the search page.",
+		`["The q parameter is reflected directly into HTML","Try: /search?q=<script>alert(1)</script>","The flag is displayed on the page: FLAG{xv_owasp_reflected_xss}","Submit the flag once you trigger the XSS"]`,
+		hashFlag("FLAG{xv_owasp_reflected_xss}")); err != nil {
+		return fmt.Errorf("failed to seed owasp task 1: %w", err)
+	}
+
+	// Task 2: Stored XSS
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 2, 100, 25, $8, true)
+	`, owaspRoomID, owaspModuleID, owaspAssetID,
+		"Stored XSS via Guestbook",
+		"# Stored Cross-Site Scripting (XSS)\n\nThe guestbook at **http://TARGET:5000/guestbook** allows posting messages that are stored and displayed to all visitors without sanitization.\n\n## Objective\nPost a guestbook entry containing JavaScript that executes when the page loads. The flag is shown on the page.\n\n## Getting Started\n1. Navigate to the guestbook\n2. Post a normal message and observe how it's displayed\n3. Post a message containing `<script>` tags",
+		"Inject stored XSS in the guestbook.",
+		`["The message field is rendered without escaping","Post a message like: <script>alert('XSS')</script>","The flag is: FLAG{xv_owasp_stored_xss}","Submit the flag once your script persists on page reload"]`,
+		hashFlag("FLAG{xv_owasp_stored_xss}")); err != nil {
+		return fmt.Errorf("failed to seed owasp task 2: %w", err)
+	}
+
+	// Task 3: IDOR
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 3, 100, 25, $8, true)
+	`, owaspRoomID, owaspModuleID, owaspAssetID,
+		"Insecure Direct Object Reference (IDOR)",
+		"# IDOR — Insecure Direct Object Reference\n\nThe profile page at **http://TARGET:5000/profile/2** shows your profile. But does it check authorization?\n\n## Objective\nAccess another user's profile to find the admin's secret notes, which contain the flag.\n\n## Getting Started\n1. Visit your profile at `/profile/2`\n2. Notice the user ID in the URL\n3. Try accessing other user IDs (hint: start from 1)",
+		"Access the admin profile via IDOR to find the flag.",
+		`["You're logged in as user ID 2 (alice)","The admin is typically user ID 1","Try: /profile/1","The admin's notes contain the flag"]`,
+		hashFlag("FLAG{xv_owasp_idor_admin_access}")); err != nil {
+		return fmt.Errorf("failed to seed owasp task 3: %w", err)
+	}
+
+	// Task 4: SSRF
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 4, 100, 25, $8, true)
+	`, owaspRoomID, owaspModuleID, owaspAssetID,
+		"Server-Side Request Forgery (SSRF)",
+		"# SSRF — Server-Side Request Forgery\n\nThe URL fetcher at **http://TARGET:5000/fetch** takes a URL and fetches its content from the server side.\n\n## Objective\nAbuse the URL fetcher to access an internal-only endpoint or read local files from the server. Two flags are available:\n- Access the internal admin panel\n- Read the secret file at `/opt/secret/admin_key.txt`\n\n## Getting Started\n1. Visit the URL fetch page\n2. Try fetching `http://127.0.0.1:5000/internal/admin`\n3. Try the `file://` protocol to read local files",
+		"Use SSRF to access internal endpoints or read local files.",
+		`["The fetch endpoint makes server-side HTTP requests","Try fetching: http://127.0.0.1:5000/internal/admin","The file:// protocol can read local files","Try: file:///opt/secret/admin_key.txt"]`,
+		hashFlag("FLAG{xv_owasp_ssrf_internal_access}")); err != nil {
+		return fmt.Errorf("failed to seed owasp task 4: %w", err)
+	}
+
+	// Task 5: Path Traversal
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tasks (room_id, module_id, asset_id, title, type, flag_type, body_markdown, prompt, hints_json, order_no, points, hint_penalty, flag_hash, is_published)
+		VALUES ($1, $2, $3, $4, 'flag', 'string', $5, $6, $7::jsonb, 5, 100, 25, $8, true)
+	`, owaspRoomID, owaspModuleID, owaspAssetID,
+		"Path Traversal to Root Flag",
+		"# Path Traversal\n\nThe document reader at **http://TARGET:5000/read** serves files from `/app/docs/` but doesn't sanitize the filename.\n\n## Objective\nEscape the document directory and read the root flag at `/root/flag.txt`.\n\n## Getting Started\n1. Visit `/read?file=welcome.txt` to see normal behavior\n2. Use `../` sequences to traverse up from `/app/docs/`\n3. Navigate to `/root/flag.txt`",
+		"Use path traversal on /read to reach /root/flag.txt.",
+		`["The file parameter is joined with /app/docs/","Use ../ to navigate up directories","/app/docs/ to /root/ requires going up: ../../root/flag.txt","Try: /read?file=../../root/flag.txt"]`,
+		hashFlag("FLAG{xv_owasp_path_traversal}")); err != nil {
+		return fmt.Errorf("failed to seed owasp task 5: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit seed transaction: %w", err)
 	}
 
-	log.Println("✅ PostgreSQL baseline data seeded")
+	log.Println("✅ PostgreSQL baseline data seeded (3 labs, 10 tasks)")
 	return nil
 }
+

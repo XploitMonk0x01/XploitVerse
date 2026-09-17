@@ -17,7 +17,6 @@ WORKDIR /app
 
 COPY app.py /app/app.py
 COPY setup_db.py /app/setup_db.py
-COPY templates/ /app/templates/
 
 # Create and seed the database
 RUN python3 /app/setup_db.py

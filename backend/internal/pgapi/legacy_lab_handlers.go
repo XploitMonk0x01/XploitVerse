@@ -257,7 +257,24 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 
 	now := time.Now()
 	expiresAt := now.Add(240 * time.Minute)
-	conn := map[string]interface{}{"host": containerIP, "ip": containerIP, "port": 80, "url": fmt.Sprintf("http://%s:80", containerIP)}
+	hostPort := a.DockerSvc.GetWebPort(c.Request.Context(), containerID)
+	contextPath := ""
+	if strings.Contains(strings.ToLower(image), "vulnerable-app") {
+		contextPath = "/VulnerableApp"
+	}
+	hostURL := fmt.Sprintf("http://localhost:%d%s", hostPort, contextPath)
+	if hostPort == 0 {
+		hostURL = fmt.Sprintf("http://%s:80%s", containerIP, contextPath)
+	}
+	conn := map[string]interface{}{
+		"host":        "localhost",
+		"ip":          containerIP,
+		"port":        hostPort,
+		"url":         hostURL,
+		"hostUrl":     hostURL,
+		"hostPort":    hostPort,
+		"contextPath": contextPath,
+	}
 	_, _ = a.DB.Exec(c.Request.Context(), `
 		UPDATE lab_sessions
 		SET status='running', started_at=$1, expires_at=$2, network_name=$3,
@@ -270,12 +287,15 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 		"message": "Lab environment is now active!",
 		"data": gin.H{
 			"session": gin.H{
-				"id":          sessionID,
-				"status":      "RUNNING",
-				"publicIp":    containerIP,
-				"startedAt":   now,
-				"expiresAt":   expiresAt,
-				"containerId": containerID,
+				"id":             sessionID,
+				"status":         "RUNNING",
+				"publicIp":       containerIP,
+				"hostUrl":        hostURL,
+				"hostPort":       hostPort,
+				"startedAt":      now,
+				"expiresAt":      expiresAt,
+				"containerId":    containerID,
+				"connectionInfo": conn,
 			},
 		},
 	})
@@ -340,28 +360,80 @@ func (a *API) GetActiveSession(c *gin.Context) {
 		roomID, taskID                 *int64
 		targetContainerID, networkName string
 		startedAt, expiresAt           *time.Time
+		connectionInfoRaw              []byte
 	)
 	err := a.DB.QueryRow(c.Request.Context(), `
-		SELECT id, status, room_id, task_id, COALESCE(target_container_id,''), COALESCE(network_name,''), started_at, expires_at
+		SELECT id, status, room_id, task_id, COALESCE(target_container_id,''), COALESCE(network_name,''), started_at, expires_at, connection_info_json
 		FROM lab_sessions
 		WHERE user_id=$1 AND status IN ('pending','initializing','running')
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, u.ID).Scan(&id, &status, &roomID, &taskID, &targetContainerID, &networkName, &startedAt, &expiresAt)
+	`, u.ID).Scan(&id, &status, &roomID, &taskID, &targetContainerID, &networkName, &startedAt, &expiresAt, &connectionInfoRaw)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
 		return
 	}
 
+	connInfo := parseJSONMap(connectionInfoRaw)
+	hostURL, _ := connInfo["hostUrl"].(string)
+	var hostPort int
+	if p, ok := connInfo["hostPort"].(float64); ok {
+		hostPort = int(p)
+	} else if p, ok := connInfo["port"].(float64); ok {
+		hostPort = int(p)
+	}
+
+	if (hostPort == 0 || hostURL == "") && targetContainerID != "" {
+		if p := a.DockerSvc.GetWebPort(c.Request.Context(), targetContainerID); p > 0 {
+			hostPort = p
+			var dockerImg string
+			_ = a.DB.QueryRow(c.Request.Context(), `SELECT COALESCE(docker_image,'') FROM lab_sessions WHERE id=$1`, id).Scan(&dockerImg)
+			contextPath := ""
+			if strings.Contains(strings.ToLower(dockerImg), "vulnerable-app") {
+				contextPath = "/VulnerableApp"
+			}
+			hostURL = fmt.Sprintf("http://localhost:%d%s", hostPort, contextPath)
+			if connInfo == nil {
+				connInfo = make(map[string]interface{})
+			}
+			connInfo["hostPort"] = hostPort
+			connInfo["port"] = hostPort
+			connInfo["hostUrl"] = hostURL
+			connInfo["url"] = hostURL
+			connInfo["contextPath"] = contextPath
+			_, _ = a.DB.Exec(c.Request.Context(), `UPDATE lab_sessions SET connection_info_json=$1 WHERE id=$2`, marshalJSON(connInfo), id)
+		}
+	}
+
+	sessionObj := gin.H{
+		"id":             id,
+		"status":         strings.ToUpper(status),
+		"roomId":         roomID,
+		"taskId":         taskID,
+		"containerId":    targetContainerID,
+		"networkName":    networkName,
+		"startedAt":      startedAt,
+		"expiresAt":      expiresAt,
+		"connectionInfo": connInfo,
+		"hostUrl":        hostURL,
+		"hostPort":       hostPort,
+		"publicIp":       connectionHost(connInfo),
+	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
-		"id":          id,
-		"status":      strings.ToUpper(status),
-		"roomId":      roomID,
-		"taskId":      taskID,
-		"containerId": targetContainerID,
-		"networkName": networkName,
-		"startedAt":   startedAt,
-		"expiresAt":   expiresAt,
+		"session":        sessionObj,
+		"id":             id,
+		"status":         strings.ToUpper(status),
+		"roomId":         roomID,
+		"taskId":         taskID,
+		"containerId":    targetContainerID,
+		"networkName":    networkName,
+		"startedAt":      startedAt,
+		"expiresAt":      expiresAt,
+		"connectionInfo": connInfo,
+		"hostUrl":        hostURL,
+		"hostPort":       hostPort,
+		"publicIp":       connectionHost(connInfo),
 	}})
 }
 
@@ -428,7 +500,16 @@ func (a *API) GetActiveLabSession(c *gin.Context) {
 		return
 	}
 
-	session.ConnectionInfo = parseJSONMap(connectionInfoRaw)
+	connMap := parseJSONMap(connectionInfoRaw)
+	hostURL, _ := connMap["hostUrl"].(string)
+	var hostPort int
+	if p, ok := connMap["hostPort"].(float64); ok {
+		hostPort = int(p)
+	} else if p, ok := connMap["port"].(float64); ok {
+		hostPort = int(p)
+	}
+	session.ConnectionInfo = connMap
+
 	sessionPayload := gin.H{
 		"id":                session.ID,
 		"status":            strings.ToUpper(session.Status),
@@ -441,6 +522,8 @@ func (a *API) GetActiveLabSession(c *gin.Context) {
 		"targetContainerId": session.TargetContainerID,
 		"networkName":       session.NetworkName,
 		"connectionInfo":    session.ConnectionInfo,
+		"hostUrl":           hostURL,
+		"hostPort":          hostPort,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"session": sessionPayload}})

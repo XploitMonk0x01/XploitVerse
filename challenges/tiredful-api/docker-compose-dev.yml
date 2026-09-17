@@ -1,0 +1,10 @@
+services:
+  tiredful-api:
+    container_name: tiredful-api
+    build:
+      context: .
+    volumes:
+      - .:/app
+      - ./Tiredful_API/static:/app/Tiredful_API/staticfiles
+    ports:
+      - 8000:8000

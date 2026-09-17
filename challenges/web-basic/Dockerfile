@@ -46,7 +46,7 @@ RUN chown -R hacker:hacker /opt/webapp
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Expose SSH and web server ports
 EXPOSE 22 5000

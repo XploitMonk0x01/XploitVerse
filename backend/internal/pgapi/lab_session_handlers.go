@@ -124,11 +124,23 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 	}
 	startedAt := time.Now()
 	expiresAt := startedAt.Add(time.Duration(maxDurationMin) * time.Minute)
+	hostPort := a.DockerSvc.GetWebPort(c.Request.Context(), containerID)
+	contextPath := ""
+	if strings.Contains(strings.ToLower(image), "vulnerable-app") {
+		contextPath = "/VulnerableApp"
+	}
+	hostURL := fmt.Sprintf("http://localhost:%d%s", hostPort, contextPath)
+	if hostPort == 0 {
+		hostURL = fmt.Sprintf("http://%s:%d%s", containerIP, port, contextPath)
+	}
 	connInfo := map[string]interface{}{
-		"host":         containerIP,
+		"host":         "localhost",
 		"ip":           containerIP,
-		"port":         port,
-		"url":          fmt.Sprintf("http://%s:%d", containerIP, port),
+		"port":         hostPort,
+		"url":          hostURL,
+		"hostUrl":      hostURL,
+		"hostPort":     hostPort,
+		"contextPath":  contextPath,
 		"network_name": networkName,
 	}
 
@@ -159,6 +171,8 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 				"networkName":       networkName,
 				"targetContainerId": containerID,
 				"attackContainerId": nil,
+				"hostUrl":           hostURL,
+				"hostPort":          hostPort,
 				"connectionInfo":    connInfo,
 			},
 		},
@@ -213,7 +227,38 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 		return
 	}
 
-	session.ConnectionInfo = parseJSONMap(connectionInfoRaw)
+	connMap := parseJSONMap(connectionInfoRaw)
+	hostURL, _ := connMap["hostUrl"].(string)
+	var hostPort int
+	if p, ok := connMap["hostPort"].(float64); ok {
+		hostPort = int(p)
+	} else if p, ok := connMap["port"].(float64); ok {
+		hostPort = int(p)
+	}
+
+	if (hostPort == 0 || hostURL == "") && session.TargetContainerID != "" {
+		if p := a.DockerSvc.GetWebPort(c.Request.Context(), session.TargetContainerID); p > 0 {
+			hostPort = p
+			var dockerImg string
+			_ = a.DB.QueryRow(c.Request.Context(), `SELECT COALESCE(docker_image,'') FROM lab_sessions WHERE id=$1`, session.ID).Scan(&dockerImg)
+			contextPath := ""
+			if strings.Contains(strings.ToLower(dockerImg), "vulnerable-app") {
+				contextPath = "/VulnerableApp"
+			}
+			hostURL = fmt.Sprintf("http://localhost:%d%s", hostPort, contextPath)
+			if connMap == nil {
+				connMap = make(map[string]interface{})
+			}
+			connMap["hostPort"] = hostPort
+			connMap["port"] = hostPort
+			connMap["hostUrl"] = hostURL
+			connMap["url"] = hostURL
+			connMap["contextPath"] = contextPath
+			_, _ = a.DB.Exec(c.Request.Context(), `UPDATE lab_sessions SET connection_info_json=$1 WHERE id=$2`, marshalJSON(connMap), session.ID)
+		}
+	}
+	session.ConnectionInfo = connMap
+
 	sessionPayload := gin.H{
 		"id":                session.ID,
 		"status":            strings.ToUpper(session.Status),
@@ -226,6 +271,8 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 		"targetContainerId": session.TargetContainerID,
 		"networkName":       session.NetworkName,
 		"connectionInfo":    session.ConnectionInfo,
+		"hostUrl":           hostURL,
+		"hostPort":          hostPort,
 	}
 	if assetID.Valid {
 		sessionPayload["lab"] = assetID.Int64

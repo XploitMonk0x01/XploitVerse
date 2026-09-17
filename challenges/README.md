@@ -1,50 +1,45 @@
-# XploitVerse CTF Challenges
+# XploitVerse CTF & Web Security Labs
 
-Docker-based lab environments for cybersecurity training.
+Docker-based production lab environments for offensive security training and penetration testing.
 
-## Challenges
+## Labs & Vulnerable Environments
 
-| Directory       | Difficulty | Category             | Description                                      |
-| --------------- | ---------- | -------------------- | ------------------------------------------------ |
-| `web-basic`     | Easy       | Web Exploitation     | Command injection & directory traversal in Flask |
-| `privesc-basic` | Medium     | Privilege Escalation | SUID binaries, sudo misconfig, writable cron     |
-| `recon-basic`   | Easy       | Reconnaissance       | Port scanning & hidden service discovery         |
-| `aws-autopsy`  | Hard       | Cloud Security       | Capital One SSRF → IAM credential theft → S3 exfil |
+| Directory | Difficulty | Category | Target Image | Description | Standard Flag |
+|---|---|---|---|---|---|
+| `xss-labs` | Easy | Web | `xploitverse/xss-labs:latest` | 40-level client-side XSS suite with live DOM execution | `FLAG{xv_xss_labs_mastered}` |
+| `vulnlab` | Medium | Web | `xploitverse/vulnlab:latest` | Yavuzlar multi-vuln suite (SQLi, RCE, LFI/RFI) on PHP/MariaDB | `FLAG{xv_vulnlab_root_compromised}` |
+| `ssrf-lab` | Medium | Web | `xploitverse/ssrf-lab:latest` | IndiShell SSRF lab (file disclosure, DNS spoofing/rebinding, PDF SSRF) | `FLAG{xv_ssrf_vulnerable_lab_flag}` |
+| `tiredful-api` | Medium | API | `xploitverse/tiredful-api:latest` | Intentionally broken REST API (Django REST Framework, IDOR, JWT flaws) | `FLAG{xv_tiredful_api_token_cracked}` |
+| `vulnerable-app` | Hard | Web / Enterprise | `xploitverse/vulnerable-app:latest` | OWASP VulnerableApp Spring Boot full top-10 enterprise testbed | `FLAG{xv_owasp_vulnerableapp_pwned}` |
+| `web-basic` | Easy | Web | `xploitverse/web-basic:latest` | Command injection & directory traversal in Flask | `FLAG{xv_web_basic_command_injection_2024}` |
+| `sqli-lab` | Medium | Web | `xploitverse/sqli-lab:latest` | Advanced SQL injection training target | `FLAG{xv_sqli_database_compromised}` |
+| `owasp-juice` | Medium | Web | `xploitverse/owasp-juice:latest` | OWASP Juice Shop simulated challenge environment | `FLAG{xv_owasp_ssrf_internal_access}` |
 
 ## Building Images
 
 ```bash
-# Build all challenges
-docker build -t xv-web-basic      ./web-basic/
-docker build -t xv-privesc-basic  ./privesc-basic/
-docker build -t xv-recon-basic    ./recon-basic/
-docker build -t xv-aws-autopsy   ./aws-autopsy/
-
-# Or build a single challenge
-docker build -t xv-web-basic ./web-basic/
+docker build -t xploitverse/xss-labs:latest ./challenges/xss-labs/
+docker build -t xploitverse/vulnlab:latest ./challenges/vulnlab/
+docker build -t xploitverse/ssrf-lab:latest ./challenges/ssrf-lab/
+docker build -t xploitverse/tiredful-api:latest ./challenges/tiredful-api/
+docker build -t xploitverse/vulnerable-app:latest ./challenges/vulnerable-app/
 ```
 
-## Running Locally (for testing)
+## Running Locally
 
 ```bash
-# Start a challenge container
-docker run -d --name test-lab --memory=512m xv-web-basic
+# Start a challenge container with dynamic host port mapping (-P)
+docker run -d -P --name test-lab xploitverse/xss-labs:latest
 
-# Connect to the container shell
-docker exec -it test-lab /bin/bash
+# Check the mapped port for browser access
+docker port test-lab
 
-# Stop and remove
-docker rm -f test-lab
+# Connect to container shell
+docker exec -it test-lab /bin/sh
 ```
 
-## Adding New Challenges
+## Flag Standard
 
-1. Create a new directory under `challenges/`
-2. Add a `Dockerfile` with the `xploitverse=lab` label
-3. Place flag files inside (format: `FLAG{xv_<name>_2024}`)
-4. Create or update a PostgreSQL `assets` row with your `docker_image`, `source_type`, `source_ref`, and `exposed_ports_json`
-5. Build and push the image
-
-## Image Naming Convention
-
-`xv-<category>-<name>` — e.g., `xv-web-basic`, `xv-privesc-basic`
+Every challenge contains a canonical flag in `flag.txt` in the root of the challenge folder and inside `/flag.txt` in the container.
+Format: `FLAG{xv_<lab_name>}`
+SHA-256 hash of this string is stored in the PostgreSQL database table `tasks.flag_hash`.

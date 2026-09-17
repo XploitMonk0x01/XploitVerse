@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -177,6 +178,8 @@ func (d *DockerService) SpawnContainerOnNetwork(
 		"--cap-add", "SYS_CHROOT",
 		"--security-opt", "no-new-privileges=false",
 		"--read-only=false",
+		// ── Port publishing to host for browser access ──
+		"-P",
 		// ── Networking ──
 		"--network", network,
 		// ── Labels for tracking ──
@@ -199,6 +202,51 @@ func (d *DockerService) SpawnContainerOnNetwork(
 	log.Printf("🐳 Container started: id=%s name=%s image=%s ip=%s network=%s",
 		cID[:12], containerName, labImage, containerIP, network)
 	return cID, containerIP, nil
+}
+
+// GetWebPort inspects the docker port mapping and returns the exposed host port for web access.
+func (d *DockerService) GetWebPort(ctx context.Context, containerID string) int {
+	if !d.available || containerID == "" {
+		return 0
+	}
+	for attempt := 0; attempt < 6; attempt++ {
+		out, err := exec.CommandContext(ctx, "docker", "port", containerID).Output()
+		if err == nil {
+			lines := strings.Split(string(out), "\n")
+			mapped := make(map[string]int)
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				parts := strings.Split(line, " -> ")
+				if len(parts) == 2 {
+					cPort := strings.TrimSpace(parts[0])
+					hostAddr := strings.TrimSpace(parts[1])
+					if idx := strings.LastIndex(hostAddr, ":"); idx != -1 {
+						portStr := hostAddr[idx+1:]
+						if p, err := strconv.Atoi(portStr); err == nil {
+							mapped[cPort] = p
+						}
+					}
+				}
+			}
+			// Priority to standard web application ports
+			for _, p := range []string{"80/tcp", "9090/tcp", "5000/tcp", "8000/tcp", "8080/tcp", "3000/tcp", "443/tcp", "8888/tcp"} {
+				if val, exists := mapped[p]; exists && val > 0 {
+					return val
+				}
+			}
+			// Fallback to any non-SSH port
+			for cPort, hPort := range mapped {
+				if !strings.HasPrefix(cPort, "22") && hPort > 0 {
+					return hPort
+				}
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return 0
 }
 
 // EnsureNetwork creates a named Docker bridge network if it does not exist.

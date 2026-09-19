@@ -14,6 +14,9 @@ Docker-based production lab environments for offensive security training and pen
 | `web-basic` | Easy | Web | `xploitverse/web-basic:latest` | Command injection & directory traversal in Flask | `FLAG{xv_web_basic_command_injection_2024}` |
 | `sqli-lab` | Medium | Web | `xploitverse/sqli-lab:latest` | Advanced SQL injection training target | `FLAG{xv_sqli_database_compromised}` |
 | `owasp-juice` | Medium | Web | `xploitverse/owasp-juice:latest` | OWASP Juice Shop simulated challenge environment | `FLAG{xv_owasp_ssrf_internal_access}` |
+| `aws-autopsy` | Hard | Cloud Security | `xploitverse/aws-autopsy:latest` | Capital One SSRF → IAM credential theft → S3 exfil | `FLAG{xv_aws_autopsy_root_pwned}` |
+| `privesc-basic` | Medium | Privilege Escalation | `xploitverse/privesc-basic:latest` | SUID binaries, sudo misconfig, writable cron | `FLAG{xv_privesc_basic_root_pwned}` |
+| `recon-basic` | Easy | Reconnaissance | `xploitverse/recon-basic:latest` | Port scanning & hidden service discovery | `FLAG{xv_recon_basic_discovery}` |
 
 ## Building Images
 
@@ -23,6 +26,8 @@ docker build -t xploitverse/vulnlab:latest ./challenges/vulnlab/
 docker build -t xploitverse/ssrf-lab:latest ./challenges/ssrf-lab/
 docker build -t xploitverse/tiredful-api:latest ./challenges/tiredful-api/
 docker build -t xploitverse/vulnerable-app:latest ./challenges/vulnerable-app/
+docker build -t xploitverse/aws-autopsy:latest ./challenges/aws-autopsy/
+docker build -t xploitverse/web-basic:latest ./challenges/web-basic/
 ```
 
 ## Running Locally

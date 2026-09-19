@@ -33,7 +33,7 @@ print_banner() {
   echo "   ██╔██╗ ██╔═══╝ ██║     ██║   ██║██║   ██║   ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║"
   echo "  ██╔╝ ██╗██║     ███████╗╚██████╔╝██║   ██║    ╚████╔╝ ███████╗██║  ██║███████║"
   echo "  ╚═╝  ╚═╝╚═╝     ╚══════╝ ╚═════╝ ╚═╝   ╚═╝     ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝"
-  echo -e "${RESET}${DIM}  [ TACTICAL CYBERSECURITY TRAINING INFRASTRUCTURE // LAUNCHER v2.0 ]${RESET}\n"
+  echo -e "${RESET}${DIM}  [ TACTICAL CYBERSECURITY TRAINING INFRASTRUCTURE // LAUNCHER v2.1 ]${RESET}\n"
 }
 
 log_info() {
@@ -61,7 +61,7 @@ show_help() {
   echo -e "  ${CYAN}-d, --docker-only${RESET} Start only core Docker database services (Postgres on 5433, Redis on 6379)"
   echo -e "  ${CYAN}-f, --full-docker${RESET} Run entire stack in Docker containers (DBs, Go Backend, React/Nginx)"
   echo -e "  ${CYAN}-s, --status${RESET}      Audit running stack services, ports, and container health status"
-  echo -e "  ${YELLOW}-b, --build${RESET}       Rebuild client assets and verify Go compilation before launch"
+  echo -e "  ${YELLOW}-b, --build${RESET}       Rebuild client assets and compile Go binary before launch"
   echo -e "  ${RED}-k, --down${RESET}        Stop and tear down all Docker containers and local servers"
   echo -e "  ${DIM}-h, --help${RESET}        Show this operational manual\n"
   exit 0
@@ -81,9 +81,17 @@ check_dependencies() {
 
   # 2. Docker Daemon Connectivity
   if ! docker info >/dev/null 2>&1; then
-    log_err "Docker daemon is unreachable. Is Docker service running?"
-    log_info "Try: 'sudo systemctl start docker' or start Docker Desktop."
-    exit 1
+    log_warn "Docker daemon is unreachable. Attempting to start Docker service..."
+    if command -v systemctl >/dev/null 2>&1; then
+      sudo systemctl start docker 2>/dev/null || true
+    fi
+    sleep 2
+
+    if ! docker info >/dev/null 2>&1; then
+      log_err "Docker daemon is unreachable. Is Docker service running?"
+      log_info "Try: 'sudo systemctl start docker' or start Docker Desktop."
+      exit 1
+    fi
   fi
 
   # 3. Docker Compose v2 Plugin
@@ -109,19 +117,28 @@ check_dependencies() {
   log_ok "Toolchain verified: $(docker --version | awk '{print $1,$2,$3}' | tr -d ',') | $(go version | awk '{print $3}') | Node $(node -v)"
 }
 
-check_port_conflict() {
+# ── Port Management ───────────────────────────────────────────────────────────
+
+free_port_if_occupied() {
   local port=$1
   local name=$2
+  local pids=""
+
   if command -v lsof >/dev/null 2>&1; then
-    local pid
-    pid=$(lsof -ti :"${port}" 2>/dev/null || true)
-    if [ -n "${pid}" ]; then
-      log_warn "Port ${port} (${name}) is currently occupied by PID ${pid}."
-    fi
-  elif command -v ss >/dev/null 2>&1; then
-    if ss -tulwn | grep -q ":${port} "; then
-      log_warn "Port ${port} (${name}) is currently occupied."
-    fi
+    pids=$(lsof -ti :"${port}" 2>/dev/null || true)
+  fi
+
+  if [ -n "${pids}" ]; then
+    log_warn "Port ${port} (${name}) is occupied by PID(s): ${pids}. Terminating stale listener..."
+    kill -TERM ${pids} 2>/dev/null || true
+    sleep 1
+    for p in ${pids}; do
+      if kill -0 "${p}" 2>/dev/null; then
+        kill -9 "${p}" 2>/dev/null || true
+      fi
+    done
+    sleep 0.5
+    log_ok "Port ${port} (${name}) freed."
   fi
 }
 
@@ -130,11 +147,19 @@ check_port_conflict() {
 teardown_all() {
   print_banner
   log_info "Initiating full infrastructure teardown..."
-  
+
   # Terminate local Go or Vite processes if running on ports 5000/5173
   if command -v fuser >/dev/null 2>&1; then
     fuser -k 5000/tcp >/dev/null 2>&1 || true
     fuser -k 5173/tcp >/dev/null 2>&1 || true
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids=$(lsof -ti :5000 -ti :5173 2>/dev/null || true)
+    if [ -n "${pids}" ]; then
+      kill -9 ${pids} 2>/dev/null || true
+    fi
   fi
 
   cd "${ROOT_DIR}"
@@ -147,7 +172,7 @@ audit_status() {
   print_banner
   log_info "Auditing XploitVerse runtime nodes..."
   echo ""
-  
+
   # Docker container status
   echo -e "  ${BOLD}── DOCKER INFRASTRUCTURE ──────────────────────────────────${RESET}"
   docker compose ps || true
@@ -158,12 +183,21 @@ audit_status() {
   for item in "5433:PostgreSQL" "6379:Redis" "5000:Go Backend" "5173:Vite Frontend"; do
     port="${item%%:*}"
     label="${item#*:}"
+    local is_online=false
     if command -v nc >/dev/null 2>&1; then
       if nc -z -w 1 127.0.0.1 "${port}" >/dev/null 2>&1; then
-        echo -e "  Port ${port} [${label}]: ${GREEN}ONLINE${RESET}"
-      else
-        echo -e "  Port ${port} [${label}]: ${RED}OFFLINE${RESET}"
+        is_online=true
       fi
+    elif command -v curl >/dev/null 2>&1; then
+      if curl -s -f -o /dev/null "http://127.0.0.1:${port}" 2>/dev/null; then
+        is_online=true
+      fi
+    fi
+
+    if [ "${is_online}" = true ]; then
+      echo -e "  Port ${port} [${label}]: ${GREEN}ONLINE${RESET}"
+    else
+      echo -e "  Port ${port} [${label}]: ${RED}OFFLINE${RESET}"
     fi
   done
   echo ""
@@ -175,7 +209,7 @@ audit_status() {
 wait_for_docker_service() {
   local container_name=$1
   local service_label=$2
-  local max_attempts=20
+  local max_attempts=25
   local count=0
 
   log_info "Awaiting ${service_label} readiness (${container_name})..."
@@ -193,21 +227,54 @@ wait_for_docker_service() {
   log_warn "${service_label} health probe timed out; proceeding with initialization."
 }
 
-# ── Trap Cleanup ──────────────────────────────────────────────────────────────
+wait_for_http() {
+  local url=$1
+  local service_name=$2
+  local max_attempts=${3:-25}
+  local count=0
+
+  log_info "Awaiting ${service_name} readiness (${url})..."
+  while [ $count -lt $max_attempts ]; do
+    if curl -s -f -o /dev/null "${url}" 2>/dev/null; then
+      log_ok "${service_name} is ONLINE and healthy."
+      return 0
+    fi
+    sleep 0.5
+    count=$((count + 1))
+  done
+
+  log_warn "${service_name} readiness probe timed out."
+  return 1
+}
+
+# ── Cleanup Traps ─────────────────────────────────────────────────────────────
 
 cleanup_on_exit() {
   echo ""
-  log_warn "Termination signal caught. Neutralizing background subprocesses..."
+  log_warn "Termination signal received. Neutralizing background subprocesses..."
   if [ -n "${BACKEND_PID}" ] && kill -0 "${BACKEND_PID}" 2>/dev/null; then
     kill -TERM "${BACKEND_PID}" 2>/dev/null || true
-    wait "${BACKEND_PID}" 2>/dev/null || true
   fi
   if [ -n "${FRONTEND_PID}" ] && kill -0 "${FRONTEND_PID}" 2>/dev/null; then
     kill -TERM "${FRONTEND_PID}" 2>/dev/null || true
-    wait "${FRONTEND_PID}" 2>/dev/null || true
   fi
+  sleep 1
+  # Force terminate any remaining process
+  if [ -n "${BACKEND_PID}" ] && kill -0 "${BACKEND_PID}" 2>/dev/null; then
+    kill -9 "${BACKEND_PID}" 2>/dev/null || true
+  fi
+  if [ -n "${FRONTEND_PID}" ] && kill -0 "${FRONTEND_PID}" 2>/dev/null; then
+    kill -9 "${FRONTEND_PID}" 2>/dev/null || true
+  fi
+
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k 5000/tcp >/dev/null 2>&1 || true
+    fuser -k 5173/tcp >/dev/null 2>&1 || true
+  fi
+
   log_ok "Local processes halted. Docker containers remain intact in background."
   echo -e "  ${DIM}Use './start.sh --down' to stop Docker databases.${RESET}\n"
+  exit 0
 }
 
 # ── Main Entrypoint ───────────────────────────────────────────────────────────
@@ -278,11 +345,11 @@ fi
 
 # ── Standard Development Mode ─────────────────────────────────────────────────
 
-trap cleanup_on_exit SIGINT SIGTERM EXIT
+trap cleanup_on_exit INT TERM
 
-# 1. Port Collision Detection
-check_port_conflict 5000 "Backend API"
-check_port_conflict 5173 "Vite Client"
+# 1. Port Collision Detection & Auto-Resolution
+free_port_if_occupied 5000 "Backend API"
+free_port_if_occupied 5173 "Vite Client"
 
 # 2. Spin up Docker databases
 log_info "Spinning up core database substrate (Postgres, Redis)..."
@@ -305,21 +372,24 @@ if [ ! -f .env ]; then
   fi
 fi
 
-if [ "${DO_BUILD}" = true ]; then
-  log_info "Compiling Go binary..."
-  go build -o /dev/null cmd/server/main.go
-fi
+log_info "Compiling Go binary..."
+mkdir -p "${BACKEND_DIR}/bin"
+go build -o "${BACKEND_DIR}/bin/server" cmd/server/main.go
+log_ok "Go backend binary compiled."
 
 log_info "Initializing Go API server..."
-go run cmd/server/main.go &
+"${BACKEND_DIR}/bin/server" &
 BACKEND_PID=$!
+
+# Verify backend health before starting frontend
+wait_for_http "http://127.0.0.1:5000/health" "Go Backend API" 30
 
 # 4. Frontend Provisioning & Startup
 log_info "Configuring React client..."
 cd "${CLIENT_DIR}"
 
-if [ ! -d node_modules ] || [ "${CLIENT_DIR}/package.json" -nt "${CLIENT_DIR}/node_modules" ]; then
-  log_info "Synchronizing npm dependencies..."
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/.bin/vite" ]; then
+  log_info "Installing npm dependencies..."
   npm install
 fi
 
@@ -331,6 +401,9 @@ fi
 log_info "Initializing Vite development server..."
 npm run dev &
 FRONTEND_PID=$!
+
+# Verify frontend readiness
+wait_for_http "http://localhost:5173" "Vite Frontend" 30
 
 cd "${ROOT_DIR}"
 
@@ -348,5 +421,16 @@ echo -e "  ${DIM}Challenge Net:${RESET}     xploitverse-labs (172.30.0.0/16)"
 echo -e "  ${YELLOW}Telemetry:${RESET}         Press [Ctrl+C] to halt local servers."
 echo -e "  ${BOLD}${GREEN}============================================================${RESET}\n"
 
-# Await server termination
-wait "${BACKEND_PID}" "${FRONTEND_PID}"
+# Supervise both background processes: wait for either to terminate
+set +e
+wait -n "${BACKEND_PID}" "${FRONTEND_PID}"
+status=$?
+
+if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
+  log_warn "Go Backend server process terminated."
+fi
+if ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
+  log_warn "Vite Frontend server process terminated."
+fi
+
+cleanup_on_exit

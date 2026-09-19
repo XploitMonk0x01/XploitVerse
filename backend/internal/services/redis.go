@@ -258,7 +258,7 @@ func (r *RedisService) InvalidateSession(ctx context.Context, sessionID string) 
 // task. Returns true if this is the FIRST submission (not a duplicate).
 func (r *RedisService) MarkFlagSubmitted(ctx context.Context, userID, taskID string) (bool, error) {
 	if !r.available {
-		return true, nil // fail open — let MongoDB handle dedup
+		return true, nil // fail open — let PostgreSQL enforce the durable write path
 	}
 	key := fmt.Sprintf("xv:flag:%s:%s", userID, taskID)
 	// SETNX — set only if not exists, with 24h expiration

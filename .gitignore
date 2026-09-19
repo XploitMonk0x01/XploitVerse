@@ -6,6 +6,8 @@ node_modules/
 #server - node
 advance.md
 current.md
+server/
+server/*.md
 
 # Environment files
 .env
@@ -35,7 +37,9 @@ yarn-error.log*
 *.swp
 *.swo
 *~
-
+start-docker-service.ps1
+postman/
+.postman/
 # OS
 .DS_Store
 Thumbs.db
@@ -48,3 +52,13 @@ coverage/
 *.pem
 *.key
 .cache/
+.agents/
+__pycache__/
+*.pyc
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+docs/
+scratch/

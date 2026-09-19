@@ -18,10 +18,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     traceroute \
     python3 \
     nano \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
 # Create lab user
-RUN useradd -m -s /bin/bash hacker
+RUN useradd -m -s /bin/bash hacker && echo "hacker:hacker123" | chpasswd
 
 # Place flag in a hidden service
 RUN mkdir -p /opt/services && \
@@ -46,5 +50,7 @@ RUN echo "Network Reconnaissance Challenge" > /home/hacker/README.txt && \
     echo "  - Try: nmap -sV -p- 127.0.0.1" >> /home/hacker/README.txt && \
     chown hacker:hacker /home/hacker/README.txt
 
-# Start the hidden listener and keep container alive
-CMD ["/bin/bash", "-c", "/opt/services/listener.sh & sleep infinity"]
+EXPOSE 22 1337
+
+# Start the SSH daemon, hidden listener and keep container alive
+CMD ["/bin/bash", "-c", "service ssh start 2>/dev/null || /usr/sbin/sshd; /opt/services/listener.sh & sleep infinity"]

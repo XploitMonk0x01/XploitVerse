@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,6 +81,31 @@ func (d *DockerService) ensureNetwork(ctx context.Context) error {
 	return nil
 }
 
+// BuildImage runs docker build in the given context path, tagging the result
+// as imageName. Returns an error if the build fails. In mock mode it logs and
+// returns nil.
+func (d *DockerService) BuildImage(ctx context.Context, contextPath string, imageName string) error {
+	if !d.available {
+		log.Printf("🔧 [Docker Mock] build context=%s tag=%s", contextPath, imageName)
+		return nil
+	}
+
+	buildArgs := []string{
+		"build",
+		"-t", imageName,
+		contextPath,
+	}
+	var stdout, stderr bytes.Buffer
+	buildCmd := exec.CommandContext(ctx, "docker", buildArgs...)
+	buildCmd.Stdout = &stdout
+	buildCmd.Stderr = &stderr
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("docker build %s: %w\n%s", contextPath, err, stderr.String())
+	}
+	log.Printf("🐳 Image built: tag=%s context=%s", imageName, contextPath)
+	return nil
+}
+
 // SpawnContainer pulls (if necessary) and starts a hardened lab container via
 // the docker CLI. Returns the container ID and its lab-network IP.
 // In mock mode it returns fake values so callers continue to work.
@@ -90,6 +116,19 @@ func (d *DockerService) SpawnContainer(
 	memMB int64,
 	_ int64, // cpuShares reserved for future use
 ) (containerID, ip string, err error) {
+	return d.SpawnContainerOnNetwork(ctx, labImage, containerName, memMB, 0, "")
+}
+
+// SpawnContainerOnNetwork starts a hardened lab container on a specific
+// Docker network. If networkName is empty, it uses the shared lab network.
+func (d *DockerService) SpawnContainerOnNetwork(
+	ctx context.Context,
+	labImage string,
+	containerName string,
+	memMB int64,
+	_ int64, // cpuShares reserved for future use
+	networkName string,
+) (containerID, ip string, err error) {
 	if !d.available {
 		mockID := fmt.Sprintf("mock_%s", containerName)
 		mockIP := fmt.Sprintf("172.30.%d.%d", rand.Intn(254)+1, rand.Intn(254)+1)
@@ -97,17 +136,28 @@ func (d *DockerService) SpawnContainer(
 		return mockID, mockIP, nil
 	}
 
-	// Pull the image quietly (--quiet suppresses progress bars)
-	pullArgs := []string{"pull", "--quiet", labImage}
-	pullCmd := exec.CommandContext(ctx, "docker", pullArgs...)
-	if out, pullErr := pullCmd.CombinedOutput(); pullErr != nil {
-		return "", "", fmt.Errorf("docker pull %s: %w\n%s", labImage, pullErr, out)
+	// Check if the image exists locally before pulling
+	inspectCmd := exec.CommandContext(ctx, "docker", "image", "inspect", labImage)
+	if err := inspectCmd.Run(); err != nil {
+		// Pull the image quietly (--quiet suppresses progress bars)
+		pullArgs := []string{"pull", "--quiet", labImage}
+		pullCmd := exec.CommandContext(ctx, "docker", pullArgs...)
+		if out, pullErr := pullCmd.CombinedOutput(); pullErr != nil {
+			return "", "", fmt.Errorf("docker pull %s: %w\n%s", labImage, pullErr, out)
+		}
 	}
 
-	// Determine which network to use. Prefer lab network; fall back to bridge.
-	network := labNetwork
-	if !d.networkExists(ctx, labNetwork) {
-		network = "bridge"
+	// Determine which network to use.
+	network := strings.TrimSpace(networkName)
+	if network != "" {
+		if err := d.EnsureNetwork(ctx, network); err != nil {
+			return "", "", err
+		}
+	} else {
+		network = labNetwork
+		if !d.networkExists(ctx, labNetwork) {
+			network = "bridge"
+		}
 	}
 
 	// Run the container detached with security hardening
@@ -124,8 +174,12 @@ func (d *DockerService) SpawnContainer(
 		"--cap-add", "SETGID",
 		"--cap-add", "DAC_OVERRIDE",
 		"--cap-add", "NET_BIND_SERVICE",
-		"--security-opt", "no-new-privileges",
+		"--cap-add", "AUDIT_WRITE",
+		"--cap-add", "SYS_CHROOT",
+		"--security-opt", "no-new-privileges=false",
 		"--read-only=false",
+		// ── Port publishing to host for browser access ──
+		"-P",
 		// ── Networking ──
 		"--network", network,
 		// ── Labels for tracking ──
@@ -148,6 +202,109 @@ func (d *DockerService) SpawnContainer(
 	log.Printf("🐳 Container started: id=%s name=%s image=%s ip=%s network=%s",
 		cID[:12], containerName, labImage, containerIP, network)
 	return cID, containerIP, nil
+}
+
+// GetWebPort inspects the docker port mapping and returns the exposed host port for web access.
+func (d *DockerService) GetWebPort(ctx context.Context, containerID string) int {
+	if !d.available || containerID == "" {
+		return 0
+	}
+	for attempt := 0; attempt < 6; attempt++ {
+		out, err := exec.CommandContext(ctx, "docker", "port", containerID).Output()
+		if err == nil {
+			lines := strings.Split(string(out), "\n")
+			mapped := make(map[string]int)
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				parts := strings.Split(line, " -> ")
+				if len(parts) == 2 {
+					cPort := strings.TrimSpace(parts[0])
+					hostAddr := strings.TrimSpace(parts[1])
+					if idx := strings.LastIndex(hostAddr, ":"); idx != -1 {
+						portStr := hostAddr[idx+1:]
+						if p, err := strconv.Atoi(portStr); err == nil {
+							mapped[cPort] = p
+						}
+					}
+				}
+			}
+			// Priority to standard web application ports
+			for _, p := range []string{"80/tcp", "9090/tcp", "5000/tcp", "8000/tcp", "8080/tcp", "3000/tcp", "443/tcp", "8888/tcp"} {
+				if val, exists := mapped[p]; exists && val > 0 {
+					return val
+				}
+			}
+			// Fallback to any non-SSH port
+			for cPort, hPort := range mapped {
+				if !strings.HasPrefix(cPort, "22") && hPort > 0 {
+					return hPort
+				}
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return 0
+}
+
+// EnsureNetwork creates a named Docker bridge network if it does not exist.
+func (d *DockerService) EnsureNetwork(ctx context.Context, name string) error {
+	if !d.available {
+		return nil
+	}
+
+	n := strings.TrimSpace(name)
+	if n == "" {
+		return nil
+	}
+
+	if d.networkExists(ctx, n) {
+		return nil
+	}
+
+	out, err := exec.CommandContext(
+		ctx,
+		"docker",
+		"network",
+		"create",
+		"--driver",
+		"bridge",
+		"--label",
+		labLabel,
+		n,
+	).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker network create %s: %w\n%s", n, err, out)
+	}
+
+	log.Printf("🌐 Created session network '%s'", n)
+	return nil
+}
+
+// RemoveNetwork removes a named Docker network and ignores non-existent targets.
+func (d *DockerService) RemoveNetwork(ctx context.Context, name string) error {
+	if !d.available {
+		return nil
+	}
+
+	n := strings.TrimSpace(name)
+	if n == "" || n == labNetwork {
+		return nil
+	}
+
+	if !d.networkExists(ctx, n) {
+		return nil
+	}
+
+	out, err := exec.CommandContext(ctx, "docker", "network", "rm", n).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker network rm %s: %w\n%s", n, err, out)
+	}
+
+	log.Printf("🌐 Removed session network '%s'", n)
+	return nil
 }
 
 // StopContainer stops and removes a container by ID via the docker CLI.
@@ -210,7 +367,7 @@ func (d *DockerService) ListLabContainers(ctx context.Context) ([]string, error)
 }
 
 // CleanupOrphanedContainers removes lab containers whose IDs are not in the
-// activeIDs set.  This is useful for reconciling Docker state with MongoDB
+// activeIDs set. This is useful for reconciling Docker state with PostgreSQL
 // after unclean shutdowns.
 func (d *DockerService) CleanupOrphanedContainers(ctx context.Context, activeIDs map[string]bool) (int, error) {
 	if !d.available {

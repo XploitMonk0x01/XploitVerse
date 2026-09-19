@@ -7,8 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip \
     curl wget nano less jq \
     net-tools nmap netcat-openbsd dnsutils \
-    iproute2 iptables \
+    iproute2 iptables openssh-server \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
 # ── Python dependencies ────────────────────────────────────────────────
 RUN pip3 install --no-cache-dir flask==3.1.0
@@ -72,7 +76,7 @@ RUN echo "Welcome to the AWS Autopsy Lab!" > /home/attacker/README.txt && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 5000 8000 9000
+EXPOSE 22 5000 8000 9000
 
 # Start as root for iptables, services drop to attacker context as needed
 ENTRYPOINT ["/entrypoint.sh"]

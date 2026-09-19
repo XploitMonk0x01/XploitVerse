@@ -1,0 +1,132 @@
+[
+    
+    {
+        "id": "1",
+        "lab": "xss",
+        "res": {
+            "1": "https://brutelogic.com.br/blog/testing-for-xss-like-a-knoxss/",
+            "2": "https://www.acunetix.com/websitesecurity/cross-site-scripting/",
+            "3": "https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting",
+            "4": "https://cobalt.io/blog/a-pentesters-guide-to-cross-site-scripting-xss"
+        }
+    },
+    {
+        "id": "2",
+        "lab": "sql",
+        "res": {
+            "1": "https://www.netsparker.com/blog/web-security/sql-injection-vulnerability/",
+            "2": "https://www.neuralegion.com/blog/sql-injection-payloads/",
+            "3": "https://github.com/payloadbox/sql-injection-payload-list"
+        }
+    },
+    {
+        "id": "3",
+        "lab": "idor",
+        "res": {
+            "1": "https://www.netsparker.com/blog/web-security/insecure-direct-object-reference-vulnerabilities-idor/",
+            "2": "https://www.youtube.com/watch?v=rloqMGcPMkI"
+        }
+    },
+    {
+        "id": "4",
+        "lab": "command-injection",
+        "res": {
+            "1": "https://www.netsparker.com/blog/web-/command-injection-vulnerability/",
+            "2": "https://www.acunetix.com/blog/web-security-zone/os-command-injection/",
+            "3": "https://book.hacktricks.xyz/pentesting-web/command-injection",
+            "4": "https://www.hacksplaining.com/prevention/command-execution"
+        }
+    },
+    {
+        "id": "5",
+        "lab": "xxe",
+        "res": {
+            "1": "https://www.youtube.com/watch?v=gjm6VHZa_8s",
+            "2": "https://www.netsparker.com/blog/web-security/xxe-xml-external-entity-attacks/"
+        }
+    },
+    {
+        "id": "6",
+        "lab": "file-inclusion",
+        "res": {
+            "1": "https://www.acunetix.com/blog/articles/local-file-inclusion-lfi/",
+            "2": "https://www.invicti.com/blog/web-security/local-file-inclusion-vulnerability/",
+            "3": "https://brightsec.com/blog/file-inclusion-vulnerabilities/"
+        }
+    },
+    {
+        "id": "7",
+        "lab": "file-upload",
+        "res": {
+            "1": "https://www.aptive.co.uk/blog/unrestricted-file-upload-testing/",
+            "2": "https://book.hacktricks.xyz/pentesting-web/file-upload"
+        }
+    },
+    {
+        "id": "8",
+        "lab": "csrf",
+        "res": {
+            "1": "https://www.imperva.com/learn/application-security/csrf-cross-site-request-forgery/",
+            "2": "https://www.youtube.com/watch?v=eWEgUcHPle0",
+            "3": "https://crashtest-security.com/cross-site-request-forgery-csrf/"
+        }
+    },
+    {
+        "id": "9",
+        "lab": "insecure",
+        "res": {
+            "1": "https://crashtest-security.com/insecure-deserialization/#:~:text=Insecure%20deserialization%20is%20a%20well,Path%20Traversal%2C%20and%20Authentication%20Bypasses.",
+            "2": "https://hdivsecurity.com/owasp-insecure-deserialization",
+            "3": "https://infosecwriteups.com/understanding-identifying-insecure-deserialization-vulnerabilities-f7fac5414bb3"
+        }
+    },
+    {
+        "id": "10",
+        "lab": "broken-auth",
+        "res": {
+            "1": "https://www.jigsawacademy.com/blogs/cyber-security/broken-authentication/",
+            "2": "https://auth0.com/blog/what-is-broken-authentication/",
+            "3": "https://www.thesslstore.com/blog/everything-you-need-to-know-about-broken-authentication/",
+            "4": "https://geekflare.com/brute-force-attack-tools/"
+        }
+    },
+    {
+        "id": "11",
+        "lab": "Race condition",
+        "res": {
+            "1": "https://portswigger.net/web-security/race-conditions"
+        }
+    },
+    {
+        "id": "12",
+        "lab": "ssti",
+        "res": {
+            "1": "https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection"
+        }
+    },
+    {
+        "id": "13",
+        "lab": "API Hacking",
+        "res": {
+            "1": "https://portswigger.net/web-security/api-testing",
+            "2": "https://iaraoz.medium.com/hacking-apis-building-the-lab-0448e817a5a8",
+            "3": "https://owasp.org/www-project-api-security/"
+        }
+    },
+    {
+        "id": "14",
+        "lab": "captcha-bypass,",
+        "res": {
+            "1": "https://book.hacktricks.xyz/pentesting-web/captcha-bypass/",
+            "2": "https://medium.com/@milanjain7906/how-to-bypass-captcha-3ca00389e0ac/"
+        }
+    },
+    {
+        "id": "15",
+        "lab": "Path Traversal",
+        "res": {
+            "1": "https://portswigger.net/web-security/file-path-traversal",
+            "2": "https://book.hacktricks.xyz/pentesting-web/file-inclusion"
+        }
+    }
+]

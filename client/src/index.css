@@ -1,140 +1,233 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* ── Spacing (8px grid) */
+  /* ── Spacing (4px / 8px grid) */
   --space-1: 0.25rem;
-  /* 4px  */
   --space-2: 0.5rem;
-  /* 8px  */
   --space-3: 0.75rem;
-  /* 12px */
   --space-4: 1rem;
-  /* 16px */
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
-  /* 24px */
   --space-8: 2rem;
-  /* 32px */
+  --space-10: 2.5rem;
   --space-12: 3rem;
-  /* 48px */
   --space-16: 4rem;
-  /* 64px */
 
   /* ── Typography */
-  --font-sans: 'Outfit', system-ui, sans-serif;
-  --font-display: 'Syne', sans-serif;
-  --font-mono: 'Space Mono', 'Courier New', monospace;
+  --font-sans: 'JetBrains Mono', 'Space Mono', monospace;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Space Mono', monospace;
 
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
+  --text-xs: 0.6875rem;
+  /* 11px */
+  --text-sm: 0.8125rem;
+  /* 13px */
+  --text-base: 0.9375rem;
+  /* 15px */
   --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 2rem;
-  --text-4xl: 2.75rem;
+  /* 18px */
+  --text-xl: 1.375rem;
+  /* 22px */
+  --text-2xl: 1.75rem;
+  /* 28px */
+  --text-3xl: 2.25rem;
+  /* 36px */
+  --text-4xl: 3.25rem;
+  /* 52px */
 
-  --leading-tight: 1.15;
+  --leading-tight: 1.1;
   --leading-base: 1.6;
-  --leading-loose: 1.8;
+  --leading-loose: 1.85;
 
-  /* ── Color Palette (Industrial Utilitarian) */
-  --color-ink: #f0ece6;
-  /* Primary text — warm off-white */
-  --color-paper: #0b0c10;
-  /* Background — deep charcoal */
-  --color-surface: #12141a;
-  /* Card/input surface — slightly lifted */
-  --color-muted: #706c68;
-  /* Secondary text */
-  --color-subtle: #2a2c33;
-  /* Disables / subtle backgrounds */
-  --color-border: #333640;
-  /* Default borders */
-  --color-border-focus: #f0ece6;
-  /* Highlight borders */
+  /* ── Substrate Palette — Tactical CRT Dark */
+  --color-paper: #080A0F;
+  --color-surface: #0D1017;
+  --color-surface-elevated: #131820;
+  --color-subtle: #1A2030;
 
-  --color-accent: #ff4500;
-  /* ONE accent — intense industrial orange */
-  --color-accent-hover: #cc3700;
+  --color-border: #1E2538;
+  --color-border-bright: #2E3A55;
+  --color-border-focus: #00E5FF;
 
-  --color-success: #66fcf1;
-  /* Cyans for positive actions / success */
-  --color-error: #ff2a2a;
-  /* Pure red for errors */
-  --color-warning: #f2a900;
-  /* Industrial yellow */
-  --color-info: #45a29e;
-  /* Deep cyan for info */
+  --color-ink: #EDF0F7;
+  --color-muted: #6B7899;
+  --color-dim: #3D4A65;
 
-  /* ── Shape */
+  /* ── Accent: Hazard Orange-Red */
+  --color-accent: #FF4500;
+  --color-accent-hover: #D93A00;
+  --color-accent-dim: rgba(255, 69, 0, 0.1);
+
+  /* ── Cyan Phosphor */
+  --color-cyan: #00E5FF;
+  --color-cyan-dim: rgba(0, 229, 255, 0.1);
+
+  /* ── Status */
+  --color-success: #00FF87;
+  --color-success-dim: rgba(0, 255, 135, 0.1);
+  --color-error: #FF3333;
+  --color-warning: #FFAA00;
+  --color-info: #00E5FF;
+
+  /* ── Zero Radius — All Sharp */
+  --radius-none: 0px;
   --radius-sm: 0px;
   --radius-base: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
   --radius-pill: 0px;
-  /* Everything is sharp in this aesthetic */
 
-  /* ── Motion */
-  --ease-default: 150ms cubic-bezier(0, 0, 0.2, 1);
-  --ease-spring: 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --ease-out: 100ms linear;
+  /* ── Hard Offset Shadows */
+  --shadow-sm: 3px 3px 0px #000;
+  --shadow-md: 5px 5px 0px #000;
+  --shadow-accent: 3px 3px 0px rgba(255, 69, 0, 0.5);
+  --shadow-cyan: 3px 3px 0px rgba(0, 229, 255, 0.4);
 
-  /* ── Shadow — Stark, off-set shadows only */
-  --shadow-sm: 2px 2px 0px rgba(255, 69, 0, 0.1);
-  --shadow-md: 4px 4px 0px rgba(255, 69, 0, 0.1);
+  /* ── Timing */
+  --ease-default: 110ms cubic-bezier(0.2, 0, 0, 1);
+  --ease-snap: 70ms ease-out;
 }
 
-/* Base Restarts */
-* {
+/* ── Base Reset */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  background-color: var(--color-paper);
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   background-color: var(--color-paper);
   color: var(--color-ink);
   line-height: var(--leading-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  position: relative;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+/* ── Blueprint Micro-Grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(30, 37, 56, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 37, 56, 0.15) 1px, transparent 1px);
+}
+
+/* ── CRT Scanline Overlay (opt-in via .scanlines-on) */
+.scanlines-on::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.07;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.5) 3px,
+    rgba(0, 0, 0, 0.5) 4px
+  );
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Headings */
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  text-transform: uppercase;
+  line-height: var(--leading-tight);
 }
 
 a {
-  color: var(--color-ink);
+  color: inherit;
   text-decoration: none;
   transition: color var(--ease-default);
 }
 
-/* Scrollbar rules adapted for the technical vibe */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-paper);
-  border-left: 1px solid var(--color-border);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 0px;
-}
-
-::-webkit-scrollbar-thumb:hover {
+/* ── Selection */
+::selection {
   background: var(--color-accent);
+  color: #000;
 }
+
+/* ── Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-paper); border-left: 1px solid var(--color-border); }
+::-webkit-scrollbar-thumb { background: var(--color-border-bright); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+
+/* ── Focus Visible (accessible keyboard focus) */
+*:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/* ── Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Utility Classes */
+.tactical-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.tactical-panel-elevated {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+
+.tactical-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+}
+
+/* ── Beacon Pulse - now via Tailwind animate-beacon-pulse/animate-beacon-alert */
+
+/* ── Border Beam - now via Tailwind animate-border-beam */
+
+/* ── Glitch Flicker - now via Tailwind animate-glitch-flicker */
+
+/* ── Horizontal Marquee - now via Tailwind animate-marquee-x */

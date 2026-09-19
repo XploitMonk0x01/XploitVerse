@@ -1,0 +1,1 @@
+FLAG{xv_vulnlab_root_compromised}

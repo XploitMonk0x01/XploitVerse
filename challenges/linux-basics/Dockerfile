@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash coreutils findutils grep sed gawk \
     less file tree nano vim \
     net-tools iputils-ping curl wget \
-    passwd sudo cron \
+    passwd sudo cron openssh-server \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/run/sshd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # ---------- Flag 1: Hidden file in home directory ----------
 RUN useradd -m -s /bin/bash hacker && echo "hacker:hacker123" | chpasswd
@@ -54,6 +57,6 @@ RUN mkdir -p /var/log/app && \
     echo "[2024-01-15 10:33:22] ERROR Failed login attempt user=admin ip=10.0.0.5" >> /var/log/app/server.log && \
     echo "[2024-01-15 10:34:01] INFO  Backup completed successfully" >> /var/log/app/server.log
 
-USER hacker
-WORKDIR /home/hacker
-CMD ["sleep", "infinity"]
+EXPOSE 22
+
+CMD ["sh", "-c", "service ssh start 2>/dev/null || /usr/sbin/sshd; sleep infinity"]

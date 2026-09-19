@@ -10,6 +10,10 @@ echo "  XploitVerse Challenge Environment"
 echo "========================================"
 echo ""
 
+# ── Start SSH service ───────────────────────────────────────────────────
+echo "[*] Starting SSH service on :22..."
+service ssh start 2>/dev/null || /usr/sbin/sshd
+
 # ── Start metadata service (port 8000) ──────────────────────────────────
 echo "[*] Starting mock EC2 metadata service on :8000..."
 python3 /opt/metadata/metadata_service.py &

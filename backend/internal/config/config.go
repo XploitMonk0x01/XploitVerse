@@ -13,15 +13,14 @@ type Config struct {
 	Port    string
 	NodeEnv string
 
-	MongoURI string
-	RedisURL string
+	PostgresURI string
+	RedisURL    string
 
 	JWT JWTConfig
 
 	ClientURL string
 
 	AWS  AWSConfig
-	AI   AIConfig
 	Lab  LabConfig
 	SMTP SMTPConfig
 }
@@ -36,14 +35,8 @@ type JWTConfig struct {
 // AWSConfig holds AWS-related configuration (Phase 2+).
 type AWSConfig struct {
 	AccessKeyID     string
-	SecretAccessKey  string
+	SecretAccessKey string
 	Region          string
-}
-
-// AIConfig holds AI API keys configuration (Phase 2+).
-type AIConfig struct {
-	OpenAIKey    string
-	AnthropicKey string
 }
 
 // LabConfig holds lab-related configuration.
@@ -68,25 +61,21 @@ func Load() *Config {
 	// Try to load .env file (ignore error if file doesn't exist)
 	_ = godotenv.Load()
 
-	return &Config{
-		Port:     getEnv("PORT", "5000"),
-		NodeEnv:  getEnv("NODE_ENV", "development"),
-		MongoURI: getEnv("MONGODB_URI", "mongodb://localhost:27017/xploitverse"),
-		RedisURL: getEnv("REDIS_URL", ""),
+	cfg := &Config{
+		Port:        getEnv("PORT", "5000"),
+		NodeEnv:     getEnv("NODE_ENV", "development"),
+		PostgresURI: getEnv("POSTGRES_URI", "postgres://postgres:postgres@localhost:5432/xploitverse?sslmode=disable"),
+		RedisURL:    getEnv("REDIS_URL", ""),
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", "default-secret-change-me"),
+			Secret:          getEnv("JWT_SECRET", ""),
 			ExpiresIn:       getEnv("JWT_EXPIRES_IN", "7d"),
 			CookieExpiresIn: getEnvInt("JWT_COOKIE_EXPIRES_IN", 7),
 		},
 		ClientURL: getEnv("CLIENT_URL", "http://localhost:5173"),
 		AWS: AWSConfig{
-			AccessKeyID:    getEnv("AWS_ACCESS_KEY_ID", ""),
+			AccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 			SecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
-			Region:         getEnv("AWS_REGION", "us-east-1"),
-		},
-		AI: AIConfig{
-			OpenAIKey:    getEnv("OPENAI_API_KEY", ""),
-			AnthropicKey: getEnv("ANTHROPIC_API_KEY", ""),
+			Region:          getEnv("AWS_REGION", "us-east-1"),
 		},
 		Lab: LabConfig{
 			HourlyRate:           0.5,
@@ -102,6 +91,15 @@ func Load() *Config {
 			FromName: getEnv("SMTP_FROM_NAME", "XploitVerse"),
 		},
 	}
+
+	if cfg.JWT.Secret == "" || cfg.JWT.Secret == "default-secret-change-me" {
+		log.Fatal("JWT_SECRET must be set to a secure value (generate with: openssl rand -base64 32)")
+	}
+	if cfg.PostgresURI == "" {
+		log.Fatal("POSTGRES_URI must be set")
+	}
+
+	return cfg
 }
 
 func getEnv(key, fallback string) string {

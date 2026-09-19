@@ -63,6 +63,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
                 className
               )}
               {...props}
+              disabled={disabled}
+              onChange={(e) => {
+                if (disabled) {
+                  e.preventDefault();
+                  return;
+                }
+                props.onChange?.(e);
+              }}
             />
           </div>
           <div className="flex flex-col gap-0.5">

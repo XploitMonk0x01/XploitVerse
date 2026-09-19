@@ -92,6 +92,7 @@ export const ConfirmDialog = ({
             isLoading={isLoading}
             disabled={isLoading}
             className={variantStyles.confirmClass}
+            aria-label={confirmText}
           >
             {confirmIcon && <span className="mr-1.5">{confirmIcon}</span>}
             {confirmText}

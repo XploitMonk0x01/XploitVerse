@@ -218,7 +218,7 @@ describe('Adversarial Stress Test: PasswordInput', () => {
   it('calculates password strength across complexity levels via typing', async () => {
     const user = userEvent.setup();
     render(<PasswordInput label="Password" showStrength={true} />);
-    const input = screen.getByLabelText(/password/i);
+    const input = screen.getByLabelText(/password/i, { selector: 'input' });
 
     // Initial: no password entered
     expect(screen.getByText('ENTER_PASSWORD')).toBeInTheDocument();

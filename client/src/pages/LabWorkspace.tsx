@@ -66,7 +66,7 @@ const LabWorkspace = () => {
     session?.hostUrl ||
     (session?.connectionInfo?.hostUrl as string | undefined) ||
     (session?.hostPort ? `http://localhost:${session.hostPort}${subPath}` : undefined) ||
-    (session?.connectionInfo?.hostPort ? `http://localhost:${session.connectionInfo.hostPort}${subPath}` : undefined);
+    (session?.connectionInfo?.hostPort ? `http://localhost:${String(session.connectionInfo.hostPort)}${subPath}` : undefined);
 
   if (computedHostUrl && isVulnApp && !computedHostUrl.includes("/VulnerableApp")) {
     computedHostUrl = `${computedHostUrl.replace(/\/+$/, '')}/VulnerableApp`;
@@ -881,7 +881,7 @@ const LabWorkspace = () => {
                     </div>
                   )}
 
-                  <form onSubmit={handleFlagSubmit} className="flex gap-2">
+                  <form onSubmit={(e) => { void handleFlagSubmit(e); }} className="flex gap-2">
                     <input
                       type="text"
                       value={flagInput}

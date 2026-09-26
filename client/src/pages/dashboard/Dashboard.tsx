@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { labService, labSessionService } from "../../services";
 import { LabCard } from "../../components/labs/LabCard";
@@ -10,16 +11,13 @@ import {
   DollarSign,
   Server,
   RefreshCw,
-  Target,
-  Activity,
   Radio,
   Layers,
+  Search,
+  Shield,
 } from "lucide-react";
-import type { Lab, LabSession, LabSessionsListResponse } from "../../types";
-import { SpotlightCard } from "../../components/ui/motion/SpotlightCard";
-import { StaggerContainer, FadeIn } from "../../components/ui/motion/MotionWrappers";
-import { DecryptedText } from "../../components/ui/motion/DecryptedText";
-import { TacticalBadge } from "../../components/ui/motion/TacticalBadge";
+import type { Lab, LabSession } from "../../types";
+import { FadeIn } from "../../components/ui/motion/MotionWrappers";
 
 const DASHBOARD_STATE = {
   LOADING_LABS: "loading_labs",
@@ -79,221 +77,159 @@ export const Dashboard = () => {
   const [pendingLabId, setPendingLabId] = useState<number | string | null>(null);
   const [terminatingStale, setTerminatingStale] = useState(false);
 
-  // Session history
-  const [sessionHistory, setSessionHistory] = useState<LabSessionsListResponse['sessions']>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  // Search and difficulty filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("ALL");
 
-  // Stats calculations - using real backend data only
+  // Stats calculations
   const stats = [
     {
-      label: "TOTAL_LAB_TIME",
+      label: "Total Lab Time",
       value: `${user?.totalLabTime || 0}m`,
-      subtext: "AGGREGATE UPTIME",
+      subtext: "Aggregate uptime",
       icon: Clock,
-      color: "text-ink",
+      color: "text-accent",
+      badgeColor: "bg-accent/10 text-accent border-accent/20",
     },
     {
-      label: "TOTAL_SPENT",
+      label: "Total Spent",
       value: `$${(user?.totalSpent || 0).toFixed(2)}`,
-      subtext: "ACCUMULATED COST",
+      subtext: "Metered compute",
       icon: DollarSign,
       color: "text-accent",
+      badgeColor: "bg-accent/10 text-accent border-accent/20",
     },
     {
-      label: "ACTIVE_TARGETS",
-      value: activeSession ? "01" : "00",
-      subtext: activeSession ? "SYSTEM ONLINE" : "STANDBY POOL",
+      label: "Active Sessions",
+      value: activeSession ? "1" : "0",
+      subtext: "Live containers",
       icon: Server,
-      color: activeSession ? "text-success" : "text-muted",
+      color: "text-accent",
+      badgeColor: "bg-accent/10 text-accent border-accent/20",
     },
     {
-      label: "OPERATIVE_CLEARANCE",
-      value: user?.role?.toUpperCase() || "ROLE_UNKNOWN",
-      subtext: "ACCESS_LEVEL",
-      icon: Target,
-      color: "text-cyan",
+      label: "Security Clearance",
+      value: user?.role || "STUDENT",
+      subtext: "Access level",
+      icon: Shield,
+      color: "text-accent",
+      badgeColor: "bg-accent/10 text-accent border-accent/20",
     },
   ];
 
-  const fetchSessionHistory = useCallback(async () => {
+  const resumeActiveSession = useCallback(async (): Promise<number | null> => {
     try {
-      setHistoryLoading(true);
-      const res = await labSessionService.getAll();
-      setSessionHistory(res.sessions || []);
+      const response = await labSessionService.getActive();
+      const session = response.session;
+      if (!session) return null;
+
+      const sid = session.id;
+      if (typeof sid !== 'number') return null;
+
+      const isRunning = String(session.status || '').toLowerCase() === 'running';
+      if (!isRunning) {
+        return sid;
+      }
+
+      const activeLabRef = getSessionLabRef(session);
+      const matched = labs.find(
+        (item) => sameId(getEntityId(item), activeLabRef) || sameId(item.id, activeLabRef)
+      );
+
+      setActiveSession(session);
+      if (matched) setActiveLab(matched);
+      setDashboardState(DASHBOARD_STATE.RUNNING);
+      return null;
     } catch {
-      // Non-critical telemetry error
-    } finally {
-      setHistoryLoading(false);
+      return null;
     }
-  }, []);
+  }, [labs]);
 
   const fetchLabs = useCallback(async () => {
     try {
       setDashboardState(DASHBOARD_STATE.LOADING_LABS);
       setError(null);
       const response = await labService.getAll();
-      const labList = response.labs || [];
+      const labList = Array.isArray(response) ? response : response.labs || [];
       setLabs(labList);
       setDashboardState(DASHBOARD_STATE.IDLE);
-    } catch (err) {
-      console.error("Failed to fetch labs:", err);
-      setError("Failed to load targets. Database unreachable.");
+    } catch (err: unknown) {
+      console.error("Failed to load labs:", err);
+      setError(getServerMessage(err, "Failed to load labs. Check your connection."));
       setDashboardState(DASHBOARD_STATE.ERROR);
     }
   }, []);
 
-  const checkActiveSession = useCallback(async () => {
-    try {
-      const response = await labService.getActiveSession();
-      const session = response.session;
-
-      if (session) {
-        // Convert ActiveSessionResponse to LabSession
-        const labSession: LabSession = {
-          id: session.id,
-          userId: 0,
-          roomId: session.roomId,
-          taskId: session.taskId,
-          status: session.status.toLowerCase() as LabSession['status'],
-          startedAt: session.startedAt,
-          expiresAt: session.expiresAt,
-          networkName: session.networkName,
-          targetContainerId: session.containerId,
-          connectionInfo: {},
-          publicIp: session.containerId,
-        };
-        setActiveSession(labSession);
-        setDashboardState(DASHBOARD_STATE.RUNNING);
-
-        const currentLabRef = getSessionLabRef(labSession);
-        if (currentLabRef && labs.length > 0) {
-          const matchedLab = labs.find((l) => sameId(getEntityId(l), currentLabRef));
-          if (matchedLab) {
-            setActiveLab(matchedLab);
-          }
-        }
-      } else {
-        setActiveSession(null);
-        setActiveLab(null);
-      }
-    } catch (err) {
-      console.error("Failed to check active session:", err);
-    }
-  }, [labs]);
-
   useEffect(() => {
     void fetchLabs();
-    void fetchSessionHistory();
-  }, [fetchLabs, fetchSessionHistory]);
+  }, [fetchLabs]);
 
   useEffect(() => {
     if (labs.length > 0) {
-      void checkActiveSession();
+      void resumeActiveSession();
     }
-  }, [labs, checkActiveSession]);
+  }, [labs, resumeActiveSession]);
 
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      void checkActiveSession();
-    }, 15000);
-    return () => clearInterval(pollInterval);
-  }, [checkActiveSession]);
-
-  // Poll a session until it reaches a terminal provisioning state.
-  // Returns true when the container is running.
-  const waitForRunning = async (sessionIdNum: number): Promise<boolean> => {
-    for (let attempt = 0; attempt < 50; attempt++) {
-      await sleep(3000);
-      try {
-        const detail = await labSessionService.getById(sessionIdNum);
-        const status = String(detail.session?.status || "").toLowerCase();
-        if (status === "running") return true;
-        if (status === "error" || status === "stopped" || status === "terminated") return false;
-      } catch {
-        // Keep polling through transient read failures.
-      }
-    }
-    return false;
-  };
-
-  // Drive an initializing session through docker build + spawn, then open it.
-  const provisionAndOpen = async (sessionIdNum: number) => {
+  const provisionAndOpen = async (sessionId: number) => {
     setDashboardState(DASHBOARD_STATE.PROVISIONING);
     try {
-      await labService.completeProvisioning(sessionIdNum);
-    } catch (provisionErr: unknown) {
-      // Provisioning is idempotent on the server for non-initializing states;
-      // fall through to polling so a completed-but-unread spawn still resolves.
-      const msg = getServerMessage(provisionErr, "");
+      await labService.completeProvisioning(sessionId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
       if (!/not in initializing state/i.test(msg)) {
-        throw provisionErr;
+        throw err;
       }
     }
-    const running = await waitForRunning(sessionIdNum);
-    if (!running) {
-      throw new Error("Lab failed to start. Check the session log and try again.");
-    }
-    const detail = await labSessionService.getById(sessionIdNum);
-    setActiveSession(detail.session);
-    setDashboardState(DASHBOARD_STATE.RUNNING);
-    navigate(`/workspace/${sessionIdNum}`);
-  };
 
-  // A previous attempt left an initializing/running row behind: resume it
-  // instead of failing with "already have an active lab session".
-  // Returns the blocker session id when one exists but could not be resumed.
-  const resumeActiveSession = async (): Promise<number | null> => {
-    const isResumableStatus = (s: string) => {
-      const st = s.toLowerCase();
-      return st === "running" || st === "initializing" || st === "pending";
-    };
-    try {
-      const response = await labService.getActiveSession();
-      const active = response?.session;
-      if (active?.id && isResumableStatus(String(active.status || ""))) {
-        const status = String(active.status).toLowerCase();
+    for (let attempt = 0; attempt < 25; attempt++) {
+      await sleep(2000);
+      try {
+        const detail = await labSessionService.getById(sessionId);
+        const status = String(detail.session?.status || "").toLowerCase();
         if (status === "running") {
-          navigate(`/workspace/${active.id}`);
-        } else {
-          await provisionAndOpen(active.id);
+          setActiveSession(detail.session);
+          setDashboardState(DASHBOARD_STATE.RUNNING);
+          navigate(`/workspace/${sessionId}`);
+          return;
         }
-        return null;
+        if (status === "error" || status === "stopped" || status === "terminated") {
+          throw new Error("The lab stopped unexpectedly.");
+        }
+      } catch (pollErr: unknown) {
+        if (attempt > 10) throw pollErr;
       }
-    } catch {
-      // Fall through to the session-list fallback below.
     }
-    try {
-      const list = await labSessionService.getAll();
-      const blocker = (list.sessions || []).find((s) =>
-        isResumableStatus(String(s.status || "")),
-      );
-      return blocker ? Number(blocker.id) : null;
-    } catch {
-      return null;
-    }
+
+    navigate(`/workspace/${sessionId}`);
   };
 
-  const handleTerminateStaleAndRetry = async (labId: number | string | null | undefined) => {
+  const handleTerminateStaleAndRetry = async (labId: number | string | null) => {
     if (staleSessionId == null) return;
     try {
       setTerminatingStale(true);
       setError(null);
       await labSessionService.terminate(staleSessionId);
       setStaleSessionId(null);
-      await fetchSessionHistory();
-      await handleStartLab(labId);
+      setActiveSession(null);
+      setActiveLab(null);
+      await sleep(800);
+      if (labId != null) {
+        await handleStartLab(labId);
+      }
     } catch (err: unknown) {
-      setError(getServerMessage(err, "Failed to terminate the stale session."));
-      setDashboardState(DASHBOARD_STATE.ERROR);
+      setError(getServerMessage(err, `Failed to terminate orphaned session #${staleSessionId}.`));
     } finally {
       setTerminatingStale(false);
     }
   };
 
   const handleStartLab = async (labId: number | string | null | undefined) => {
-    if (labId == null) return;
-    const labIdNum = typeof labId === "string" ? parseInt(labId, 10) : labId;
-    if (isNaN(labIdNum)) return;
+    if (labId == null || labId === "") return;
+    const labIdNum = typeof labId === "number" ? labId : parseInt(String(labId), 10);
+    if (isNaN(labIdNum)) {
+      setError("Invalid lab ID.");
+      return;
+    }
 
     try {
       setStartingLabId(labId);
@@ -312,6 +248,12 @@ export const Dashboard = () => {
         await provisionAndOpen(newSession.id);
       }
     } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      if (status === 402) {
+        toast("This range needs a subscription.", { icon: "🔒" });
+        navigate("/pricing");
+        return;
+      }
       const message = getServerMessage(err, "Failed to initialize lab container.");
       if (/already have an active lab session/i.test(message)) {
         const blockerId = await resumeActiveSession();
@@ -321,7 +263,7 @@ export const Dashboard = () => {
           return;
         }
         setStaleSessionId(blockerId);
-        setError(`Session #${blockerId} is still active and could not be resumed. Terminate it to free the slot, then retry.`);
+        setError(`Session #${blockerId} is still active. Stop it to free your session slot, then retry.`);
       } else {
         console.error("Failed to launch lab:", err);
         setError(message);
@@ -344,7 +286,6 @@ export const Dashboard = () => {
       setActiveSession(null);
       setActiveLab(null);
       setDashboardState(DASHBOARD_STATE.IDLE);
-      void fetchSessionHistory();
     } catch (err: unknown) {
       console.error("Failed to stop session:", err);
       setError(err instanceof Error ? err.message : "Failed to terminate session.");
@@ -371,10 +312,27 @@ export const Dashboard = () => {
     void handleOpenWorkspace();
   };
 
+  // Filtered labs
+  const filteredLabs = useMemo(() => {
+    return labs.filter((lab) => {
+      const matchesSearch =
+        searchQuery.trim() === "" ||
+        lab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (lab.description && lab.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (lab.category && lab.category.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesDifficulty =
+        selectedDifficulty === "ALL" ||
+        lab.difficulty?.toUpperCase() === selectedDifficulty;
+
+      return matchesSearch && matchesDifficulty;
+    });
+  }, [labs, searchQuery, selectedDifficulty]);
+
   if (dashboardState === DASHBOARD_STATE.LOADING_LABS && labs.length === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-8">
-        <LoadingSpinner size="lg" message="Loading targets" />
+        <LoadingSpinner size="lg" message="Loading labs…" />
       </div>
     );
   }
@@ -382,108 +340,163 @@ export const Dashboard = () => {
   const hasActiveSession = activeSession && activeSession.status !== "terminated" && activeSession.status !== "stopped";
 
   return (
-    <StaggerContainer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-mono">
-      {/* Page Header */}
-      <FadeIn direction="down" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="mx-auto max-w-content space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      {/* ── OPERATOR COMMAND HEADER ── */}
+      <FadeIn direction="down" className="flex flex-col justify-between gap-4 border-b border-border pb-6 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-display font-black text-ink tracking-tight uppercase leading-none">
-            <DecryptedText text="Dashboard" speed={20} />
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="text-xs font-medium uppercase tracking-wider text-accent">Dashboard</span>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
+            Welcome back, {user?.username || 'there'}
           </h1>
-          <p className="text-xs text-muted mt-1.5">
-            Operative: <span className="text-ink font-bold">{user?.username?.toUpperCase()}</span>
+          <p className="mt-1 text-xs text-fg-muted sm:text-sm">
+            Launch a lab and track your progress.
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => void fetchLabs()}>
-          <RefreshCw className="w-3 h-3" />
-          Sync
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void fetchLabs()}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-accent" strokeWidth={1.75} />
+            Refresh labs
+          </Button>
+        </div>
       </FadeIn>
 
-      {/* Error State */}
+      {/* ── ERROR NOTIFICATION BANNER ── */}
       {error && (
         <FadeIn className="mb-6">
           <ErrorState error={error} onRetry={() => setError(null)} />
           {staleSessionId != null && (
-            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="danger"
                 size="sm"
                 disabled={terminatingStale}
                 onClick={() => void handleTerminateStaleAndRetry(pendingLabId)}
               >
-                {terminatingStale ? "Terminating..." : `Terminate session #${staleSessionId} and retry`}
+                {terminatingStale ? "Stopping…" : `Stop session #${staleSessionId} and retry`}
               </Button>
             </div>
           )}
         </FadeIn>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+      {/* ── TELEMETRY METRICS ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <SpotlightCard
+            <div
               key={stat.label}
-              className="p-5 sm:p-6 bg-surface"
-              spotlightColor="rgba(0, 229, 255, 0.06)"
+              className="rounded-lg border border-border bg-bg-raised p-5 transition-colors hover:border-accent/40"
             >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] text-muted font-bold tracking-[0.15em] uppercase">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">
                   {stat.label}
                 </span>
-                <Icon className={`w-3.5 h-3.5 ${stat.color}`} />
+                <div className={`rounded-md border p-1.5 ${stat.badgeColor}`}>
+                  <Icon className="h-4 w-4" strokeWidth={1.75} />
+                </div>
               </div>
-              <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-display font-black text-ink leading-none mb-1">
+              <p className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
                 {stat.value}
               </p>
-              <p className="text-[10px] text-dim tracking-wider uppercase mt-1">
+              <p className="text-[10px] uppercase text-fg-muted">
                 {stat.subtext}
               </p>
-            </SpotlightCard>
+            </div>
           );
         })}
       </div>
 
-      {/* Active Session Mission HUD */}
-      {hasActiveSession ? (
+      {/* ── ACTIVE SESSION HUD ── */}
+      {hasActiveSession && (
         <FadeIn direction="up">
-          <div className="flex items-center gap-2 mb-4">
-            <Radio className="w-4 h-4 text-accent animate-pulse" />
-            <h2 className="text-sm font-bold text-ink uppercase tracking-wider">
-              CURRENT_ENGAGEMENT_TARGET
-            </h2>
+          <div className="rounded-lg border border-accent/30 bg-bg-raised p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-accent" />
+              <Radio className="h-4 w-4 text-accent" strokeWidth={1.75} />
+              <h2 className="text-xs font-medium uppercase tracking-wider text-accent">
+                Active session
+              </h2>
+            </div>
+            <ActiveSession
+              session={activeSession}
+              lab={activeLab}
+              onOpenWorkspace={handleOpenWorkspaceVoid}
+              onStopSession={handleStopSessionVoid}
+              isStopping={dashboardState === DASHBOARD_STATE.STOPPING}
+            />
           </div>
-          <ActiveSession
-            session={activeSession}
-            lab={activeLab}
-            onOpenWorkspace={handleOpenWorkspaceVoid}
-            onStopSession={handleStopSessionVoid}
-            isStopping={dashboardState === DASHBOARD_STATE.STOPPING}
-          />
         </FadeIn>
-      ) : null}
+      )}
 
-      {/* Deployable Targets Grid */}
-      <FadeIn direction="up">
-        <div className="flex items-center justify-between gap-3 mb-5 border-b border-border pb-3">
+      {/* ── LAB CATALOG ── */}
+      <FadeIn direction="up" className="space-y-5">
+        <div className="flex flex-col justify-between gap-4 border-b border-border pb-4 md:flex-row md:items-center">
           <div className="flex items-center gap-2.5">
-            <Layers className="w-3.5 h-3.5 text-accent" />
-            <h2 className="text-sm font-display font-black text-ink uppercase tracking-tight">
-              Deployable Targets
+            <Layers className="h-4 w-4 text-accent" strokeWidth={1.75} />
+            <h2 className="text-lg font-semibold tracking-tight text-fg">
+              Labs
             </h2>
+            <span className="rounded border border-border bg-bg-overlay px-2 py-0.5 font-mono text-xs text-accent">
+              {filteredLabs.length} online
+            </span>
           </div>
-          <TacticalBadge label={`${labs.length} available`} variant="muted" size="sm" />
+
+          {/* Search and Difficulty Filter Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" strokeWidth={1.75} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search labs..."
+                className="w-48 rounded-md border border-border bg-bg-raised py-1.5 pl-8 pr-3 text-xs text-fg transition-colors placeholder:text-fg-subtle focus:border-accent focus:outline-none sm:w-56"
+              />
+            </div>
+
+            {/* Difficulty Tabs */}
+            <div className="flex items-center gap-1 rounded-md border border-border bg-bg-raised p-1 text-[11px]">
+              {[
+                { label: "All", val: "ALL" },
+                { label: "Easy", val: "EASY" },
+                { label: "Medium", val: "MEDIUM" },
+                { label: "Hard", val: "HARD" },
+              ].map(({ label, val }) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedDifficulty(val)}
+                  className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                    selectedDifficulty === val
+                      ? "bg-accent text-accent-fg"
+                      : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {labs.length === 0 ? (
+        {/* Labs Grid */}
+        {filteredLabs.length === 0 ? (
           <EmptyState
-            title="TARGET_DB_EMPTY"
-            description="No deployable templates found in registry. Await system admin provisioning."
+            title="No labs match your search"
+            description="Try a different search term, or clear the difficulty filter."
           />
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {labs.map((lab) => {
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredLabs.map((lab) => {
               const labId = getEntityId(lab);
               return (
                 <LabCard
@@ -501,90 +514,7 @@ export const Dashboard = () => {
           </div>
         )}
       </FadeIn>
-
-      {/* Execution Log */}
-      <FadeIn direction="up">
-        <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5 text-cyan" />
-            <h2 className="text-sm font-display font-black text-ink uppercase tracking-tight">
-              Session Log
-            </h2>
-          </div>
-          <span className="text-[10px] text-muted tracking-widest uppercase">
-            {sessionHistory.length} records
-          </span>
-        </div>
-
-        <div className="bg-surface border border-border">
-          {historyLoading ? (
-            <div className="p-8">
-              <LoadingSpinner message="Loading logs" />
-            </div>
-          ) : sessionHistory.length === 0 ? (
-            <EmptyState
-              icon={<Clock className="w-6 h-6 text-muted" />}
-              title="No sessions yet"
-              description="Deploy a target to start recording session history."
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-paper/60 text-[10px] text-muted tracking-[0.12em] uppercase">
-                    <th className="px-5 py-3 text-left">Target</th>
-                    <th className="px-5 py-3 text-left">Status</th>
-                    <th className="px-5 py-3 text-left">Started</th>
-                    <th className="px-5 py-3 text-left">Expires</th>
-                    <th className="px-5 py-3 text-left">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border font-mono">
-                  {sessionHistory.map((s) => {
-                    const getStatusBadge = (status: string) => {
-                      const st = String(status || "").toUpperCase();
-                      if (st === "RUNNING" || st === "INITIALIZING") {
-                        return <TacticalBadge label={st} variant="success" pulse size="sm" />;
-                      }
-                      if (st === "STOPPED" || st === "TERMINATED") {
-                        return <TacticalBadge label={st} variant="muted" size="sm" />;
-                      }
-                      return <TacticalBadge label={st || "UNKNOWN"} variant="error" size="sm" />;
-                    };
-
-                    const labName = "TARGET_CONTAINER";
-
-                    const date = s.createdAt
-                      ? new Date(s.createdAt).toLocaleString("en-US", {
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })
-                      : "—";
-
-                    return (
-                      <tr key={s.id} className="hover:bg-paper/40 transition-colors">
-                        <td className="px-5 py-3.5 text-ink font-bold uppercase">
-                          {labName}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {getStatusBadge(s.status)}
-                        </td>
-                        <td className="px-5 py-3.5 text-muted">{s.startedAt ? new Date(s.startedAt).toLocaleString() : "—"}</td>
-                        <td className="px-5 py-3.5 text-muted">{s.expiresAt ? new Date(s.expiresAt).toLocaleString() : "—"}</td>
-                        <td className="px-5 py-3.5 text-dim">{date}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </FadeIn>
-    </StaggerContainer>
+    </div>
   );
 };
 

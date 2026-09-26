@@ -159,7 +159,7 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
       const searchInput = screen.getByPlaceholderText(/Search by title, tag/i);
       fireEvent.change(searchInput, { target: { value: 'non_existent_exploit_term_xyz' } });
 
-      expect(screen.getByText(/NO_MATCHING_MISSIONS/i)).toBeInTheDocument();
+      expect(screen.getByText(/no matching courses/i)).toBeInTheDocument();
     });
 
     it('TEST-CRS-CAT-005: courseService.getBySlug contract retrieves course detail model', async () => {
@@ -272,7 +272,7 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
         expect(screen.getByText('SQL Injection Fundamentals')).toBeInTheDocument();
       });
 
-      const backLink = screen.getByRole('link', { name: /BACK_TO_MISSION/i });
+      const backLink = screen.getByRole('link', { name: /^back to course$/i });
       expect(backLink).toBeInTheDocument();
       expect(backLink).toHaveAttribute('href', '/courses');
     });
@@ -386,12 +386,12 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
         expect(screen.getByText('Bypass Admin Authentication')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('[ OBJECTIVE // TASK_#501 ]')).toBeInTheDocument();
+      expect(screen.getByText(/objective.*task #501/i)).toBeInTheDocument();
       expect(screen.getByText('+75 PTS')).toBeInTheDocument();
       expect(screen.getByText(/Inject SQL into the username input/i)).toBeInTheDocument();
     });
 
-    it('TEST-CRS-TSK-002: renders body markdown under OPERATIONAL_INSTRUCTIONS', async () => {
+    it('TEST-CRS-TSK-002: renders body markdown under the instructions card', async () => {
       (taskService.getById as vi.Mock).mockResolvedValue({ task: mockTask });
       (userService.getMyProgress as vi.Mock).mockResolvedValue({ progress: [] });
 
@@ -404,7 +404,7 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/OPERATIONAL_INSTRUCTIONS/i)).toBeInTheDocument();
+        expect(screen.getByText(/instructions/i)).toBeInTheDocument();
       });
 
       expect(screen.getByText(/Step 1/i)).toBeInTheDocument();
@@ -424,11 +424,11 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/SUBMIT_SECURITY_FLAG/i)).toBeInTheDocument();
+        expect(screen.getByText(/submit flag/i)).toBeInTheDocument();
       });
 
       expect(screen.getByPlaceholderText(/XPLOIT{.*}/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /TRANSMIT_FLAG/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^submit$/i })).toBeInTheDocument();
     });
 
     it('TEST-CRS-TSK-004: displays solved status banner when task is already accomplished in user progress', async () => {
@@ -452,16 +452,16 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/OBJECTIVE_ACCOMPLISHED/i)).toBeInTheDocument();
+        expect(screen.getByText(/^completed$/i)).toBeInTheDocument();
       });
 
-      expect(screen.getByText(/SOLVED ON/i)).toBeInTheDocument();
-      expect(screen.getByText(/AWARDED \+75 CREDITS/i)).toBeInTheDocument();
+      expect(screen.getByText(/completed on/i)).toBeInTheDocument();
+      expect(screen.getByText(/\+75 points/i)).toBeInTheDocument();
       // Flag submission form is hidden when already solved
       expect(screen.queryByPlaceholderText(/XPLOIT{.*}/i)).not.toBeInTheDocument();
     });
 
-    it('TEST-CRS-TSK-005: handles non-existent task ID by rendering TASK_NOT_FOUND', async () => {
+    it('TEST-CRS-TSK-005: handles non-existent task ID by rendering the not-found state', async () => {
       (taskService.getById as vi.Mock).mockResolvedValue({ task: null });
       (userService.getMyProgress as vi.Mock).mockResolvedValue({ progress: [] });
 
@@ -474,7 +474,7 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/TASK_NOT_FOUND/i)).toBeInTheDocument();
+        expect(screen.getByText(/task not found/i)).toBeInTheDocument();
       });
     });
 
@@ -494,7 +494,7 @@ describe('Tier 1: Courses, Modules & Tasks Contracts', () => {
         expect(screen.getByText('Bypass Admin Authentication')).toBeInTheDocument();
       });
 
-      const backLink = screen.getByRole('link', { name: /BACK_TO_MISSIONS/i });
+      const backLink = screen.getByRole('link', { name: /^back to catalog$/i });
       expect(backLink).toBeInTheDocument();
       expect(backLink).toHaveAttribute('href', '/courses');
     });

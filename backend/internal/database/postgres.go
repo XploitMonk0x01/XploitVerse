@@ -162,6 +162,10 @@ func RunPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		`CREATE INDEX IF NOT EXISTS lab_sessions_room_id_idx ON lab_sessions (room_id)`,
 		`CREATE INDEX IF NOT EXISTS lab_sessions_task_id_idx ON lab_sessions (task_id)`,
 		`CREATE INDEX IF NOT EXISTS lab_sessions_status_idx ON lab_sessions (status)`,
+		// Supports the per-user activity aggregate over a rolling time window.
+		`CREATE INDEX IF NOT EXISTS lab_sessions_user_started_idx
+			ON lab_sessions (user_id, started_at)
+			WHERE started_at IS NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS lab_sessions_single_active_per_user
 			ON lab_sessions (user_id)
 			WHERE status IN ('pending','initializing','running')`,
@@ -182,6 +186,10 @@ func RunPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS progress_user_id_idx ON progress (user_id)`,
 		`CREATE INDEX IF NOT EXISTS progress_task_id_idx ON progress (task_id)`,
+		// Supports the per-user activity aggregate over a rolling time window.
+		`CREATE INDEX IF NOT EXISTS progress_user_completed_idx
+			ON progress (user_id, completed_at)
+			WHERE completed_at IS NOT NULL`,
 	}
 
 	for _, stmt := range ddl {

@@ -22,7 +22,7 @@ $clientDir = Join-Path $rootDir "client"
 
 function Write-Banner {
     Write-Host "  ================================================================" -ForegroundColor DarkYellow
-    Write-Host "  XPLOITVERSE // TACTICAL CYBERSECURITY TRAINING INFRASTRUCTURE" -ForegroundColor Yellow
+    Write-Host "  XploitVerse - tactical cybersecurity training infrastructure" -ForegroundColor Yellow
     Write-Host "  Launcher v2.1 [Windows Edition]" -ForegroundColor DarkGray
     Write-Host "  ================================================================" -ForegroundColor DarkYellow
     Write-Host ""

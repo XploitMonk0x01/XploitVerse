@@ -1,5 +1,12 @@
-import { forwardRef, useId, type SelectHTMLAttributes, type ComponentType, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useId,
+  type SelectHTMLAttributes,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 export interface SelectOption {
@@ -34,7 +41,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       disabled,
       ...props
     },
-    ref
+    ref,
   ) => {
     const generatedId = useId();
     const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : generatedId);
@@ -43,28 +50,27 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const errorId = `${selectId}-error`;
 
     return (
-      <div className="flex flex-col gap-1.5 w-full font-mono group">
+      <div className="flex w-full flex-col gap-1.5">
         {label && (
           <label
             htmlFor={selectId}
             id={labelId}
             className={cn(
-              'text-xs font-bold uppercase tracking-wider text-muted flex items-center justify-between',
-              required && 'required'
+              'flex items-center justify-between text-sm font-medium text-fg-muted',
+              required && 'required',
             )}
           >
             <span>
-              <span className="text-accent mr-1.5">#</span>
               {label}
-              {required && <span className="text-accent ml-1">*</span>}
+              {required && <span className="ml-0.5 text-accent">*</span>}
             </span>
           </label>
         )}
 
-        <div className="relative flex items-center w-full">
+        <div className="relative flex w-full items-center">
           {Icon && (
-            <div className="absolute left-3 text-muted pointer-events-none z-10">
-              <Icon className="w-4 h-4" />
+            <div className="pointer-events-none absolute left-3 z-10 text-fg-subtle">
+              <Icon className="h-4 w-4" />
             </div>
           )}
 
@@ -76,15 +82,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             disabled={disabled}
             required={required}
             className={cn(
-              'w-full bg-surface border text-ink text-sm px-3.5 py-2.5 outline-none transition-all font-mono rounded-none appearance-none',
-              'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBkPSJNNiA5bDYtNiIgc3Ryb2tlPSIjNkI3ODk5IiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=")]_no-repeat_center_right_8px',
+              'h-9 w-full appearance-none rounded border bg-bg-raised pl-3 pr-9 text-sm text-fg outline-none transition-colors duration-150 ease-tactical',
               Icon ? 'pl-9' : '',
-              iconRight ? 'pr-12' : 'pr-10',
+              iconRight ? 'pr-16' : '',
               error
-                ? 'border-error text-error focus:border-error focus:ring-1 focus:ring-error/40'
-                : 'border-border hover:border-muted focus:border-cyan focus:bg-paper',
-              'disabled:bg-subtle disabled:text-dim disabled:border-dashed disabled:cursor-not-allowed',
-              className
+                ? 'border-danger focus:border-danger'
+                : 'border-border hover:border-border-strong focus:border-accent',
+              'disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-bg-overlay disabled:text-fg-subtle',
+              className,
             )}
             {...props}
           >
@@ -100,27 +105,36 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ))}
           </select>
 
-          {iconRight && (
-            <div className="absolute right-3 text-muted flex items-center pointer-events-none">
+          {iconRight ? (
+            <div className="pointer-events-none absolute right-8 flex items-center text-fg-subtle">
               {iconRight}
             </div>
+          ) : (
+            <ChevronDown
+              className="pointer-events-none absolute right-3 h-4 w-4 text-fg-subtle"
+              aria-hidden="true"
+            />
           )}
         </div>
 
         {error && (
-          <p id={errorId} role="alert" className="text-[11px] font-bold text-error uppercase tracking-wider flex items-center gap-1 mt-0.5">
-            <span>[ERR]:</span> {error}
+          <p
+            id={errorId}
+            role="alert"
+            className="flex items-center gap-1 text-xs font-medium text-danger"
+          >
+            {error}
           </p>
         )}
 
         {!error && hint && (
-          <p id={hintId} className="text-[11px] text-dim font-mono tracking-wide mt-0.5">
-            // {hint}
+          <p id={hintId} className="text-xs text-fg-subtle">
+            {hint}
           </p>
         )}
       </div>
     );
-  }
+  },
 );
 
 Select.displayName = 'Select';

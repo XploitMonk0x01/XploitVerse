@@ -23,6 +23,15 @@ type Config struct {
 	AWS  AWSConfig
 	Lab  LabConfig
 	SMTP SMTPConfig
+
+	Razorpay RazorpayConfig
+}
+
+// RazorpayConfig holds payment-provider credentials for subscriptions.
+type RazorpayConfig struct {
+	KeyID         string
+	KeySecret     string
+	WebhookSecret string
 }
 
 // JWTConfig holds JWT-related configuration.
@@ -89,6 +98,11 @@ func Load() *Config {
 			Password: getEnv("SMTP_PASSWORD", ""),
 			From:     getEnv("SMTP_FROM", ""),
 			FromName: getEnv("SMTP_FROM_NAME", "XploitVerse"),
+		},
+		Razorpay: RazorpayConfig{
+			KeyID:         getEnv("RAZORPAY_KEY_ID", ""),
+			KeySecret:     getEnv("RAZORPAY_KEY_SECRET", ""),
+			WebhookSecret: getEnv("RAZORPAY_WEBHOOK_SECRET", ""),
 		},
 	}
 

@@ -22,6 +22,7 @@ func (a *API) GetCourses(c *gin.Context) {
 	defer rows.Close()
 
 	courses := make([]gin.H, 0)
+	premium := a.premiumRoomSet(c.Request.Context())
 	for rows.Next() {
 		var id int64
 		var slug, title, description, difficulty string
@@ -37,7 +38,7 @@ func (a *API) GetCourses(c *gin.Context) {
 			"title":       title,
 			"description": description,
 			"difficulty":  difficulty,
-			"isPremium":   false,
+			"isPremium":   premium[id],
 			"isPublished": isPublic,
 			"tags":        []string{},
 			"createdAt":   createdAt,
@@ -73,7 +74,7 @@ func (a *API) GetCourseBySlug(c *gin.Context) {
 		"title":       title,
 		"description": description,
 		"difficulty":  difficulty,
-		"isPremium":   false,
+		"isPremium":   a.isPremiumRoom(c.Request.Context(), roomID),
 		"isPublished": isPublished,
 		"tags":        []string{},
 		"createdAt":   createdAt,

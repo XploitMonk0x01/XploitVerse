@@ -11,32 +11,31 @@ describe('Button', () => {
     render(<Button variant="primary">Primary</Button>);
     const btn = screen.getByRole('button');
     expect(btn).toHaveClass('bg-accent');
-    expect(btn).toHaveClass('text-paper');
-    expect(btn).toHaveClass('border-accent');
+    expect(btn).toHaveClass('text-accent-fg');
   });
 
   it('applies secondary variant styles', () => {
     render(<Button variant="secondary">Secondary</Button>);
     const btn = screen.getByRole('button');
-    expect(btn).toHaveClass('bg-surface');
-    expect(btn).toHaveClass('text-ink');
+    expect(btn).toHaveClass('bg-bg-raised');
+    expect(btn).toHaveClass('text-fg');
     expect(btn).toHaveClass('border-border');
   });
 
   it('applies size styles', () => {
     render(<Button size="sm">Small</Button>);
     const btn = screen.getByRole('button');
-    expect(btn).toHaveClass('text-[11px]');
+    expect(btn).toHaveClass('text-xs');
     expect(btn).toHaveClass('px-3');
-    expect(btn).toHaveClass('py-1.5');
+    expect(btn).toHaveClass('h-7');
   });
 
   it('applies large size styles', () => {
     render(<Button size="lg">Large</Button>);
     const btn = screen.getByRole('button');
-    expect(btn).toHaveClass('text-sm');
-    expect(btn).toHaveClass('px-6');
-    expect(btn).toHaveClass('py-3');
+    expect(btn).toHaveClass('text-base');
+    expect(btn).toHaveClass('px-5');
+    expect(btn).toHaveClass('h-10');
   });
 
   it('shows loading state', () => {

@@ -99,7 +99,7 @@ describe('Adversarial Stress Test: ConfirmDialog', () => {
     );
 
     const confirmBtn = screen.getByRole('button', { name: /confirm/i });
-    expect(confirmBtn).toHaveClass('bg-error');
+    expect(confirmBtn).toHaveClass('bg-danger');
   });
 
   it('renders warning variant styling correctly', () => {
@@ -115,7 +115,7 @@ describe('Adversarial Stress Test: ConfirmDialog', () => {
     );
 
     const confirmBtn = screen.getByRole('button', { name: /confirm/i });
-    expect(confirmBtn).toHaveClass('bg-warning');
+    expect(confirmBtn).toHaveClass('bg-warn');
   });
 
   it('renders info variant styling correctly', () => {
@@ -408,7 +408,7 @@ describe('Adversarial Stress Test: Textarea', () => {
 
   it('handles error state and alert role', () => {
     render(<Textarea label="Comments" error="Field required" />);
-    expect(screen.getByRole('alert')).toHaveTextContent(/\[ERR\]: Field required/i);
+    expect(screen.getByRole('alert')).toHaveTextContent('Field required');
     expect(screen.getByLabelText(/comments/i)).toHaveAttribute('aria-invalid', 'true');
   });
 });
@@ -459,7 +459,7 @@ describe('Adversarial Stress Test: Skeleton & Table', () => {
 
     const table = screen.getByTestId('table-comp');
     expect(table).toHaveClass('border-border');
-    expect(table).toHaveClass('text-[10px]');
+    expect(table).toHaveClass('text-xs');
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();
     expect(screen.getByText('End of leaderboard')).toBeInTheDocument();

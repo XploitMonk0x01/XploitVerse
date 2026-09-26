@@ -3,13 +3,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Input } from '../../components/ui';
-import {
-  SpotlightCard,
-  BorderBeam,
-  FadeIn,
-  ScalePress,
-} from '../../components/ui/motion';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { FadeIn } from '../../components/ui/motion';
+import { AlertTriangle, ArrowRight, Shield } from 'lucide-react';
 
 interface FormData {
   email: string;
@@ -93,45 +88,44 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-paper flex items-center justify-center p-4 font-mono relative overflow-hidden">
-      {/* Background accent glow */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 60%, rgba(0,229,255,0.04) 0%, transparent 70%)' }}
-      />
-
-      <FadeIn className="w-full max-w-[420px] relative">
-        {/* Header above card */}
-        <div className="mb-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-accent flex items-center justify-center shadow-accent">
-            <Shield className="w-4 h-4 text-paper" />
-          </div>
-          <div>
-            <h1 className="text-xl font-display font-black text-ink uppercase tracking-tight leading-none">
-              Sign In
-            </h1>
-            <p className="text-[10px] text-muted tracking-widest uppercase mt-0.5">
-              Xploitverse Auth Gateway
-            </p>
-          </div>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-bg-base p-4">
+      <FadeIn className="w-full max-w-[420px]">
+        {/* Brand header */}
+        <div className="mb-6 text-center">
+          <Link to="/" className="group mb-4 inline-flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-fg">
+              <Shield className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <span className="text-left">
+              <span className="block text-lg font-semibold leading-none tracking-tight text-fg">
+                XploitVerse
+              </span>
+              <span className="mt-1 block text-[11px] font-medium uppercase tracking-widest text-fg-subtle">
+                Auth Portal
+              </span>
+            </span>
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg">Sign In</h1>
+          <p className="mt-1 text-sm text-fg-muted">
+            Authenticate your operator credentials
+          </p>
         </div>
 
-        <SpotlightCard
-          spotlightColor="rgba(0, 229, 255, 0.06)"
-          className="bg-surface border border-border p-6 shadow-[6px_6px_0px_#000] relative overflow-hidden"
-        >
-          <BorderBeam size={160} duration={11} colorFrom="#00E5FF" colorTo="#FF4500" />
-
-          <form className="space-y-5" onSubmit={handleSubmitVoid} noValidate>
+        {/* Card */}
+        <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
+          <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
             {errors.form && (
-              <div className="p-3 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <div
+                className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                role="alert"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 <span>{errors.form}</span>
               </div>
             )}
 
             <Input
-              label="Email"
+              label="Operative Email"
               type="email"
               name="email"
               placeholder="operative@xploitverse.io"
@@ -142,7 +136,7 @@ const Login = () => {
             />
 
             <Input
-              label="Password"
+              label="Passkey"
               type="password"
               name="password"
               placeholder="••••••••"
@@ -152,38 +146,47 @@ const Login = () => {
               required
             />
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer text-muted hover:text-ink select-none">
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-muted transition-colors hover:text-fg">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="accent-accent w-3.5 h-3.5 cursor-pointer"
+                  className="h-4 w-4 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
                 />
-                <span className="text-[11px] font-bold tracking-wider uppercase">Remember me</span>
+                <span>Remember session</span>
               </label>
               <Link
                 to="/forgot-password"
-                className="text-[11px] text-muted hover:text-accent font-bold tracking-wider uppercase transition-colors"
+                className="text-xs font-medium text-accent transition-colors hover:text-accent/80 hover:underline"
               >
                 Forgot password?
               </Link>
             </div>
 
-            <ScalePress scale={0.99}>
-              <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
+            <div className="pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                isLoading={isLoading}
+              >
                 Sign In
+                <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
               </Button>
-            </ScalePress>
+            </div>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-border text-center text-xs text-muted">
-            No account?{' '}
-            <Link to="/register" className="text-accent font-bold uppercase tracking-wider hover:underline underline-offset-2 ml-1">
+          <div className="mt-6 border-t border-border pt-4 text-center text-xs text-fg-muted">
+            New operative?{' '}
+            <Link
+              to="/register"
+              className="ml-1 font-semibold text-accent transition-colors hover:text-accent/80 hover:underline"
+            >
               Register
             </Link>
           </div>
-        </SpotlightCard>
+        </div>
       </FadeIn>
     </div>
   );

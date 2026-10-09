@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -83,21 +81,6 @@ func (d *DockerService) ensureNetwork(ctx context.Context) error {
 	return nil
 }
 
-// challengesDir locates the repo's challenges/ directory. The server runs
-// with CWD=backend in dev and /app in Docker, so probe both layouts.
-// ponytail: fixed candidates, add discovery (compose labels, DB setting) if layouts grow.
-func challengesDir() string {
-	if env := strings.TrimSpace(os.Getenv("CHALLENGES_DIR")); env != "" {
-		return env
-	}
-	for _, candidate := range []string{"../challenges", "challenges", "/app/challenges"} {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate
-		}
-	}
-	return "../challenges"
-}
-
 // BuildImage runs docker build in the given context path, tagging the result
 // as imageName. Returns an error if the build fails. In mock mode it logs and
 // returns nil.
@@ -107,18 +90,10 @@ func (d *DockerService) BuildImage(ctx context.Context, contextPath string, imag
 		return nil
 	}
 
-	resolved := strings.TrimSpace(contextPath)
-	if !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(challengesDir(), filepath.Base(resolved))
-		if _, err := os.Stat(filepath.Join(resolved, "Dockerfile")); err != nil {
-			resolved = strings.TrimSpace(contextPath)
-		}
-	}
-
 	buildArgs := []string{
 		"build",
 		"-t", imageName,
-		resolved,
+		contextPath,
 	}
 	var stdout, stderr bytes.Buffer
 	buildCmd := exec.CommandContext(ctx, "docker", buildArgs...)

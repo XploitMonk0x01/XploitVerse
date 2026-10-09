@@ -1,19 +1,13 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import {
-  Input,
-  EmptyState,
-  ErrorState,
-  PageHeader,
-  SkeletonCard,
-  Badge,
-  Card,
-  difficultyVariant,
-} from "../../components/ui";
+import { Input, LoadingSpinner, EmptyState } from "../../components/ui";
 import { courseService } from "../../services";
 import { Search, Lock, ChevronRight, Terminal } from "lucide-react";
 import type { Course } from "../../types";
+import { SpotlightCard } from "../../components/ui/motion/SpotlightCard";
+import { TacticalBadge } from "../../components/ui/motion/TacticalBadge";
 import { StaggerContainer, FadeIn } from "../../components/ui/motion/MotionWrappers";
+import { DecryptedText } from "../../components/ui/motion/DecryptedText";
 
 const DIFFICULTIES = ["All", "Easy", "Medium", "Hard"] as const;
 
@@ -31,7 +25,7 @@ export const CourseCatalog = () => {
       const res = await courseService.getAll();
       setCourses(res.courses || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load courses');
+      setError(e instanceof Error ? e.message : 'Failed to load missions');
     } finally {
       setLoading(false);
     }
@@ -41,30 +35,48 @@ export const CourseCatalog = () => {
     void load();
   }, [load]);
 
-  const filtered = useMemo(() => {
+  const filtered = courses.filter((c) => {
+    const matchesDiff = difficulty === "All" || c.difficulty === difficulty;
     const q = search.trim().toLowerCase();
-    return courses.filter((c) => {
-      const matchesDiff = difficulty === "All" || c.difficulty === difficulty;
-      const matchesSearch =
-        !q ||
-        c.title?.toLowerCase().includes(q) ||
-        c.description?.toLowerCase().includes(q) ||
-        c.tags?.some((t) => t.toLowerCase().includes(q));
-      return matchesDiff && matchesSearch;
-    });
-  }, [courses, search, difficulty]);
+    const matchesSearch =
+      !q ||
+      c.title?.toLowerCase().includes(q) ||
+      c.description?.toLowerCase().includes(q) ||
+      c.tags?.some((t) => t.toLowerCase().includes(q));
+    return matchesDiff && matchesSearch;
+  });
+
+  const getDifficultyVariant = (diff?: string): 'cyan' | 'warning' | 'error' | 'muted' => {
+    switch (diff?.toLowerCase()) {
+      case 'easy':
+      case 'beginner':
+        return 'cyan';
+      case 'medium':
+      case 'intermediate':
+        return 'warning';
+      case 'hard':
+      case 'advanced':
+      case 'expert':
+        return 'error';
+      default:
+        return 'muted';
+    }
+  };
 
   return (
-    <StaggerContainer className="mx-auto max-w-content space-y-6">
-      <FadeIn direction="down">
-        <PageHeader
-          title="Challenge catalog"
-          subtitle={`${courses.length} penetration testing courses available`}
-        />
+    <StaggerContainer className="space-y-8 font-mono">
+      {/* Header */}
+      <FadeIn direction="down" className="border-b border-border pb-6">
+        <h1 className="text-2xl sm:text-3xl font-display font-black text-ink tracking-tight uppercase leading-none mb-2">
+          <DecryptedText text="Challenge Catalog" speed={20} />
+        </h1>
+        <p className="text-xs text-muted">
+          {courses.length} penetration testing modules available
+        </p>
       </FadeIn>
 
       {/* Filters */}
-      <FadeIn direction="up" className="flex flex-col gap-3 sm:flex-row">
+      <FadeIn direction="up" className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <Input
             value={search}
@@ -73,88 +85,92 @@ export const CourseCatalog = () => {
             icon={Search}
           />
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           {DIFFICULTIES.map((d) => (
             <button
               type="button"
               key={d}
               onClick={() => setDifficulty(d)}
-              className={`rounded-md border px-3 py-2 text-xs font-medium transition-colors select-none ${
-                difficulty === d
-                  ? 'border-accent bg-accent text-accent-fg shadow-card'
-                  : 'border-border bg-bg-raised text-fg-muted hover:border-border-strong hover:text-fg'
-              }`}
+              className={`px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em] border transition-all select-none active:translate-x-[1px] active:translate-y-[1px] ${difficulty === d
+                ? 'bg-accent text-paper border-accent shadow-accent'
+                : 'bg-surface border-border text-muted hover:text-ink hover:border-border-bright'
+                }`}
             >
-              {d}
+              {d === 'All' ? 'All' : d}
             </button>
           ))}
         </div>
       </FadeIn>
 
+      {/* Error Banner */}
       {error && (
-        <FadeIn>
-          <ErrorState error={error} onRetry={() => { void load(); }} title="Could not load courses" />
+        <FadeIn className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-widest">
+          [ERR]: {error}
         </FadeIn>
       )}
 
       {/* Content Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3" role="status">
-          <span className="sr-only">Loading courses</span>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+        <div className="py-20">
+          <LoadingSpinner message="FETCHING_MISSION_DOSSIERS" />
         </div>
       ) : filtered.length === 0 ? (
         <FadeIn>
           <EmptyState
-            title="No matching courses"
+            title="NO_MATCHING_MISSIONS"
             description={
               courses.length === 0
-                ? "No courses have been published yet."
-                : "No courses match your search. Try a different term or filter."
+                ? "No challenge rooms currently published in the operational catalog."
+                : "Zero targets matched your query parameters. Adjust filter dials."
             }
           />
         </FadeIn>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
           {filtered.map((course) => (
             <Link
               key={course.id || course.slug}
               to={`/courses/${course.slug}`}
-              className="group block h-full"
+              className="block group h-full"
             >
-              <Card padding="lg" className="flex h-full flex-col transition-shadow group-hover:shadow-pop">
+              <SpotlightCard
+                className="p-5 flex flex-col h-full bg-surface"
+                spotlightColor="rgba(0, 229, 255, 0.06)"
+              >
                 {/* Header row */}
-                <div className="mb-4 flex items-center justify-between">
-                  <Badge variant={difficultyVariant(course.difficulty)} size="sm">
-                    {course.difficulty || 'Easy'}
-                  </Badge>
+                <div className="flex items-center justify-between mb-4">
+                  <TacticalBadge
+                    label={course.difficulty || 'Easy'}
+                    variant={getDifficultyVariant(course.difficulty)}
+                    size="sm"
+                  />
                   {course.isPremium ? (
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-warn" strokeWidth={1.75} />
+                    <Lock className="w-3.5 h-3.5 text-warning shrink-0" />
                   ) : (
-                    <Terminal className="h-3.5 w-3.5 shrink-0 text-fg-subtle" strokeWidth={1.75} />
+                    <Terminal className="w-3.5 h-3.5 text-dim shrink-0" />
                   )}
                 </div>
 
                 {/* Title */}
-                <h2 className="mb-2 line-clamp-2 text-base font-semibold leading-tight tracking-tight text-fg transition-colors group-hover:text-accent">
+                <h2 className="text-base font-display font-black text-ink group-hover:text-accent transition-colors uppercase tracking-tight mb-2 line-clamp-2 leading-tight">
                   {course.title}
                 </h2>
 
-                <p className="mb-5 line-clamp-3 flex-1 text-sm leading-relaxed text-fg-muted">
-                  {course.description || 'Hands-on vulnerable environment with real attack paths.'}
+                <p className="text-muted text-xs leading-relaxed line-clamp-3 mb-5 flex-1">
+                  {course.description || 'Live vulnerable environment with real-world attack vectors.'}
                 </p>
 
                 {/* Footer */}
-                <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-3">
-                  <span className="font-mono text-xs text-fg-subtle">{course.slug}</span>
-                  <div className="flex items-center gap-1 text-xs font-medium text-fg-muted transition-colors group-hover:text-accent">
+                <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
+                  <span className="text-[10px] text-dim font-mono tracking-wider uppercase">
+                    {course.slug}
+                  </span>
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-muted group-hover:text-accent uppercase tracking-wider transition-colors">
                     <span>Open</span>
-                    <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
-              </Card>
+              </SpotlightCard>
             </Link>
           ))}
         </div>

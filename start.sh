@@ -95,7 +95,7 @@ check_dependencies() {
   # 4. Go Toolchain
   if ! command -v go >/dev/null 2>&1; then
     log_err "Go toolchain not detected. Required for local backend execution."
-    log_info "Install Go 1.24+ from https://go.dev/dl/ or via your package manager ('sudo pacman -S go')."
+    log_info "Install Go 1.22+ from https://go.dev/dl/"
     exit 1
   fi
 

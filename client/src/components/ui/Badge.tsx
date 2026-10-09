@@ -50,6 +50,7 @@ const sizeClasses = {
 } as const;
 
 /** Maps a free-form difficulty string onto the fixed semantic badge scale. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function difficultyVariant(difficulty?: string | null): BadgeVariant {
   switch (difficulty?.toLowerCase()) {
     case 'easy':

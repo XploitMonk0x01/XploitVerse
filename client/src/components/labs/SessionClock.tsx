@@ -14,7 +14,7 @@ interface SessionClockProps {
   expiresAt?: string;
 }
 
-export function formatDuration(totalSeconds: number): string {
+function formatDuration(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
   const hrs = Math.floor(safe / 3600);
   const mins = Math.floor((safe % 3600) / 60);

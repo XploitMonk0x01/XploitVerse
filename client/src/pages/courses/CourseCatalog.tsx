@@ -93,7 +93,7 @@ export const CourseCatalog = () => {
 
       {error && (
         <FadeIn>
-          <ErrorState error={error} onRetry={load} title="Could not load courses" />
+          <ErrorState error={error} onRetry={() => { void load(); }} title="Could not load courses" />
         </FadeIn>
       )}
 

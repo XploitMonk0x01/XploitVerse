@@ -16,7 +16,7 @@ export const Skeleton = ({
   className,
   ...props
 }: SkeletonProps) => {
-  const baseClasses = 'animate-pulse bg-dim/20 rounded-none';
+  const baseClasses = 'animate-pulse rounded bg-bg-overlay';
 
   const variantStyles = {
     text: cn(baseClasses, 'h-3 w-full'),
@@ -39,17 +39,14 @@ export const Skeleton = ({
     );
   }
 
-  return (
-    <div
-      className={cn(variantStyles[variant], className)}
-      style={{ width, height }}
-      {...props}
-    />
-  );
+  return <div className={cn(variantStyles[variant], className)} style={{ width, height }} {...props} />;
 };
 
 export const SkeletonCard = ({ className, ...props }: HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('bg-surface border border-border p-5 space-y-4', className)} {...props}>
+  <div
+    className={cn('space-y-4 rounded-lg border border-border-subtle bg-bg-raised p-5', className)}
+    {...props}
+  >
     <div className="flex items-center justify-between">
       <Skeleton variant="rectangular" width="40%" height="1.5rem" />
       <Skeleton variant="circular" width="2rem" height="2rem" />
@@ -62,23 +59,28 @@ export const SkeletonCard = ({ className, ...props }: HTMLAttributes<HTMLDivElem
   </div>
 );
 
-export const SkeletonTable = ({ rows = 5, columns = 4, className, ...props }: { rows?: number; columns?: number } & HTMLAttributes<HTMLDivElement>) => (
+export const SkeletonTable = ({
+  rows = 5,
+  columns = 4,
+  className,
+  ...props
+}: { rows?: number; columns?: number } & HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('overflow-x-auto', className)} {...props}>
-    <table className="w-full text-xs font-mono border-collapse">
+    <table className="w-full border-collapse text-sm">
       <thead>
-        <tr className="border-b border-border bg-paper/60 text-[10px] text-muted tracking-[0.12em] uppercase">
+        <tr className="border-b border-border bg-bg-overlay text-xs text-fg-subtle">
           {Array.from({ length: columns }).map((_, i) => (
-            <th key={i} className="px-5 py-3 text-left font-bold">
+            <th key={i} className="px-4 py-2.5 text-left font-medium">
               <Skeleton variant="text" width="80%" />
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-border">
+      <tbody className="divide-y divide-border-subtle">
         {Array.from({ length: rows }).map((_, rowIndex) => (
-          <tr key={rowIndex} className="hover:bg-paper/40 transition-colors">
+          <tr key={rowIndex}>
             {Array.from({ length: columns }).map((_, colIndex) => (
-              <td key={colIndex} className="px-5 py-3.5 font-mono">
+              <td key={colIndex} className="px-4 py-3">
                 <Skeleton variant="text" width="90%" />
               </td>
             ))}

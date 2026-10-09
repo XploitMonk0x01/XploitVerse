@@ -1,374 +1,511 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldAlert,
-  Cpu,
-  DatabaseZap,
-  TerminalSquare,
   ArrowRight,
-  Binary,
-  Network,
-  Radio,
-  Lock,
+  ArrowUpRight,
+  Shield,
+  Server,
+  Code2,
   Zap,
+  Check,
+  Terminal,
+  Menu,
+  X,
 } from 'lucide-react';
-import { Button } from '../components/ui';
-import { SpotlightCard } from '../components/ui/motion/SpotlightCard';
-import { DecryptedText } from '../components/ui/motion/DecryptedText';
-import { BorderBeam } from '../components/ui/motion/BorderBeam';
-import { FadeIn } from '../components/ui/motion/MotionWrappers';
-import { TacticalBadge } from '../components/ui/motion/TacticalBadge';
+import { Button, Badge, difficultyVariant } from '../components/ui';
+import { AmbientBackdrop } from '../components/ui/motion/AmbientBackdrop';
+import { HeroTerminal } from '../components/landing/HeroTerminal';
+import { Reveal } from '../components/ui/motion/MotionWrappers';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
-const MARQUEE_ITEMS = [
-  'WEB_EXPLOITATION', 'PRIVILEGE_ESCALATION', 'NETWORK_PENTEST',
-  'CTF_SIMULATION', 'CLOUD_ATTACK', 'REVERSE_ENGINEERING',
-  'BINARY_EXPLOITATION', 'FORENSICS', 'CRYPTOGRAPHY',
+interface LabPreview {
+  id: string;
+  title: string;
+  category: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  description: string;
+  duration: string;
+}
+
+const NAV_LINKS = [
+  { label: 'Labs', to: '/courses' },
+  { label: 'Ranges', to: '/courses' },
+  { label: 'Leaderboard', to: '/leaderboard' },
 ];
 
-const Landing = () => {
+const STATS = [
+  { value: '45+', label: 'Vulnerability labs' },
+  { value: '1.8s', label: 'Median spin-up' },
+  { value: '100%', label: 'Cloud isolation' },
+  { value: '12k+', label: 'Flags captured' },
+];
+
+const FEATURES = [
+  {
+    icon: Server,
+    title: 'Isolated cloud sandboxes',
+    body: 'Every challenge boots into its own ephemeral container network. Run destructive exploits freely — nothing bleeds across tenants, and each range is wiped clean on teardown.',
+  },
+  {
+    icon: Code2,
+    title: 'A catalog of real CVEs',
+    body: 'Train against attacks pulled from genuine enterprise compromises: AWS IMDSv2 SSRF, JWT signature forgery, Kubernetes host breakouts, and blind SQL injection.',
+  },
+  {
+    icon: Zap,
+    title: 'Instant flag verification',
+    body: 'Submit captured flags from the terminal or web UI. A zero-latency judging engine scores your work and updates your rank the moment it lands.',
+  },
+  {
+    icon: Terminal,
+    title: 'A full attacking workstation',
+    body: 'Streamed browser terminal with the standard offensive toolchain preloaded — no local setup, no broken dependencies, no version drift between runs.',
+  },
+];
+
+const FEATURED_LABS: LabPreview[] = [
+  {
+    id: 'aws-ssrf-v2',
+    title: 'AWS Cloud Metadata SSRF',
+    category: 'Cloud Security',
+    difficulty: 'Medium',
+    description:
+      'Bypass internal proxy filters to query the EC2 IMDSv2 metadata service and exfiltrate temporary IAM session keys.',
+    duration: '25 min',
+  },
+  {
+    id: 'jwt-sig-bypass',
+    title: 'JWT None-Algorithm Forgery',
+    category: 'Authentication',
+    difficulty: 'Easy',
+    description:
+      'Exploit flawed token validation to forge administrative authorization claims using the none algorithm signature trick.',
+    duration: '15 min',
+  },
+  {
+    id: 'k8s-pod-escape',
+    title: 'Kubernetes Privileged Breakout',
+    category: 'Container Security',
+    difficulty: 'Hard',
+    description:
+      'Escape a compromised container with root privileges and mount the underlying host node filesystem via cgroups.',
+    duration: '45 min',
+  },
+];
+
+export function Landing() {
+  const reduce = useReducedMotion();
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <div className="min-h-[100dvh] bg-paper select-none font-mono">
+    <div className="relative isolate min-h-screen bg-bg-base font-sans text-fg antialiased">
+      <AmbientBackdrop />
 
-      {/* ── NAV ── */}
-      <nav className="fixed top-0 w-full z-50 bg-paper/96 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-[60px]">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-8 h-8 bg-accent flex items-center justify-center transition-all group-hover:bg-accent-hover shadow-accent">
-                <TerminalSquare className="w-4 h-4 text-paper" />
-              </div>
-              <span className="text-base font-display font-black text-ink uppercase tracking-tight">
-                <DecryptedText text="XPLOITVERSE" speed={22} animateOn="hover" />
-              </span>
-            </Link>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase font-bold tracking-widest">
-              <Link
-                to="/login"
-                className="hidden sm:block px-3 py-1.5 text-muted hover:text-ink border border-transparent hover:border-border transition-all"
-              >
-                Sign In
-              </Link>
-              <Link to="/register">
-                <Button variant="primary" size="sm">
-                  Get Access
-                  <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </div>
+      {/* ── Announcement ── */}
+      <div className="border-b border-border-subtle bg-bg-raised">
+        <div className="mx-auto flex max-w-content items-center justify-center gap-2 px-4 py-2.5 text-center text-xs text-fg-muted sm:px-6 lg:px-8">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-0.5 font-medium text-accent">
+            New
+          </span>
+          <span>The Kubernetes Privileged Breakout range is now live.</span>
+          <Link
+            to="/courses"
+            className="hidden items-center gap-0.5 font-medium text-fg underline decoration-border-strong underline-offset-2 transition-colors hover:text-accent sm:inline-flex"
+          >
+            Explore <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </Link>
         </div>
-      </nav>
+      </div>
 
-      {/* ── HERO ── */}
-      <section className="min-h-[100dvh] flex items-center pt-[60px] px-4 relative overflow-hidden">
-        {/* Large background number */}
-
-        <div className="max-w-7xl mx-auto w-full">
-          <div className="grid lg:grid-cols-[1fr_420px] gap-10 xl:gap-16 items-center">
-
-            {/* Left: Copy */}
-            <FadeIn direction="up" distance={20}>
-
-
-              <h1 className="font-display font-black uppercase leading-[0.92] tracking-[-0.03em] mb-8">
-                <span className="block text-[clamp(3.5rem,9vw,8rem)] text-ink">Hack</span>
-                <span className="block text-[clamp(3.5rem,9vw,8rem)] text-ink">Real</span>
-                <span
-                  className="block text-[clamp(3.5rem,9vw,8rem)] glitch-flicker"
-                  style={{ color: 'var(--color-accent)', textShadow: '3px 3px 0 rgba(255,69,0,0.25)' }}
-                >
-                  Cloud.
-                </span>
-              </h1>
-
-              <p className="text-muted text-sm leading-relaxed max-w-[46ch] mb-10 border-l-2 border-border pl-4">
-                Authentic AWS environments. Zero sandboxing. Pay only for compute you use.
-              </p>
-
-              <div className="flex flex-wrap gap-3">
-                <Link to="/register">
-                  <Button variant="primary" size="lg">
-                    Deploy Target
-                    <ArrowRight className="w-4 h-4 ml-1.5" />
-                  </Button>
-                </Link>
-                <Link to="/login">
-                  <Button variant="secondary" size="lg">
-                    Sign In
-                  </Button>
-                </Link>
-              </div>
-            </FadeIn>
-
-            {/* Right: Terminal */}
-            <FadeIn direction="left" distance={24} className="hidden lg:block">
-              <div className="relative border border-border bg-surface shadow-[8px_8px_0px_#000] overflow-hidden">
-                <BorderBeam size={200} duration={9} colorFrom="#00E5FF" colorTo="#FF4500" />
-
-                {/* Terminal chrome */}
-                <div className="flex items-center justify-between border-b border-border px-4 py-2.5 bg-paper/60">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 bg-error inline-block" />
-                    <span className="w-2.5 h-2.5 bg-warning inline-block" />
-                    <span className="w-2.5 h-2.5 bg-success inline-block" />
-                  </div>
-                  <span className="text-[10px] text-muted font-mono tracking-wider">
-                    root@xploitverse:~#
-                  </span>
-                  <span className="text-[10px] text-accent flex items-center gap-1">
-                    <Radio className="w-3 h-3 animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
-
-                {/* Output */}
-                <div className="font-mono text-xs p-5 space-y-1.5 leading-relaxed">
-                  <p className="text-dim">$ ./provision --target web-vuln-01 --region us-east-1</p>
-                  <p className="text-muted">[SYS] Allocating VPC 172.30.0.0/16...</p>
-                  <p className="text-muted">[SYS] Deploying subnet isolation...</p>
-                  <p className="text-muted">[SYS] Configuring security groups...</p>
-                  <p className="text-cyan mt-2">[OK]  Instance i-0a3f9c12b45d678e online</p>
-                  <p className="text-warning">[!]  Offensive vectors loaded: 80, 22, 5000</p>
-                  <p className="text-success mt-3 flex items-center gap-2">
-                    <span className="inline-block w-1.5 h-1.5 bg-success animate-ping" />
-                    Ready. Elapsed: 94s
-                  </p>
-                  <p className="text-dim mt-2">$ <span className="animate-pulse">_</span></p>
-                </div>
-
-                <div className="absolute bottom-3 right-4 font-display text-2xl text-border/15 font-black pointer-events-none">
-                  XV-CORE
-                </div>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* ── MARQUEE STRIP ── */}
-      <div className="border-y border-border bg-surface overflow-hidden py-3">
-        <div className="flex animate-marquee whitespace-nowrap">
-          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
-            <span key={i} className="inline-flex items-center gap-4 px-6 text-[11px] font-bold text-muted tracking-[0.15em] uppercase">
-              <span className="text-accent">◆</span>
-              {item}
+      {/* ── Nav ── */}
+      <header className="sticky top-0 z-topbar border-b border-border-subtle bg-bg-base/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-content items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-fg shadow-card">
+              <Shield className="h-4 w-4" strokeWidth={2} />
             </span>
-          ))}
-        </div>
-      </div>
+            <span className="text-[15px] font-semibold tracking-tight text-fg">XploitVerse</span>
+          </Link>
 
-      {/* ── STATS ── */}
-      <div className="border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
-            {[
-              { value: '$0.50', label: 'Per Hour', sub: 'metered billing' },
-              { value: '<120s', label: 'Boot Time', sub: 'avg provision' },
-              { value: '100%', label: 'Isolated', sub: 'dedicated ec2' },
-              { value: '68%', label: 'Cost Saved', sub: 'vs competitors' },
-            ].map((s) => (
-              <div key={s.label} className="px-6 py-10 group hover:bg-accent transition-colors duration-150 cursor-default">
-                <div className="text-[clamp(2rem,4vw,3rem)] font-display font-black text-ink group-hover:text-paper leading-none mb-1 tracking-tight">
-                  {s.value}
-                </div>
-                <div className="text-xs font-bold text-ink group-hover:text-paper uppercase tracking-widest mb-0.5">
-                  {s.label}
-                </div>
-                <div className="text-[10px] text-muted group-hover:text-paper/70 uppercase tracking-wider">
-                  {s.sub}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── ARCHITECTURE ── */}
-      <section className="py-24 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Section header — left-aligned, no eyebrow */}
-          <div className="grid lg:grid-cols-[1fr_auto] items-end gap-6 mb-14 border-b border-border pb-8">
-            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-display font-black text-ink uppercase tracking-tight leading-none">
-              System<br />Architecture
-            </h2>
-            <p className="text-muted text-xs max-w-[32ch] leading-relaxed lg:text-right">
-              Every component engineered for uncompromising realism and sub-second telemetry feedback.
-            </p>
-          </div>
-
-          {/* 2+2 asymmetric grid */}
-          <div className="grid md:grid-cols-2 gap-px bg-border">
-            {[
-              {
-                icon: Cpu,
-                code: '01',
-                title: 'Isolated Environments',
-                description: 'Dedicated EC2 instances per session. Zero resource sharing. Absolute network isolation for critical operations.',
-                accent: 'var(--color-cyan)',
-                large: true,
-              },
-              {
-                icon: DatabaseZap,
-                code: '02',
-                title: 'On-Demand Infrastructure',
-                description: 'Metered at $0.50/hr. Provisions instantly, self-terminates on session end.',
-                accent: 'var(--color-accent)',
-                large: false,
-              },
-              {
-                icon: TerminalSquare,
-                code: '03',
-                title: 'Rapid Deployment',
-                description: 'Fully configured target environment in under 120 seconds.',
-                accent: 'var(--color-info)',
-                large: false,
-              },
-              {
-                icon: ShieldAlert,
-                code: '04',
-                title: 'Live Vulnerability Targets',
-                description: 'Authentic AWS infrastructure with verified, real-world vulnerability vectors.',
-                accent: 'var(--color-error)',
-                large: true,
-              },
-            ].map((f) => (
-              <SpotlightCard
-                key={f.code}
-                className={`p-8 bg-surface ${f.large ? 'md:py-12' : ''}`}
-                spotlightColor="rgba(0, 229, 255, 0.06)"
+          <nav className="hidden items-center gap-1 md:flex">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.label}
+                to={link.to}
+                className="group relative rounded-md px-3 py-2 text-sm text-fg-muted transition-colors hover:text-fg"
               >
-                <div className="flex items-start justify-between mb-8">
-                  <f.icon className="w-7 h-7" style={{ color: f.accent }} />
-                  <span className="font-mono text-[10px] text-dim font-bold tracking-widest">{f.code}</span>
-                </div>
-                <h3 className="text-lg font-display font-black text-ink uppercase tracking-tight mb-3">
-                  {f.title}
-                </h3>
-                <p className="text-muted text-xs leading-relaxed max-w-[38ch]">
-                  {f.description}
-                </p>
-              </SpotlightCard>
+                {link.label}
+                <span className="pointer-events-none absolute inset-x-3 -bottom-0.5 h-px origin-left scale-x-0 bg-accent transition-transform duration-200 ease-tactical group-hover:scale-x-100" />
+              </Link>
             ))}
-          </div>
-        </div>
-      </section>
+          </nav>
 
-      {/* ── COMBAT MODULES — inverted section ── */}
-      <section className="py-24 px-4 bg-ink">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-14">
-            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-display font-black text-paper uppercase tracking-tight leading-none">
-              Combat<br />Modules
-            </h2>
-            <Link to="/courses">
-              <Button variant="ghost" className="text-paper border-paper/30 hover:border-paper hover:bg-paper hover:text-ink">
-                View All
-                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+          <div className="flex items-center gap-2">
+            <Link to="/login" className="hidden rounded-md px-3 py-2 text-sm text-fg-muted transition-colors hover:text-fg sm:block">
+              Sign in
+            </Link>
+            <Link to="/register">
+              <Button variant="primary" size="sm">
+                Start training
               </Button>
             </Link>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={menuOpen}
+              className="-mr-1 rounded-md p-2 text-fg-muted transition-colors hover:bg-bg-overlay hover:text-fg md:hidden"
+            >
+              {menuOpen ? (
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              ) : (
+                <Menu className="h-5 w-5" strokeWidth={1.75} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={reduce ? false : { height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={reduce ? undefined : { height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+              className="overflow-hidden border-t border-border-subtle bg-bg-base md:hidden"
+              onClick={() => setMenuOpen(false)}
+            >
+              <nav className="mx-auto flex max-w-content flex-col gap-1 px-4 py-3 sm:px-6 lg:px-8">
+                {NAV_LINKS.map((link) => (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    className="rounded-md px-3 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-overlay hover:text-fg"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <Link
+                  to="/login"
+                  className="rounded-md px-3 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-overlay hover:text-fg sm:hidden"
+                >
+                  Sign in
+                </Link>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      {/* ── Hero ── */}
+      <section className="relative">
+        <div className="relative mx-auto max-w-content px-4 pb-16 pt-16 sm:px-6 lg:px-8 lg:pb-28 lg:pt-24">
+          <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+            {/* Copy */}
+            <div className="animate-fade-up lg:col-span-6">
+              <h1 className="text-[2.75rem] font-semibold leading-[1.05] tracking-tight text-fg sm:text-6xl">
+                Learn offense by{' '}
+                <span className="font-display italic text-accent">breaking</span>
+                <br className="hidden sm:block" /> real systems.
+              </h1>
+
+              <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-fg-muted sm:text-base">
+                Spin up isolated cloud sandboxes in seconds. Practice genuine web exploits, cloud
+                privilege escalation, and red-team tradecraft inside on-demand attack ranges — then
+                prove it on the leaderboard.
+              </p>
+
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link to="/register">
+                  <Button variant="primary" size="lg">
+                    Start training free
+                    <ArrowRight className="ml-1 h-4 w-4" strokeWidth={1.75} />
+                  </Button>
+                </Link>
+                <Link to="/courses">
+                  <Button variant="secondary" size="lg">
+                    Browse the catalog
+                  </Button>
+                </Link>
+              </div>
+
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
+                {['No credit card required', 'Ephemeral cloud sandboxes', 'Preloaded toolchain'].map(
+                  (item) => (
+                    <li key={item} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-accent" strokeWidth={2} />
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+
+            {/* Terminal mock */}
+            <div className="animate-fade-up lg:col-span-6" style={{ animationDelay: '80ms' }}>
+              <HeroTerminal />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Stat strip ── */}
+      <section className="border-y border-border bg-bg-raised">
+        <div className="mx-auto grid max-w-content grid-cols-2 gap-y-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
+          {STATS.map((stat, idx) => (
+            <div key={stat.label} className="border-border px-2 even:border-l even:pl-6 md:border-l md:px-8 md:first:border-l-0 md:first:pl-0">
+              <Reveal delay={idx * 0.06}>
+                <div className="font-display text-4xl leading-none tracking-tight text-fg sm:text-5xl">
+                  {stat.value}
+                </div>
+                <div className="mt-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+                  {stat.label}
+                </div>
+              </Reveal>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features (editorial split) ── */}
+      <section className="py-20 lg:py-28">
+        <div className="mx-auto grid max-w-content gap-12 px-4 sm:px-6 lg:grid-cols-12 lg:gap-16 lg:px-8">
+          <div className="lg:col-span-4">
+            <div className="sticky top-24">
+              <div className="text-xs font-medium uppercase tracking-widest text-accent">
+                The platform
+              </div>
+              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-fg sm:text-4xl">
+                Built like the real thing,{' '}
+                <span className="font-display italic text-fg-muted">safely.</span>
+              </h2>
+              <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-fg-muted">
+                No multiple-choice quizzes or canned simulations. Live Linux shells, vulnerable
+                cloud targets, and a judging engine that treats every flag like production.
+              </p>
+              <Link
+                to="/courses"
+                className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-hover"
+              >
+                See all 45+ labs <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+              </Link>
+            </div>
           </div>
 
-          {/* Asymmetric module grid: 1 large + 3 small */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border/30">
-            {/* Large featured module */}
+          <div className="lg:col-span-8">
+            <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
+              {FEATURES.map((feat, idx) => {
+                const Icon = feat.icon;
+                return (
+                  <Reveal key={feat.title} delay={idx * 0.06} className="group bg-bg-raised p-8 transition-colors hover:bg-bg-base">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-bg-base text-accent transition-colors group-hover:border-accent/40 group-hover:bg-accent/10">
+                      <Icon className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    <h3 className="mt-5 text-lg font-semibold tracking-tight text-fg">{feat.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-fg-muted">{feat.body}</p>
+                  </Reveal>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Featured labs ── */}
+      <section className="border-t border-border bg-bg-raised py-20 lg:py-28">
+        <div className="mx-auto max-w-content px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-widest text-accent">
+                Featured ranges
+              </div>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
+                Start with a live target
+              </h2>
+            </div>
             <Link
               to="/courses"
-              className="lg:col-span-1 lg:row-span-2 group relative border border-border/30 bg-[#0D0D0D] p-8 flex flex-col justify-between min-h-[280px] hover:bg-accent transition-colors duration-200"
+              className="inline-flex items-center gap-1 text-sm font-medium text-fg-muted transition-colors hover:text-accent"
             >
-              <div>
-                <Network className="w-10 h-10 text-muted group-hover:text-paper mb-6 transition-colors" />
-                <h3 className="text-xl font-display font-black text-ink group-hover:text-paper uppercase tracking-tight transition-colors">
-                  Web Exploitation
-                </h3>
-                <p className="text-muted group-hover:text-paper/70 text-xs mt-2 leading-relaxed max-w-[28ch] transition-colors">
-                  XSS, SQLi, SSRF, IDOR, and modern web attack chains on live targets.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted group-hover:text-paper/60 uppercase tracking-widest transition-colors">
-                <span>Enter Module</span>
-                <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </div>
+              View the full catalog <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
             </Link>
+          </div>
 
-            {[
-              { name: 'Network Pentest', icon: DatabaseZap, desc: 'Recon, scanning, exploitation of network services.' },
-              { name: 'Privilege Escalation', icon: ShieldAlert, desc: 'Linux & Windows privesc paths on real systems.' },
-              { name: 'CTF Simulation', icon: Binary, desc: 'Timed capture-the-flag challenges with scoring.' },
-            ].map((lab) => (
-              <Link
-                key={lab.name}
-                to="/courses"
-                className="group relative border border-border/30 bg-[#0D0D0D] p-6 flex flex-col justify-between min-h-[130px] hover:bg-surface-elevated transition-colors duration-200"
-              >
-                <lab.icon className="w-6 h-6 text-muted group-hover:text-accent transition-colors" />
-                <div>
-                  <h3 className="text-sm font-display font-black text-ink uppercase tracking-tight mb-1">
-                    {lab.name}
-                  </h3>
-                  <p className="text-dim text-[11px] leading-relaxed">{lab.desc}</p>
-                </div>
-              </Link>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {FEATURED_LABS.map((lab, idx) => (
+              <Reveal key={lab.id} delay={idx * 0.08} className="h-full">
+                <motion.div
+                  whileHover={reduce ? undefined : { y: -4 }}
+                  transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                  className="group flex h-full flex-col justify-between rounded-xl border border-border bg-bg-base p-6 transition-colors hover:border-border-strong hover:shadow-card"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">
+                        {lab.category}
+                      </span>
+                      <Badge variant={difficultyVariant(lab.difficulty)}>{lab.difficulty}</Badge>
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold leading-snug tracking-tight text-fg">
+                      {lab.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-fg-muted">{lab.description}</p>
+                  </div>
+                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-sm">
+                    <span className="font-mono text-xs text-fg-subtle">{lab.duration}</span>
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-1 font-medium text-accent transition-colors hover:text-accent-hover"
+                    >
+                      Deploy <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </Link>
+                  </div>
+                </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── CTA ── */}
-      <section className="py-28 px-4 border-t border-border relative overflow-hidden">
-        {/* Background accent */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 100%, rgba(255,69,0,0.06) 0%, transparent 70%)' }}
-        />
-        <div className="max-w-4xl mx-auto relative">
-          <div className="grid lg:grid-cols-[1fr_auto] gap-10 items-center">
-            <div>
-              <h2 className="text-[clamp(2.5rem,6vw,5rem)] font-display font-black text-ink uppercase tracking-tight leading-[0.92] mb-6">
-                Start Your<br />
-                <span style={{ color: 'var(--color-accent)' }}>First Op.</span>
-              </h2>
-              <p className="text-muted text-sm max-w-[40ch] leading-relaxed">
-                Provision credentials, spin up a target, and execute your first attack sequence in under two minutes.
-              </p>
+      {/* ── Pull quote ── */}
+      <section className="py-20 lg:py-24">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-display text-3xl italic leading-snug tracking-tight text-fg sm:text-4xl">
+              “The first platform that made cloud attacks feel real. I went from reading write-ups to
+              forging IAM credentials in a weekend.”
+            </p>
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
+                MK
+              </span>
+              <div className="text-left">
+                <div className="text-sm font-semibold text-fg">Maya Krishnan</div>
+                <div className="text-xs text-fg-muted">Security Engineer, ranked #12</div>
+              </div>
             </div>
-            <div className="flex flex-col gap-3 lg:items-end">
-              <Link to="/register">
-                <Button variant="primary" size="lg" className="w-full lg:w-auto px-10">
-                  Create Account
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-              <div className="flex items-center gap-4 text-[10px] text-dim uppercase tracking-widest">
-                <span className="flex items-center gap-1.5">
-                  <Lock className="w-3 h-3" /> No credit card
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Zap className="w-3 h-3" /> Live in 120s
-                </span>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── CTA band ── */}
+      <section className="px-4 pb-24 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-content">
+          <div className="relative overflow-hidden rounded-2xl bg-accent px-6 py-16 text-center shadow-pop sm:px-16">
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent blur-md"
+              animate={reduce ? undefined : { x: ['-100%', '420%'] }}
+              transition={reduce ? undefined : { duration: 5.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.5 }}
+            />
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.12]"
+              aria-hidden="true"
+              style={{
+                backgroundImage:
+                  'radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+              }}
+            />
+            <div className="relative">
+              <h2 className="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                Ready to run your first exploit?
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-white/80">
+                Create a free account and spin up an isolated target in under sixty seconds. No card,
+                no setup, no risk.
+              </p>
+              <div className="mt-8 flex justify-center">
+                <Link to="/register">
+                  <Button
+                    size="lg"
+                    className="bg-bg-raised text-accent hover:bg-bg-base active:bg-bg-base"
+                  >
+                    Create free account
+                    <ArrowRight className="ml-1 h-4 w-4" strokeWidth={1.75} />
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="py-10 px-4 bg-surface border-t border-border">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-accent flex items-center justify-center">
-              <TerminalSquare className="w-3.5 h-3.5 text-paper" />
+      {/* ── Footer ── */}
+      <footer className="border-t border-border bg-bg-raised">
+        <div className="mx-auto max-w-content px-4 py-14 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-12">
+            <div className="md:col-span-4">
+              <Link to="/" className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-fg">
+                  <Shield className="h-4 w-4" strokeWidth={2} />
+                </span>
+                <span className="text-[15px] font-semibold tracking-tight text-fg">XploitVerse</span>
+              </Link>
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-fg-muted">
+                Hands-on cybersecurity training on live, isolated cloud infrastructure. Learn by
+                breaking — not by memorizing.
+              </p>
             </div>
-            <span className="font-display font-black text-sm text-ink uppercase tracking-tight">
-              XPLOITVERSE
-            </span>
+
+            {[
+              {
+                heading: 'Platform',
+                links: [
+                  { label: 'Labs', to: '/courses' },
+                  { label: 'Ranges', to: '/courses' },
+                  { label: 'Leaderboard', to: '/leaderboard' },
+                ],
+              },
+              {
+                heading: 'Account',
+                links: [
+                  { label: 'Sign in', to: '/login' },
+                  { label: 'Create account', to: '/register' },
+                  { label: 'Dashboard', to: '/dashboard' },
+                ],
+              },
+              {
+                heading: 'Resources',
+                links: [
+                  { label: 'Documentation', to: '/courses' },
+                  { label: 'Changelog', to: '/courses' },
+                  { label: 'Support', to: '/login' },
+                ],
+              },
+            ].map((col) => (
+              <div key={col.heading} className="md:col-span-2">
+                <div className="text-xs font-medium uppercase tracking-wider text-fg-subtle">
+                  {col.heading}
+                </div>
+                <ul className="mt-4 space-y-3">
+                  {col.links.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        to={link.to}
+                        className="text-sm text-fg-muted transition-colors hover:text-accent"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <p className="text-dim font-mono text-[10px] uppercase tracking-widest">
-            © {new Date().getFullYear()} Xploitverse Systems. All rights reserved.
-          </p>
-          <TacticalBadge label="Build 2026.09" variant="muted" size="sm" />
+
+          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-fg-subtle sm:flex-row">
+            <span>© {new Date().getFullYear()} XploitVerse. All rights reserved.</span>
+            <div className="flex items-center gap-6">
+              <Link to="/login" className="transition-colors hover:text-fg">Privacy</Link>
+              <Link to="/login" className="transition-colors hover:text-fg">Terms</Link>
+              <Link to="/login" className="transition-colors hover:text-fg">Security</Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
   );
-};
+}
 
 export default Landing;

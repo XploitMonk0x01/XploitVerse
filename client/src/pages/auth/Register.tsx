@@ -3,14 +3,8 @@ import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Input } from '../../components/ui';
-import {
-  SpotlightCard,
-  BorderBeam,
-  TacticalBadge,
-  FadeIn,
-  ScalePress,
-} from '../../components/ui/motion';
-import { UserPlus, AlertTriangle } from 'lucide-react';
+import { FadeIn } from '../../components/ui/motion';
+import { AlertTriangle, ArrowRight, Shield } from 'lucide-react';
 
 interface FormData {
   username: string;
@@ -52,7 +46,12 @@ export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const set = (k: keyof FormData, v: string | boolean) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof FormData, v: string | boolean) => {
+    setForm((p) => ({ ...p, [k]: v }));
+    if (errors[k as keyof FormErrors]) {
+      setErrors((p) => ({ ...p, [k]: undefined }));
+    }
+  };
   const touch = (k: keyof TouchedFields) => setTouched((p) => ({ ...p, [k]: true }));
 
   const validate = useCallback(() => {
@@ -101,147 +100,132 @@ export function Register() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-paper flex items-center justify-center p-4 font-mono relative overflow-hidden"
-      style={{
-        backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-      }}
-    >
-      <FadeIn className="w-full max-w-lg my-8">
-        <SpotlightCard
-          spotlightColor="rgba(0, 230, 153, 0.15)"
-          className="bg-surface border border-border p-6 sm:p-8 shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative overflow-hidden"
-        >
-          <BorderBeam size={200} duration={14} colorFrom="#00E699" colorTo="#00F0FF" />
-          <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-
-          {/* System Badge */}
-          <div className="flex items-center justify-between border-b border-dashed border-border pb-4 mb-6">
-            <div className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-accent" />
-              <span className="text-[10px] font-bold text-accent tracking-widest uppercase">
-                [ REGISTER // PROVISIONING ]
+    <div className="flex min-h-[100dvh] items-center justify-center bg-bg-base p-4">
+      <FadeIn className="my-6 w-full max-w-[460px]">
+        {/* Brand header */}
+        <div className="mb-6 text-center">
+          <Link to="/" className="group mb-4 inline-flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-fg">
+              <Shield className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <span className="text-left">
+              <span className="block text-lg font-semibold leading-none tracking-tight text-fg">
+                XploitVerse
               </span>
-            </div>
-            <TacticalBadge variant="info" size="sm">
-              CLEARANCE_LVL_1
-            </TacticalBadge>
-          </div>
+              <span className="mt-1 block text-[11px] font-medium uppercase tracking-widest text-fg-subtle">
+                Enlistment Portal
+              </span>
+            </span>
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg">Register Operative</h1>
+          <p className="mt-1 text-sm text-fg-muted">Provision your security credentials</p>
+        </div>
 
-          <div className="mb-6">
-            <h1 className="text-2xl sm:text-3xl font-display font-black text-ink uppercase tracking-wider mb-1">
-              REGISTER
-            </h1>
-            <p className="text-xs text-muted font-mono tracking-wide">
-              {'>'} Provision credentials to access challenge infrastructure
-            </p>
-          </div>
-
-          <form className="space-y-5" onSubmit={handleSubmitVoid} noValidate>
+        {/* Card */}
+        <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
+          <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
             {errors.form && (
-              <div className="p-3 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-error" />
-                <span>[!] {errors.form}</span>
+              <div
+                className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                role="alert"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span>{errors.form}</span>
               </div>
             )}
 
-            <div className="space-y-4">
+            <Input
+              label="Operative Handle"
+              type="text"
+              name="username"
+              placeholder="e.g. cyberwarrior"
+              value={form.username}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('username', e.target.value)}
+              onBlur={() => touch('username')}
+              error={touched.username && errors.username ? errors.username : undefined}
+              required
+            />
+
+            <Input
+              label="Communication Email"
+              type="email"
+              name="email"
+              placeholder="operative@xploitverse.io"
+              value={form.email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
+              onBlur={() => touch('email')}
+              error={touched.email && errors.email ? errors.email : undefined}
+              required
+            />
+
+            <div className="grid gap-3.5 sm:grid-cols-2">
               <Input
-                label="Username"
-                type="text"
-                name="username"
-                placeholder="e.g. cyberwarrior"
-                value={form.username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('username', e.target.value)}
-                onBlur={() => touch('username')}
-                error={touched.username && errors.username ? errors.username : undefined}
+                label="Passkey"
+                type="password"
+                name="password"
+                placeholder="Min. 8 characters"
+                value={form.password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
+                onBlur={() => touch('password')}
+                error={touched.password && errors.password ? errors.password : undefined}
                 required
               />
 
               <Input
-                label="Email"
-                type="email"
-                name="email"
-                placeholder="operative@xploitverse.io"
-                value={form.email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
-                onBlur={() => touch('email')}
-                error={touched.email && errors.email ? errors.email : undefined}
+                label="Verify Passkey"
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm passkey"
+                value={form.confirmPassword}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
+                onBlur={() => touch('confirmPassword')}
+                error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
                 required
               />
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Input
-                  label="Password"
-                  type="password"
-                  name="password"
-                  placeholder="Min. 8 Characters"
-                  value={form.password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
-                  onBlur={() => touch('password')}
-                  error={touched.password && errors.password ? errors.password : undefined}
-                  required
-                />
-
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  name="confirmPassword"
-                  placeholder="Confirm Password"
-                  value={form.confirmPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
-                  onBlur={() => touch('confirmPassword')}
-                  error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
-                  required
-                />
-              </div>
             </div>
 
-            <div>
-              <label className="flex items-start gap-2.5 cursor-pointer text-muted hover:text-ink select-none text-xs font-mono">
+            <div className="pt-1">
+              <label className="flex cursor-pointer select-none items-start gap-2.5 text-xs text-fg-muted transition-colors hover:text-fg">
                 <input
                   type="checkbox"
                   checked={form.agree}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('agree', e.target.checked)}
-                  className="accent-accent w-4 h-4 rounded-none cursor-pointer mt-0.5"
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
                 />
-                <span className="text-[11px] leading-relaxed">
-                  I acknowledge operational rules & ethics agreements. Unauthorized intrusions outside lab parameters are strictly forbidden.
+                <span className="text-[11px] leading-relaxed text-fg-muted">
+                  I agree to follow operational rules and ethics policy. Intrusions outside designated challenge targets are strictly prohibited.
                 </span>
               </label>
               {touched.agree && errors.agree && (
-                <span className="text-xs text-error font-mono mt-1.5 flex items-center gap-1" role="alert">
-                  <AlertTriangle className="w-3 h-3" /> {errors.agree}
+                <span className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger" role="alert">
+                  <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.75} /> {errors.agree}
                 </span>
               )}
             </div>
 
-            <ScalePress scale={0.98}>
+            <div className="pt-2">
               <Button
                 type="submit"
                 variant="primary"
                 className="w-full"
                 isLoading={loading}
               >
-                EXECUTE REGISTRATION
+                Create Operative Account
+                <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
               </Button>
-            </ScalePress>
+            </div>
           </form>
 
-          <div className="mt-8 pt-5 border-t border-dashed border-border text-center text-xs text-muted">
-            <span>EXISTING CREDENTIALS FOUND? </span>
+          <div className="mt-6 border-t border-border pt-4 text-center text-xs text-fg-muted">
+            Existing credentials?{' '}
             <Link
               to="/login"
-              className="text-accent font-bold uppercase tracking-wider hover:underline underline-offset-4 decoration-dashed ml-1"
+              className="ml-1 font-semibold text-accent transition-colors hover:text-accent/80 hover:underline"
             >
-              [ AUTHENTICATE ]
+              Sign In
             </Link>
           </div>
-        </SpotlightCard>
+        </div>
       </FadeIn>
     </div>
   );

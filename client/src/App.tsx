@@ -13,6 +13,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/dashboard/Dashboard';
 import Profile from './pages/dashboard/Profile';
+import Pricing from './pages/dashboard/Pricing';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import LabWorkspace from './pages/LabWorkspace';
 import CourseCatalog from './pages/courses/CourseCatalog';
@@ -35,20 +36,23 @@ function App() {
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#1a1a2e',
-              color: '#fff',
-              border: '1px solid #00ff88',
+              background: '#FBFAF6',
+              color: '#1B1A17',
+              border: '1px solid #DAD6CB',
+              fontSize: '14px',
+              borderRadius: '8px',
+              boxShadow: '0 16px 40px -16px rgba(20,20,26,.18)',
             },
             success: {
               iconTheme: {
-                primary: '#00ff88',
-                secondary: '#1a1a2e',
+                primary: '#15A34A',
+                secondary: '#FBFAF6',
               },
             },
             error: {
               iconTheme: {
-                primary: '#ff4444',
-                secondary: '#1a1a2e',
+                primary: '#DC2626',
+                secondary: '#FBFAF6',
               },
             },
           }}
@@ -67,6 +71,7 @@ function App() {
               {/* Student Dashboard */}
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/pricing" element={<Pricing />} />
 
               {/* Course Content */}
               <Route path="/courses" element={<CourseCatalog />} />

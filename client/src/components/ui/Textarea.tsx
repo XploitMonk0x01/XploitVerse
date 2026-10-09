@@ -6,6 +6,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   hint?: string;
   error?: string;
   showCharCount?: boolean;
+  mono?: boolean;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
@@ -18,6 +19,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       rows = 4,
       showCharCount = false,
       maxLength,
+      mono = false,
       className = '',
       id,
       disabled,
@@ -25,7 +27,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       defaultValue,
       ...props
     },
-    ref
+    ref,
   ) => {
     const generatedId = useId();
     const textareaId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : generatedId);
@@ -39,20 +41,19 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const charCount = maxLength ? `${valueLength} / ${maxLength}` : undefined;
 
     return (
-      <div className="flex flex-col gap-1.5 w-full font-mono">
+      <div className="flex w-full flex-col gap-1.5">
         {label && (
           <label
             htmlFor={textareaId}
             id={labelId}
             className={cn(
-              'text-xs font-bold uppercase tracking-wider text-muted flex items-center justify-between',
-              required && 'required'
+              'flex items-center justify-between text-sm font-medium text-fg-muted',
+              required && 'required',
             )}
           >
             <span>
-              <span className="text-accent mr-1.5">#</span>
               {label}
-              {required && <span className="text-accent ml-1">*</span>}
+              {required && <span className="ml-0.5 text-accent">*</span>}
             </span>
           </label>
         )}
@@ -70,12 +71,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             defaultValue={defaultValue}
             required={required}
             className={cn(
-              'w-full bg-surface border text-ink placeholder:text-dim text-sm px-3.5 py-2.5 outline-none transition-all font-mono rounded-none resize-y',
+              'w-full resize-y rounded border bg-bg-raised px-3 py-2 text-sm text-fg outline-none transition-colors duration-150 ease-tactical',
+              'placeholder:text-fg-subtle',
+              mono && 'font-mono',
               error
-                ? 'border-error text-error focus:border-error focus:ring-1 focus:ring-error/40'
-                : 'border-border hover:border-muted focus:border-cyan focus:bg-paper',
-              'disabled:bg-subtle disabled:text-dim disabled:border-dashed disabled:cursor-not-allowed',
-              className
+                ? 'border-danger focus:border-danger'
+                : 'border-border hover:border-border-strong focus:border-accent',
+              'disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-bg-overlay disabled:text-fg-subtle',
+              className,
             )}
             {...props}
           />
@@ -83,7 +86,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {showCharCount && maxLength && (
             <div
               id={countId}
-              className="absolute bottom-2 right-2 text-[10px] text-dim font-mono tracking-wide"
+              className="absolute bottom-2 right-2 text-xs text-fg-subtle"
               aria-live="polite"
             >
               {charCount}
@@ -92,19 +95,23 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         </div>
 
         {error && (
-          <p id={errorId} role="alert" className="text-[11px] font-bold text-error uppercase tracking-wider flex items-center gap-1 mt-0.5">
-            <span>[ERR]:</span> {error}
+          <p
+            id={errorId}
+            role="alert"
+            className="flex items-center gap-1 text-xs font-medium text-danger"
+          >
+            {error}
           </p>
         )}
 
         {!error && hint && (
-          <p id={hintId} className="text-[11px] text-dim font-mono tracking-wide mt-0.5">
-            // {hint}
+          <p id={hintId} className="text-xs text-fg-subtle">
+            {hint}
           </p>
         )}
       </div>
     );
-  }
+  },
 );
 
 Textarea.displayName = 'Textarea';

@@ -11,44 +11,37 @@ export interface AlertProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export const Alert = forwardRef<HTMLDivElement, AlertProps>(
-  ({ className, variant = 'default', title, dismissible = false, onDismiss, icon, children, ...props }, ref) => {
+  (
+    { className, variant = 'default', title, dismissible = false, onDismiss, icon, children, ...props },
+    ref,
+  ) => {
     const variantStyles = {
       default: {
-        bg: 'bg-surface',
-        border: 'border-border',
-        text: 'text-ink',
-        iconColor: 'text-muted',
-        iconBg: 'bg-dim/20',
+        container: 'bg-bg-raised border-border text-fg',
+        iconColor: 'text-fg-muted',
+        iconBg: 'bg-bg-overlay',
         defaultIcon: Info,
       },
       success: {
-        bg: 'bg-success/10',
-        border: 'border-success',
-        text: 'text-success',
+        container: 'bg-success/10 border-success/30 text-fg',
         iconColor: 'text-success',
-        iconBg: 'bg-success-dim',
+        iconBg: 'bg-success/10',
         defaultIcon: CheckCircle,
       },
       warning: {
-        bg: 'bg-warning/10',
-        border: 'border-warning',
-        text: 'text-warning',
-        iconColor: 'text-warning',
-        iconBg: 'bg-warning/10',
+        container: 'bg-warn/10 border-warn/30 text-fg',
+        iconColor: 'text-warn',
+        iconBg: 'bg-warn/10',
         defaultIcon: AlertTriangle,
       },
       error: {
-        bg: 'bg-error/10',
-        border: 'border-error',
-        text: 'text-error',
-        iconColor: 'text-error',
-        iconBg: 'bg-error/10',
+        container: 'bg-danger/10 border-danger/30 text-fg',
+        iconColor: 'text-danger',
+        iconBg: 'bg-danger/10',
         defaultIcon: AlertCircle,
       },
       info: {
-        bg: 'bg-info/10',
-        border: 'border-info',
-        text: 'text-info',
+        container: 'bg-info/10 border-info/30 text-fg',
         iconColor: 'text-info',
         iconBg: 'bg-info/10',
         defaultIcon: Info,
@@ -61,42 +54,37 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
       <div
         ref={ref}
         role="alert"
-        className={cn(
-          'flex gap-3 p-4 border rounded-none font-mono',
-          variantStyles.bg,
-          variantStyles.border,
-          variantStyles.text,
-          className
-        )}
+        className={cn('flex gap-3 rounded-md border p-4', variantStyles.container, className)}
         {...props}
       >
-        <div className={cn('w-8 h-8 flex items-center justify-center rounded-none flex-shrink-0', variantStyles.iconBg)}>
+        <div
+          className={cn(
+            'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md',
+            variantStyles.iconBg,
+          )}
+        >
           {icon ? (
-            <span className={cn('w-5 h-5', variantStyles.iconColor)}>{icon}</span>
+            <span className={cn('h-5 w-5', variantStyles.iconColor)}>{icon}</span>
           ) : (
-            <DefaultIcon className={cn('w-5 h-5', variantStyles.iconColor)} />
+            <DefaultIcon className={cn('h-5 w-5', variantStyles.iconColor)} />
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          {title && (
-            <h4 className="text-sm font-bold uppercase tracking-wider mb-1">
-              {title}
-            </h4>
-          )}
-          <div className="text-xs leading-relaxed">{children}</div>
+        <div className="min-w-0 flex-1">
+          {title && <h4 className="mb-1 text-sm font-semibold text-fg">{title}</h4>}
+          <div className="text-sm leading-relaxed text-fg-muted">{children}</div>
         </div>
         {dismissible && (
           <button
             onClick={onDismiss}
-            className="p-1 text-current/50 hover:text-current transition-opacity flex-shrink-0"
+            className="flex-shrink-0 self-start rounded p-1 text-fg-subtle transition-colors hover:text-fg"
             aria-label="Dismiss alert"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
     );
-  }
+  },
 );
 
 Alert.displayName = 'Alert';

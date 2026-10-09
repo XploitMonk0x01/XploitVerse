@@ -24,7 +24,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       onChange,
       ...props
     },
-    ref
+    ref,
   ) => {
     const [showPassword, setShowPassword] = useState(false);
     const [strength, setStrength] = useState<'weak' | 'medium' | 'strong' | null>(null);
@@ -45,24 +45,23 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     };
 
     return (
-      <div className="flex flex-col gap-1.5 w-full font-mono">
+      <div className="flex w-full flex-col gap-1.5">
         {label && (
           <label
             htmlFor={inputId}
             className={cn(
-              'text-xs font-bold uppercase tracking-wider text-muted flex items-center justify-between',
-              required && 'required'
+              'flex items-center justify-between text-sm font-medium text-fg-muted',
+              required && 'required',
             )}
           >
             <span>
-              <span className="text-accent mr-1.5">#</span>
               {label}
-              {required && <span className="text-accent ml-1">*</span>}
+              {required && <span className="ml-0.5 text-accent">*</span>}
             </span>
           </label>
         )}
 
-        <div className="relative flex items-center w-full">
+        <div className="relative flex w-full items-center">
           <input
             ref={ref}
             id={inputId}
@@ -70,12 +69,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             aria-invalid={Boolean(error)}
             autoComplete="current-password"
             className={cn(
-              'w-full bg-surface border text-ink placeholder:text-dim text-sm px-3.5 py-2.5 outline-none transition-all font-mono rounded-none pr-10',
+              'h-9 w-full rounded border bg-bg-raised px-3 pr-10 text-sm text-fg outline-none transition-colors duration-150 ease-tactical',
+              'placeholder:text-fg-subtle',
               error
-                ? 'border-error text-error focus:border-error focus:ring-1 focus:ring-error/40'
-                : 'border-border hover:border-muted focus:border-cyan focus:bg-paper',
-              'disabled:bg-subtle disabled:text-dim disabled:border-dashed disabled:cursor-not-allowed',
-              className
+                ? 'border-danger focus:border-danger'
+                : 'border-border hover:border-border-strong focus:border-accent',
+              'disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-bg-overlay disabled:text-fg-subtle',
+              className,
             )}
             onChange={handleChange}
             required={required}
@@ -85,48 +85,64 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           <button
             type="button"
             onClick={toggleVisibility}
-            className="absolute right-3 text-muted hover:text-ink transition-colors"
+            className="absolute right-3 text-fg-subtle transition-colors hover:text-fg"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword}
           >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
 
         {error && (
-          <p role="alert" className="text-[11px] font-bold text-error uppercase tracking-wider flex items-center gap-1 mt-0.5">
-            <span>[ERR]:</span> {error}
+          <p role="alert" className="flex items-center gap-1 text-xs font-medium text-danger">
+            {error}
           </p>
         )}
 
-        {!error && hint && (
-          <p className="text-[11px] text-dim font-mono tracking-wide mt-0.5">
-            // {hint}
-          </p>
-        )}
+        {!error && hint && <p className="text-xs text-fg-subtle">{hint}</p>}
 
         {showStrength && (
           <div className="mt-1.5 space-y-1" role="status" aria-live="polite">
-            <div className="flex items-center gap-1.5">
-              <div className="flex gap-1 h-1.5 flex-1" role="progressbar" aria-valuenow={strength ? (strength === 'weak' ? 33 : strength === 'medium' ? 66 : 100) : 0} aria-valuemin={0} aria-valuemax={100} aria-label="Password strength">
-                <div className={cn('flex-1 h-full transition-colors', strength === 'weak' || strength === 'medium' || strength === 'strong' ? 'bg-error' : 'bg-border') } />
-                <div className={cn('flex-1 h-full transition-colors', strength === 'medium' || strength === 'strong' ? 'bg-warning' : 'bg-border') } />
-                <div className={cn('flex-1 h-full transition-colors', strength === 'strong' ? 'bg-success' : 'bg-border') } />
+            <div className="flex items-center gap-2">
+              <div
+                className="flex h-1.5 flex-1 gap-1"
+                role="progressbar"
+                aria-valuenow={strength ? (strength === 'weak' ? 33 : strength === 'medium' ? 66 : 100) : 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Password strength"
+              >
+                <div
+                  className={cn(
+                    'h-full flex-1 rounded-full transition-colors',
+                    strength ? 'bg-danger' : 'bg-border',
+                  )}
+                />
+                <div
+                  className={cn(
+                    'h-full flex-1 rounded-full transition-colors',
+                    strength === 'medium' || strength === 'strong' ? 'bg-warn' : 'bg-border',
+                  )}
+                />
+                <div
+                  className={cn(
+                    'h-full flex-1 rounded-full transition-colors',
+                    strength === 'strong' ? 'bg-accent' : 'bg-border',
+                  )}
+                />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-dim">
+              <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
                 {strength ? strength.toUpperCase() : 'ENTER_PASSWORD'}
               </span>
             </div>
             {strength && (
-              <p className="text-[10px] text-muted font-mono">
-                {getStrengthMessage(strength, minLength)}
-              </p>
+              <p className="text-xs text-fg-muted">{getStrengthMessage(strength, minLength)}</p>
             )}
           </div>
         )}
       </div>
     );
-  }
+  },
 );
 
 function calculateStrength(password: string): 'weak' | 'medium' | 'strong' | null {

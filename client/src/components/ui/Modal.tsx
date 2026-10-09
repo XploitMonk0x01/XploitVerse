@@ -53,7 +53,7 @@ export const Modal = ({
       }
       if (e.key === 'Tab') {
         const focusableElements = contentRef.current?.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         if (focusableElements && focusableElements.length > 0) {
           const firstElement = focusableElements[0];
@@ -85,7 +85,7 @@ export const Modal = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -93,7 +93,7 @@ export const Modal = ({
     >
       <div
         ref={overlayRef}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 animate-fade-in bg-black/60"
         onClick={closeOnOverlayClick ? onClose : undefined}
         aria-hidden="true"
       />
@@ -101,22 +101,22 @@ export const Modal = ({
         ref={contentRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full bg-surface border border-border shadow-md animate-in fade-in zoom-in-95 duration-150',
+          'relative w-full animate-fade-up rounded-lg border border-border bg-bg-raised shadow-pop outline-none',
           sizeClasses,
-          className
+          className,
         )}
         {...props}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-start justify-between gap-4 p-5 border-b border-border">
+          <div className="flex items-start justify-between gap-4 border-b border-border-subtle p-5">
             <div className="flex-1">
               {title && (
-                <h2 id="modal-title" className="text-sm font-display font-bold text-ink uppercase tracking-tight">
+                <h2 id="modal-title" className="text-lg font-semibold tracking-tight text-fg">
                   {title}
                 </h2>
               )}
               {description && (
-                <p id="modal-description" className="text-xs text-muted mt-1 font-mono">
+                <p id="modal-description" className="mt-1 text-sm text-fg-muted">
                   {description}
                 </p>
               )}
@@ -124,10 +124,10 @@ export const Modal = ({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-1.5 text-muted hover:text-ink hover:bg-surface transition-colors rounded-none"
+                className="rounded p-1.5 text-fg-subtle transition-colors hover:bg-bg-overlay hover:text-fg"
                 aria-label="Close modal"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>

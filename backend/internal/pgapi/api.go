@@ -1,6 +1,7 @@
 package pgapi
 
 import (
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,8 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 	}
 	authLimiter := baseMiddleware.NewRateLimiter(authMax, 15*time.Minute)
 
+	ensureBillingSchema(context.Background(), db)
+
 	v1 := r.Group("/api")
 
 	authGroup := v1.Group("/auth")
@@ -47,6 +50,7 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 	usersGroup.Use(auth)
 	{
 		usersGroup.GET("/me/progress", api.GetMyProgress)
+		usersGroup.GET("/me/activity", api.GetMyActivity)
 	}
 
 	coursesGroup := v1.Group("/courses")
@@ -106,5 +110,17 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 		labsGroup.GET("/active-session", api.GetActiveSession)
 		labsGroup.GET("/session/:sessionId/status", api.GetLegacySessionStatus)
 		labsGroup.POST("/session/:sessionId/provision", api.CompleteProvisioning)
+	}
+
+	// Billing / subscriptions (Razorpay).
+	billingGroup := v1.Group("/billing")
+	{
+		billingGroup.GET("/plans", api.GetPlans)
+		billingGroup.POST("/webhook", api.RazorpayWebhook)
+		billingGroup.GET("/status", auth, api.GetSubscriptionStatus)
+		billingGroup.POST("/subscribe", auth, api.CreateSubscription)
+		billingGroup.POST("/verify", auth, api.VerifySubscriptionPayment)
+		billingGroup.POST("/cancel", auth, api.CancelSubscription)
+		billingGroup.POST("/rooms/:roomId/premium", auth, api.SetRoomPremium)
 	}
 }

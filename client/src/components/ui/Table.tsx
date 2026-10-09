@@ -6,14 +6,18 @@ export interface TableProps extends HTMLAttributes<HTMLTableElement> {
   size?: 'sm' | 'md' | 'lg';
 }
 
+const alignClasses = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+} as const;
+
 export const Table = forwardRef<HTMLTableElement, TableProps>(
   ({ className, variant = 'default', size = 'md', children, ...props }, ref) => {
-    const baseClasses = 'w-full font-mono border-collapse';
-
     const sizeClasses = {
-      sm: 'text-[10px]',
-      md: 'text-xs',
-      lg: 'text-sm',
+      sm: 'text-xs',
+      md: 'text-sm',
+      lg: 'text-base',
     }[size];
 
     const variantClasses = {
@@ -23,17 +27,17 @@ export const Table = forwardRef<HTMLTableElement, TableProps>(
     }[variant];
 
     return (
-      <div className="overflow-x-auto w-full">
+      <div className="w-full overflow-x-auto">
         <table
           ref={ref}
-          className={cn(baseClasses, sizeClasses, variantClasses, className)}
+          className={cn('w-full border-collapse', sizeClasses, variantClasses, className)}
           {...props}
         >
           {children}
         </table>
       </div>
     );
-  }
+  },
 );
 
 Table.displayName = 'Table';
@@ -42,10 +46,14 @@ export interface TableHeaderProps extends HTMLAttributes<HTMLTableSectionElement
 
 export const TableHeader = forwardRef<HTMLTableSectionElement, TableHeaderProps>(
   ({ className, children, ...props }, ref) => (
-    <thead ref={ref} className={cn('border-b border-border bg-paper/60 text-[10px] text-muted tracking-[0.12em] uppercase', className)} {...props}>
+    <thead
+      ref={ref}
+      className={cn('border-b border-border bg-bg-overlay text-xs text-fg-subtle', className)}
+      {...props}
+    >
       {children}
     </thead>
-  )
+  ),
 );
 
 TableHeader.displayName = 'TableHeader';
@@ -54,10 +62,10 @@ export interface TableBodyProps extends HTMLAttributes<HTMLTableSectionElement> 
 
 export const TableBody = forwardRef<HTMLTableSectionElement, TableBodyProps>(
   ({ className, children, ...props }, ref) => (
-    <tbody ref={ref} className={cn('divide-y divide-border', className)} {...props}>
+    <tbody ref={ref} className={cn('divide-y divide-border-subtle', className)} {...props}>
       {children}
     </tbody>
-  )
+  ),
 );
 
 TableBody.displayName = 'TableBody';
@@ -68,10 +76,14 @@ export interface TableRowProps extends HTMLAttributes<HTMLTableRowElement> {
 
 export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
   ({ className, hover = true, children, ...props }, ref) => (
-    <tr ref={ref} className={cn('font-mono transition-colors', hover && 'hover:bg-paper/40', className)} {...props}>
+    <tr
+      ref={ref}
+      className={cn('transition-colors duration-150 ease-tactical', hover && 'hover:bg-bg-raised', className)}
+      {...props}
+    >
       {children}
     </tr>
-  )
+  ),
 );
 
 TableRow.displayName = 'TableRow';
@@ -85,13 +97,17 @@ export const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
   ({ className, align = 'left', width, children, ...props }, ref) => (
     <th
       ref={ref}
-      className={cn('px-5 py-3 text-left font-bold', align !== 'left' && `text-${align}`, width && `w-[${width}]`, className)}
+      className={cn(
+        'px-4 py-2.5 font-medium uppercase tracking-wide',
+        alignClasses[align],
+        className,
+      )}
       style={{ width }}
       {...props}
     >
       {children}
     </th>
-  )
+  ),
 );
 
 TableHead.displayName = 'TableHead';
@@ -102,15 +118,21 @@ export interface TableCellProps extends HTMLAttributes<HTMLTableCellElement> {
 }
 
 export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
-  ({ className, align = 'left', fontMono = true, children, ...props }, ref) => (
+  ({ className, align = 'left', fontMono = false, children, ...props }, ref) => (
     <td
       ref={ref}
-      className={cn('px-5 py-3.5', align !== 'left' && `text-${align}`, fontMono && 'font-mono', className)}
+      className={cn(
+        'px-4 py-3 text-fg',
+        alignClasses[align],
+        align === 'right' && 'tabular-nums',
+        fontMono && 'font-mono',
+        className,
+      )}
       {...props}
     >
       {children}
     </td>
-  )
+  ),
 );
 
 TableCell.displayName = 'TableCell';
@@ -119,10 +141,14 @@ export interface TableFooterProps extends HTMLAttributes<HTMLTableSectionElement
 
 export const TableFooter = forwardRef<HTMLTableSectionElement, TableFooterProps>(
   ({ className, children, ...props }, ref) => (
-    <tfoot ref={ref} className={cn('border-t border-border bg-paper/40 text-[10px] text-dim tracking-wider uppercase', className)} {...props}>
+    <tfoot
+      ref={ref}
+      className={cn('border-t border-border bg-bg-overlay text-xs text-fg-subtle', className)}
+      {...props}
+    >
       {children}
     </tfoot>
-  )
+  ),
 );
 
 TableFooter.displayName = 'TableFooter';

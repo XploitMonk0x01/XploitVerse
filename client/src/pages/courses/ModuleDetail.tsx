@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { LoadingSpinner, EmptyState } from "../../components/ui";
 import {
-  SpotlightCard,
-  DecryptedText,
-  TacticalBadge,
-  StaggerContainer,
-  FadeIn,
-  ScalePress,
-} from "../../components/ui/motion";
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SkeletonCard,
+  Stat,
+  Badge,
+} from "../../components/ui";
+import { StaggerContainer, FadeIn } from "../../components/ui/motion";
 import { moduleService } from "../../services";
-import { ChevronRight, ArrowLeft, Target, Award } from "lucide-react";
+import { ChevronRight, ListChecks, Award, FolderOpen } from "lucide-react";
 import type { Module, Task } from "../../types";
 
 export const ModuleDetail = () => {
@@ -33,9 +34,7 @@ export const ModuleDetail = () => {
         }
       } catch (e: unknown) {
         if (!cancelled)
-          setError(
-            e instanceof Error ? e.message : "Failed to load tactical module"
-          );
+          setError(e instanceof Error ? e.message : "Failed to load module");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -48,8 +47,9 @@ export const ModuleDetail = () => {
 
   if (loading) {
     return (
-      <div className="py-24">
-        <LoadingSpinner message="ANALYZING_MODULE_OPERATIONS" />
+      <div className="mx-auto max-w-content space-y-6">
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     );
   }
@@ -57,139 +57,99 @@ export const ModuleDetail = () => {
   const totalPoints = tasks.reduce((acc, t) => acc + (t.points || 0), 0);
 
   return (
-    <StaggerContainer className="max-w-5xl mx-auto space-y-8 font-mono">
-      {/* Return Link */}
+    <StaggerContainer className="mx-auto max-w-content space-y-6">
       <FadeIn>
-        <div>
-          <Link
-            to="/courses"
-            className="inline-flex items-center gap-2 text-xs font-bold text-muted hover:text-accent uppercase tracking-wider transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>[ // BACK_TO_MISSION ]</span>
-          </Link>
-        </div>
+        <PageHeader
+          title={module?.title || "Module"}
+          subtitle={module?.description}
+          backLink={{ href: "/courses", label: "Back to course" }}
+          badge={{ label: `Module ${module?.order || 1}`, variant: "neutral" }}
+        />
       </FadeIn>
 
-      {error && (
+      {error ? (
         <FadeIn>
-          <div className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-widest">
-            [ERR]: {error}
-          </div>
+          <ErrorState error={error} title="Could not load module" />
         </FadeIn>
-      )}
-
-      {!module ? (
+      ) : !module ? (
         <FadeIn>
           <EmptyState
-            title="MODULE_NOT_FOUND"
-            description="The requested operation block is unindexed."
+            icon={<FolderOpen className="h-5 w-5" strokeWidth={1.75} />}
+            title="Module not found"
+            description="This module is not available, or it has been removed from the course."
           />
         </FadeIn>
       ) : (
         <>
-          {/* Module Banner Card */}
           <FadeIn>
-            <SpotlightCard
-              spotlightColor="rgba(0, 230, 153, 0.12)"
-              className="bg-surface border border-border p-6 sm:p-8 shadow-sm relative overflow-hidden"
-            >
-              <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-              <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-              <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-              <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2 h-2 bg-accent inline-block animate-pulse" />
-                <span className="text-xs font-bold text-accent tracking-widest uppercase">
-                  [ MODULE // SEQUENCE_0{module.order || 1} ]
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-4xl font-display font-black text-ink uppercase tracking-wider mb-3">
-                <DecryptedText text={module.title} animateOn="view" speed={30} />
-              </h1>
-
-              {module.description && (
-                <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-3xl mb-6">
-                  {module.description}
-                </p>
-              )}
-
-              {/* Sub-Metrics */}
-              <div className="flex flex-wrap items-center gap-4 text-xs border-t border-border pt-4 text-dim uppercase">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted font-bold">TOTAL_TASKS:</span>
-                  <TacticalBadge variant="neutral" size="sm">
-                    {tasks.length}
-                  </TacticalBadge>
-                </div>
-                <span>::</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted font-bold">ACCUMULATIVE_POINTS:</span>
-                  <TacticalBadge variant="cyan" size="sm">
-                    <Award className="w-3 h-3 mr-1 inline" />+{totalPoints} PTS
-                  </TacticalBadge>
-                </div>
-              </div>
-            </SpotlightCard>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Stat
+                label="Tasks"
+                value={tasks.length}
+                icon={<ListChecks className="h-4 w-4" strokeWidth={1.75} />}
+                tone="accent"
+              />
+              <Stat
+                label="Points available"
+                value={`+${totalPoints} PTS`}
+                icon={<Award className="h-4 w-4" strokeWidth={1.75} />}
+              />
+            </div>
           </FadeIn>
 
-          {/* Tasks Execution Matrix */}
-          <FadeIn delay={0.1}>
-            <div className="bg-surface border border-border p-6 shadow-sm relative">
-              <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-accent" />
-                  <h2 className="text-sm font-display font-bold text-ink uppercase tracking-wider">
-                    MISSION_TASKS
-                  </h2>
-                </div>
-                <span className="text-[10px] text-muted tracking-widest uppercase">
-                  COUNT: {tasks.length}
+          <FadeIn>
+            <Card padding="lg">
+              <div className="mb-4 flex items-center gap-2 border-b border-border-subtle pb-4">
+                <ListChecks className="h-4 w-4 text-accent" strokeWidth={1.75} />
+                <h2 className="text-sm font-semibold text-fg">Tasks</h2>
+                <span className="ml-auto text-xs text-fg-subtle">
+                  {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
                 </span>
               </div>
 
               {tasks.length === 0 ? (
-                <p className="text-xs text-muted">No individual tasks registered for this sequence.</p>
+                <p className="text-sm text-fg-muted">
+                  No individual tasks registered in this module yet.
+                </p>
               ) : (
-                <div className="space-y-3">
+                <ul className="space-y-3">
                   {tasks.map((task, idx) => (
-                    <ScalePress key={task.id} scale={0.99}>
+                    <li key={task.id}>
                       <Link
                         to={`/tasks/${task.id}`}
-                        className="flex items-center justify-between gap-4 p-4 bg-paper border border-border hover:border-accent group transition-all duration-200 relative overflow-hidden"
+                        className="group flex items-center justify-between gap-4 rounded-md border border-border-subtle bg-bg-overlay/60 p-4 transition-colors hover:border-accent hover:bg-accent/5"
                       >
-                        <div className="flex items-center gap-4 min-w-0">
-                          <span className="text-xs font-bold text-dim group-hover:text-accent w-7 shrink-0 font-mono">
-                            [{String(task.order ?? idx + 1).padStart(2, "0")}]
+                        <div className="flex min-w-0 items-center gap-4">
+                          <span className="w-6 shrink-0 font-mono text-xs text-fg-subtle group-hover:text-accent">
+                            {String(task.order ?? idx + 1).padStart(2, "0")}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-bold text-ink group-hover:text-accent transition-colors uppercase truncate">
+                            <p className="truncate text-sm font-medium text-fg transition-colors group-hover:text-accent">
                               {task.title}
                             </p>
                             {task.prompt && (
-                              <p className="text-[11px] text-muted truncate mt-1">
+                              <p className="mt-1 truncate text-xs text-fg-muted">
                                 {task.prompt}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0">
-                          <TacticalBadge variant="cyan" size="sm">
+                        <div className="flex shrink-0 items-center gap-3">
+                          <Badge variant="info" size="sm">
                             +{task.points || 0} PTS
-                          </TacticalBadge>
-                          <div className="w-7 h-7 bg-surface border border-border flex items-center justify-center group-hover:border-accent group-hover:bg-accent/10 transition-colors">
-                            <ChevronRight className="w-4 h-4 text-dim group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
-                          </div>
+                          </Badge>
+                          <ChevronRight
+                            className="h-4 w-4 text-fg-subtle transition-all group-hover:translate-x-0.5 group-hover:text-accent"
+                            strokeWidth={1.75}
+                          />
                         </div>
                       </Link>
-                    </ScalePress>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
-            </div>
+            </Card>
           </FadeIn>
         </>
       )}

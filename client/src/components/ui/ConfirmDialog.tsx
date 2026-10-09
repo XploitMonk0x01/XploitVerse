@@ -33,24 +33,21 @@ export const ConfirmDialog = ({
   const variantStyles = {
     danger: {
       icon: AlertTriangle,
-      iconColor: 'text-error',
-      borderColor: 'border-error/30',
-      confirmClass: 'bg-error hover:bg-error/90 border-error text-paper',
-      iconBg: 'bg-error/10',
+      iconColor: 'text-danger',
+      iconBg: 'bg-danger/10',
+      confirmClass: 'bg-danger text-white hover:bg-danger/90',
     },
     warning: {
       icon: AlertTriangle,
-      iconColor: 'text-warning',
-      borderColor: 'border-warning/30',
-      confirmClass: 'bg-warning hover:bg-warning/90 border-warning text-paper',
-      iconBg: 'bg-warning/10',
+      iconColor: 'text-warn',
+      iconBg: 'bg-warn/10',
+      confirmClass: 'bg-warn text-bg-base hover:bg-warn/90',
     },
     info: {
       icon: CheckCircle,
       iconColor: 'text-info',
-      borderColor: 'border-info/30',
-      confirmClass: 'bg-info hover:bg-info/90 border-info text-paper',
       iconBg: 'bg-info/10',
+      confirmClass: 'bg-info text-bg-base hover:bg-info/90',
     },
   }[variant];
 
@@ -69,25 +66,25 @@ export const ConfirmDialog = ({
     >
       <div className="space-y-5">
         <div className="flex items-start gap-3">
-          <div className={cn('w-10 h-10 flex items-center justify-center rounded-none flex-shrink-0', variantStyles.iconBg, variantStyles.borderColor)}>
-            <Icon className={cn('w-5 h-5', variantStyles.iconColor)} />
+          <div
+            className={cn(
+              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md',
+              variantStyles.iconBg,
+            )}
+          >
+            <Icon className={cn('h-5 w-5', variantStyles.iconColor)} />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-ink font-mono leading-relaxed">{message}</p>
+            <p className="text-sm leading-relaxed text-fg-muted">{message}</p>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onClose}
-            disabled={isLoading}
-          >
+        <div className="flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
+          <Button variant="secondary" size="md" onClick={onClose} disabled={isLoading}>
             {cancelText}
           </Button>
           <Button
             variant={variant === 'danger' ? 'danger' : 'primary'}
-            size="sm"
+            size="md"
             onClick={onConfirm}
             isLoading={isLoading}
             disabled={isLoading}

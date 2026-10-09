@@ -11,6 +11,7 @@ import type {
   LabSessionDetailResponse,
   LabsListResponse,
   LabDetailResponse,
+  ActivitySummary,
   CoursesListResponse,
   CourseDetailResponse,
   ModuleDetailResponse,
@@ -52,6 +53,7 @@ export const authService = {
 export const userService = {
   updateProfile: (data: Partial<User>) => apiClient.put<{ success: boolean; message: string; data: User }>('/users/profile', data),
   getMyProgress: () => apiClient.get<{ progress: Array<{ taskId: string; state: string; startedAt: string; completedAt?: string; attempts: number; pointsEarned: number }>; summary: { completedTasks: number; totalPoints: number } }>('/users/me/progress'),
+  getMyActivity: () => apiClient.get<ActivitySummary>('/users/me/activity'),
 };
 
 export const labSessionService = {

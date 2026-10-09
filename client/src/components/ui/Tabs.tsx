@@ -90,9 +90,10 @@ export const TabList = ({
       role="tablist"
       className={cn(
         'flex gap-1',
+        variant === 'default' && 'rounded-md border border-border-subtle bg-bg-raised p-1',
         variant === 'underline' && 'border-b border-border',
-        variant === 'pills' && 'bg-surface p-1 rounded-none',
-        className
+        variant === 'pills' && 'gap-2',
+        className,
       )}
       {...props}
     >
@@ -124,24 +125,27 @@ export const Tab = ({
     if (!disabled && onTabClick) onTabClick(value);
   };
 
+  const base = 'px-3 py-1.5 text-sm font-medium transition-colors duration-150 ease-tactical';
+
   const variantStyles: Record<'default' | 'underline' | 'pills', string> = {
     default: cn(
-      'px-4 py-2 text-sm font-bold uppercase tracking-wider transition-all font-mono rounded-none',
+      base,
+      'rounded',
       isActive
-        ? 'bg-accent text-paper border-accent shadow-accent'
-        : 'bg-transparent text-muted hover:text-ink hover:bg-surface border-transparent'
+        ? 'bg-bg-overlay text-fg shadow-card'
+        : 'text-fg-muted hover:bg-bg-overlay/50 hover:text-fg',
     ),
     underline: cn(
-      'px-4 py-2 text-sm font-bold uppercase tracking-wider transition-all font-mono border-b-2 -mb-px rounded-none',
-      isActive
-        ? 'text-accent border-accent'
-        : 'text-muted hover:text-ink border-transparent'
+      base,
+      '-mb-px border-b-2',
+      isActive ? 'border-accent text-accent' : 'border-transparent text-fg-muted hover:text-fg',
     ),
     pills: cn(
-      'px-4 py-2 text-sm font-bold uppercase tracking-wider transition-all font-mono rounded-none',
+      base,
+      'rounded-full',
       isActive
-        ? 'bg-accent text-paper shadow-accent'
-        : 'bg-transparent text-muted hover:text-ink hover:bg-surface'
+        ? 'bg-accent text-accent-fg'
+        : 'border border-border text-fg-muted hover:border-border-strong hover:text-fg',
     ),
   };
 
@@ -154,7 +158,11 @@ export const Tab = ({
       value={value}
       onClick={handleClick}
       disabled={disabled}
-      className={cn(variantStyles[variant], disabled && 'opacity-40 cursor-not-allowed', className)}
+      className={cn(
+        variantStyles[variant],
+        disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-fg-muted',
+        className,
+      )}
       {...props}
     >
       {children}
@@ -172,11 +180,7 @@ export const TabPanel = ({
   if (!isActive) return null;
 
   return (
-    <div
-      role="tabpanel"
-      className={cn('mt-4 animate-in fade-in duration-150', className)}
-      {...props}
-    >
+    <div role="tabpanel" className={cn('mt-4 animate-fade-in', className)} {...props}>
       {children}
     </div>
   );

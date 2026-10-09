@@ -67,6 +67,10 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 		return
 	}
 
+	if !a.requirePremiumAccess(c, roomID) {
+		return
+	}
+
 	status := "pending"
 	var sessionID int64
 	now := time.Now()

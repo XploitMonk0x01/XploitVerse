@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
-  Terminal,
   BookOpen,
   Shield,
   Clock,
@@ -11,24 +10,17 @@ import {
   AlertTriangle,
   ChevronRight,
   ExternalLink,
-  Server,
   Loader2,
   PowerOff,
   Key,
   CheckCircle2,
   Send,
-  Globe,
-  RefreshCw,
-  Copy,
-  Check,
+  Info,
+  Lightbulb,
+  Link2,
 } from "lucide-react";
-import TerminalWindow from "../components/workspace/TerminalWindow";
-import {
-  BorderBeam,
-  DecryptedText,
-  TacticalBadge,
-  ScalePress,
-} from "../components/ui/motion";
+import EnvironmentWindow from "../components/workspace/EnvironmentWindow";
+import { Badge, difficultyVariant } from "../components/ui";
 import { labSessionService, labService, flagService } from "../services";
 import type { Lab, LabSession } from "../types";
 
@@ -44,15 +36,11 @@ const LabWorkspace = () => {
   const [loading, setLoading] = useState(true);
   const [terminating, setTerminating] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"terminal" | "webapp" | "guide">("terminal");
-  const [viewMode, setViewMode] = useState<"terminal" | "webapp">("terminal");
-  const [iframeKey, setIframeKey] = useState(0);
+  const [mobileView, setMobileView] = useState<"docs" | "env">("env");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [flagInput, setFlagInput] = useState("");
   const [submittingFlag, setSubmittingFlag] = useState(false);
   const [flagStatus, setFlagStatus] = useState<{ solved: boolean; message: string; points?: number } | null>(null);
-
-  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const isVulnApp = Boolean(
     lab?.title?.toLowerCase().includes("vulnerableapp") ||
@@ -73,14 +61,6 @@ const LabWorkspace = () => {
   }
   const hostUrl = computedHostUrl;
 
-  const handleCopyUrl = () => {
-    if (hostUrl) {
-      void navigator.clipboard.writeText(hostUrl);
-      setCopiedUrl(true);
-      setTimeout(() => setCopiedUrl(false), 2000);
-    }
-  };
-
   const handleFlagSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanFlag = flagInput.trim();
@@ -91,13 +71,13 @@ const LabWorkspace = () => {
     try {
       const res = await flagService.submit({ taskId: tId, flag: cleanFlag });
       if (res.alreadySolved) {
-        setFlagStatus({ solved: true, message: "Flag verified (already solved)!", points: res.pointsEarned });
+        setFlagStatus({ solved: true, message: "Flag verified (already solved).", points: res.pointsEarned });
       } else {
-        setFlagStatus({ solved: true, message: "Correct flag! Mission accomplished.", points: res.pointsEarned || 100 });
+        setFlagStatus({ solved: true, message: "Correct flag submitted.", points: res.pointsEarned || 100 });
       }
       setFlagInput("");
     } catch (err: unknown) {
-      let msg = "Incorrect flag. Try again!";
+      let msg = "That flag was not accepted. Try again.";
       if (err && typeof err === 'object' && 'response' in err) {
         const data = (err as { response?: { data?: { message?: string } } }).response?.data;
         if (data?.message) msg = data.message;
@@ -212,7 +192,7 @@ const LabWorkspace = () => {
 
     const provision = async () => {
       setProvisioning(true);
-      setLogs((prev) => [...prev, { type: "system", message: "── Provisioning target: docker build + spawn ──" }]);
+      setLogs((prev) => [...prev, { type: "system", message: "Provisioning target: building image and starting container…" }]);
       try {
         await labService.completeProvisioning(id);
       } catch (err: unknown) {
@@ -230,12 +210,12 @@ const LabWorkspace = () => {
           const next = String(detail.session?.status || "").toLowerCase();
           if (next === "running") {
             setSession(detail.session);
-            setLogs((prev) => [...prev, { type: "system", message: "── Target online ──" }]);
+            setLogs((prev) => [...prev, { type: "ready", message: "Target is online." }]);
             break;
           }
           if (next === "error" || next === "stopped" || next === "terminated") {
             setSession(detail.session);
-            setError("Lab failed to start. Terminate this session and try again.");
+            setError("The lab failed to start. End this session and try again.");
             break;
           }
         } catch {
@@ -274,7 +254,6 @@ const LabWorkspace = () => {
 
   // Handle terminal commands
   const handleTerminalCommand = useCallback((command: string) => {
-    // Append the echo immediately for responsiveness
     setLogs((prev) => [...prev, { type: "input", message: command }]);
 
     if (terminalWsRef.current && terminalWsRef.current.readyState === WebSocket.OPEN) {
@@ -321,7 +300,7 @@ const LabWorkspace = () => {
         setConnected(true);
         setLogs((prev) => [
           ...prev,
-          { type: "system", message: "── Terminal connected ──" },
+          { type: "system", message: "Terminal connected." },
           { type: "prompt", message: "$ " },
         ]);
       };
@@ -365,7 +344,7 @@ const LabWorkspace = () => {
   };
 
   const handleTerminate = async () => {
-    if (!window.confirm("Are you sure you want to terminate this lab session? All progress will be lost.")) {
+    if (!window.confirm("Terminate this lab session? Any unsaved progress will be lost.")) {
       return;
     }
     setTerminating(true);
@@ -374,7 +353,7 @@ const LabWorkspace = () => {
       navigate("/dashboard");
     } catch (err) {
       console.error("Failed to terminate lab:", err);
-      alert("Failed to terminate lab. Please try again.");
+      alert("Unable to terminate the lab. Please try again.");
       setTerminating(false);
     }
   };
@@ -385,14 +364,12 @@ const LabWorkspace = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center p-4" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
-        <div className="border border-border bg-surface p-8 w-full max-w-sm flex items-center justify-center shadow-[8px_8px_0px_rgba(0,0,0,0.2)]">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <span className="font-mono text-accent text-xs font-bold tracking-widest uppercase animate-pulse">
-              [ INITIALIZING_WORKSPACE ]
-            </span>
-            <Loader2 className="w-8 h-8 text-ink animate-spin" />
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-bg-base">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-accent" />
+          <span className="font-mono text-xs uppercase tracking-widest text-fg-subtle">
+            Preparing workspace
+          </span>
         </div>
       </div>
     );
@@ -400,551 +377,310 @@ const LabWorkspace = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center p-4" style={{ backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
-        <div className="border border-error bg-surface p-8 w-full max-w-md shadow-[8px_8px_0px_rgba(0,0,0,0.2)]">
-          <div className="text-center">
-            <AlertTriangle className="w-12 h-12 text-error mx-auto mb-6 animate-pulse" />
-            <h1 className="text-xl font-display font-bold text-ink mb-4 uppercase tracking-wider">WORKSPACE_FAULT</h1>
-            <p className="text-muted font-mono text-sm mb-8">Err: {error}</p>
-            <Link
-              to="/dashboard"
-              className="inline-block px-6 py-3 bg-surface hover:bg-ink hover:text-paper text-ink border border-border font-mono text-xs uppercase font-bold tracking-widest shadow-[4px_4px_0px_rgba(0,0,0,0.2)] transition-colors"
-            >
-              RETURN_TO_DASHBOARD
-            </Link>
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-bg-base p-4">
+        <div className="w-full max-w-md rounded-xl border border-danger/30 bg-bg-raised p-8 text-center shadow-card">
+          <AlertTriangle className="mx-auto mb-5 h-10 w-10 text-danger" strokeWidth={1.5} />
+          <h1 className="text-lg font-semibold tracking-tight text-fg">Workspace unavailable</h1>
+          <p className="mt-2 font-mono text-sm text-fg-muted">{error}</p>
+          <Link
+            to="/dashboard"
+            className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+            Back to dashboard
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col font-sans text-ink">
-      {/* Top Header Bar */}
-      <header className="bg-surface border-b border-border px-4 py-3 relative z-10 shadow-sm overflow-hidden">
-        {connected && (
-          <BorderBeam size={180} duration={12} colorFrom="#00E699" colorTo="#00F0FF" />
-        )}
-        <div className="flex items-center justify-between relative z-10">
-          {/* Left section */}
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 text-muted hover:text-ink font-mono text-xs font-bold uppercase tracking-widest transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">DASHBOARD</span>
-            </button>
+    <div className="flex h-screen flex-col overflow-hidden bg-bg-base font-sans text-fg">
+      {/* Header */}
+      <header className="z-topbar flex shrink-0 items-center justify-between gap-4 border-b border-border bg-bg-raised px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-4">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-fg-muted transition-colors hover:bg-bg-overlay hover:text-fg"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
 
-            <div className="h-6 w-px bg-border border-r border-dashed" />
+          <div className="h-6 w-px shrink-0 bg-border" />
 
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-paper border border-border flex items-center justify-center">
-                <Shield className="w-5 h-5 text-accent" />
-              </div>
-              <div>
-                <h1 className="text-ink font-display font-bold text-lg leading-none uppercase tracking-wider mb-1">
-                  <DecryptedText text={lab?.title || "WORKSPACE"} animateOn="view" speed={25} />
-                </h1>
-                <div className="flex items-center gap-2 text-xs font-mono uppercase font-bold tracking-widest">
-                  <TacticalBadge
-                    variant={
-                      lab?.difficulty?.toLowerCase() === "hard"
-                        ? "danger"
-                        : lab?.difficulty?.toLowerCase() === "medium"
-                        ? "warning"
-                        : "info"
-                    }
-                    size="sm"
-                  >
-                    {lab?.difficulty || "UNKNOWN"}
-                  </TacticalBadge>
-                  <span className="text-border">•</span>
-                  <span className="text-muted text-[11px]">{lab?.category || "SYS_OP"}</span>
-                </div>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+              <Shield className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold tracking-tight text-fg">
+                {lab?.title || "Workspace"}
+              </h1>
+              <div className="flex items-center gap-2 text-xs text-fg-subtle">
+                <Badge variant={difficultyVariant(lab?.difficulty)} size="sm">
+                  {lab?.difficulty || "Unknown"}
+                </Badge>
+                {lab?.category && <span className="truncate">{lab.category}</span>}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right section */}
-          <div className="flex items-center gap-3">
-            {/* Connection status */}
-            <TacticalBadge
-              variant={connected ? "success" : "danger"}
-              size="md"
-              pulse={!connected}
-            >
-              {connected ? (
-                <Wifi className="w-3 h-3 mr-1 inline" />
-              ) : (
-                <WifiOff className="w-3 h-3 mr-1 inline animate-pulse" />
-              )}
-              <span className="hidden sm:inline">
-                {connected ? "LINK_ACTIVE" : "NO_LINK"}
-              </span>
-            </TacticalBadge>
-
-            {/* Timer */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-paper border border-border text-muted font-mono text-xs font-bold tracking-widest">
-              <Clock className="w-3 h-3 text-accent" />
-              <span>{formatTime(elapsedTime)}</span>
-            </div>
-
-            {/* VM IP */}
-            {session?.publicIp && (
-              <TacticalBadge variant="info" size="md">
-                <Server className="w-3 h-3 mr-1 inline text-info" />
-                <span>{session.publicIp}</span>
-              </TacticalBadge>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className={
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium " +
+              (connected
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-warn/30 bg-warn/10 text-warn")
+            }
+          >
+            {connected ? (
+              <Wifi className="h-3.5 w-3.5" strokeWidth={1.75} />
+            ) : (
+              <WifiOff className="h-3.5 w-3.5" strokeWidth={1.75} />
             )}
+            <span className="hidden sm:inline">{connected ? "Connected" : "Connecting"}</span>
+          </span>
 
-            {/* Live Web App Header Button */}
-            {hostUrl && (
-              <a
-                href={hostUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/20 hover:bg-accent/30 border border-accent/40 text-accent font-mono text-xs font-bold tracking-wider uppercase transition-colors shadow-sm"
-                title="Open live web app in new tab"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">OPEN WEB APP ↗</span>
-                <span className="md:hidden">WEB ↗</span>
-              </a>
+          <span className="flex items-center gap-1.5 rounded-full border border-border bg-bg-base px-2.5 py-1 font-mono text-xs text-fg-muted">
+            <Clock className="h-3.5 w-3.5 text-fg-subtle" strokeWidth={1.75} />
+            {formatTime(elapsedTime)}
+          </span>
+
+          <button
+            onClick={handleTerminateVoid}
+            disabled={terminating}
+            className="flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/20 disabled:opacity-50"
+          >
+            {terminating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+            ) : (
+              <PowerOff className="h-3.5 w-3.5" strokeWidth={1.75} />
             )}
-
-            {/* Terminate Button */}
-            <ScalePress scale={0.97}>
-              <button
-                onClick={handleTerminateVoid}
-                disabled={terminating}
-                className="flex items-center gap-2 px-3 py-1.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error font-mono text-xs font-bold tracking-widest uppercase transition-colors"
-              >
-                {terminating ? <Loader2 className="w-3 h-3 animate-spin" /> : <PowerOff className="w-3 h-3" />}
-                <span className="hidden sm:inline">{terminating ? "TERMINATING..." : "TERMINATE"}</span>
-              </button>
-            </ScalePress>
-          </div>
+            <span className="hidden sm:inline">{terminating ? "Ending…" : "Terminate"}</span>
+          </button>
         </div>
       </header>
 
-      {/* Mobile Tab Selector */}
-      <div className="lg:hidden flex bg-surface border-b border-border font-mono text-xs font-bold uppercase tracking-widest">
+      {/* Mobile view switch */}
+      <div className="flex shrink-0 gap-1 border-b border-border bg-bg-raised p-1.5 lg:hidden">
         <button
-          onClick={() => { setActiveTab("terminal"); setViewMode("terminal"); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-4 border-b-2 transition-colors ${activeTab === "terminal"
-            ? "text-ink border-accent bg-paper font-bold"
-            : "text-muted border-transparent"
-            }`}
+          onClick={() => setMobileView("docs")}
+          className={
+            "flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors " +
+            (mobileView === "docs" ? "bg-bg-terminal text-white" : "text-fg-muted")
+          }
         >
-          <Terminal className="w-4 h-4" />
-          <span>SHELL</span>
+          <BookOpen className="h-4 w-4" strokeWidth={1.75} />
+          Documentation
         </button>
         <button
-          onClick={() => { setActiveTab("webapp"); setViewMode("webapp"); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-4 border-b-2 border-l border-r border-border transition-colors ${activeTab === "webapp"
-            ? "text-ink border-accent bg-paper font-bold"
-            : "text-muted border-transparent"
-            }`}
+          onClick={() => setMobileView("env")}
+          className={
+            "flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors " +
+            (mobileView === "env" ? "bg-bg-terminal text-white" : "text-fg-muted")
+          }
         >
-          <Globe className="w-4 h-4" />
-          <span>WEB</span>
-          {hostUrl && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
-        </button>
-        <button
-          onClick={() => setActiveTab("guide")}
-          className={`flex-1 flex items-center justify-center gap-2 py-4 border-b-2 transition-colors ${activeTab === "guide"
-            ? "text-ink border-b-accent bg-paper font-bold"
-            : "text-muted border-b-transparent"
-            }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>DOCS</span>
+          <Shield className="h-4 w-4" strokeWidth={1.75} />
+          Environment
         </button>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {provisioning && (
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-warning/10 border-b border-warning/40 font-mono text-xs text-warning font-bold uppercase tracking-widest" role="status">
-            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-            <span>Provisioning target — building image and spawning container. This can take a few minutes.</span>
+      {provisioning && (
+        <div
+          className="flex shrink-0 items-center gap-2.5 border-b border-info/30 bg-info/10 px-4 py-2 text-xs text-info"
+          role="status"
+        >
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" strokeWidth={1.75} />
+          Provisioning target — building the image and starting the container. This can take a few minutes.
+        </div>
+      )}
+
+      {/* Main — documentation left, environment right, equal height */}
+      <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Left: documentation */}
+        <section
+          className={
+            "min-h-0 w-full flex-col border-border bg-bg-raised lg:flex lg:w-[42%] lg:border-r xl:w-[40%] " +
+            (mobileView === "docs" ? "flex" : "hidden")
+          }
+        >
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-3">
+            <BookOpen className="h-4 w-4 text-accent" strokeWidth={1.75} />
+            <h2 className="text-sm font-semibold tracking-tight text-fg">Lab Documentation</h2>
           </div>
-        )}
-        <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Terminal & Web View */}
-        <div className={`${activeTab === "terminal" || activeTab === "webapp" ? "block" : "hidden"
-          } lg:flex lg:flex-col lg:w-1/2 xl:w-3/5 h-full p-0 sm:p-3 bg-paper overflow-hidden`}>
-          
-          {/* Sub-tab switcher between Shell & Web App */}
-          <div className="hidden sm:flex items-center justify-between mb-2 px-1">
-            <div className="flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider">
-              <button
-                onClick={() => setViewMode("terminal")}
-                className={`px-3 py-1.5 border transition-colors flex items-center gap-1.5 ${
-                  viewMode === "terminal"
-                    ? "bg-accent text-paper border-accent font-bold"
-                    : "bg-surface text-muted border-border hover:text-ink"
-                }`}
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>SHELL TERMINAL</span>
-              </button>
-              <button
-                onClick={() => setViewMode("webapp")}
-                className={`px-3 py-1.5 border transition-colors flex items-center gap-1.5 ${
-                  viewMode === "webapp"
-                    ? "bg-accent text-paper border-accent font-bold"
-                    : "bg-surface text-muted border-border hover:text-ink"
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>LIVE WEB APP</span>
-                {hostUrl && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
-              </button>
-            </div>
-            {hostUrl && (
-              <a
-                href={hostUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-accent hover:underline font-mono text-xs font-bold"
-              >
-                <span>OPEN IN BROWSER</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <p className="text-sm leading-relaxed text-fg-muted">{lab?.description}</p>
+
+            {lab?.objectives && lab.objectives.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  Objectives
+                </h3>
+                <ul className="mt-3 space-y-2.5">
+                  {lab.objectives.map((objective, index) => (
+                    <li key={index} className="flex items-start gap-2.5 text-sm text-fg-muted">
+                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={1.75} />
+                      <span>{objective}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </div>
 
-          {/* View Mode Content */}
-          <div className="flex-1 overflow-hidden h-full">
-            {viewMode === "terminal" ? (
-              <TerminalWindow
-                logs={logs}
-                onCommand={handleTerminalCommand}
-                isConnected={connected}
-                title={`${lab?.title || "LAB"}_SHELL`}
-                onClear={() => setLogs([])}
-              />
-            ) : (
-              <div className="flex flex-col h-full border border-border bg-surface overflow-hidden">
-                <div className="bg-paper border-b border-border px-3 py-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-accent" />
-                    <span className="font-mono text-xs font-bold text-ink uppercase tracking-wider">LIVE_TARGET_BROWSER</span>
-                  </div>
-                  <div className="flex-1 max-w-xl flex items-center bg-surface border border-border px-3 py-1 text-xs font-mono text-muted overflow-hidden">
-                    <span className="truncate">{hostUrl || `Target: ${session?.publicIp || "Connecting..."}`}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIframeKey((k) => k + 1)}
-                      title="Reload Web App"
-                      className="p-1.5 hover:bg-surface border border-border text-muted hover:text-ink transition-colors flex items-center gap-1 text-xs font-mono"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline text-[11px]">RELOAD</span>
-                    </button>
-                    {hostUrl && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleCopyUrl}
-                          className="p-1.5 hover:bg-surface border border-border text-muted hover:text-ink transition-colors flex items-center gap-1 text-xs font-mono"
-                          title="Copy Target URL"
-                        >
-                          {copiedUrl ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span className="hidden sm:inline text-[11px]">{copiedUrl ? "COPIED" : "COPY"}</span>
-                        </button>
-                        <a
-                          href={hostUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-2.5 py-1 bg-accent hover:bg-accent/90 text-paper font-mono text-xs font-bold transition-colors uppercase tracking-wider shadow-sm"
-                        >
-                          <span>OPEN IN BROWSER ↗</span>
-                        </a>
-                      </>
-                    )}
-                  </div>
+            {lab?.instructions && (
+              <div className="mt-8">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  Walkthrough
+                </h3>
+                <div className="mt-3 whitespace-pre-wrap border-l-2 border-border pl-4 text-sm leading-relaxed text-fg-muted">
+                  {lab.instructions}
                 </div>
+              </div>
+            )}
 
-                {/* Sub-header auto-start 5 minutes guidance banner */}
-                <div className="bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-amber-300">
-                  <span className="flex items-center gap-1.5 truncate">
-                    <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-                    <span>Services auto-start with lab. Please wait up to 5 minutes for Spring Boot / MariaDB / Django daemons to boot.</span>
+            {/* Target & flag submission */}
+            <div className="mt-8 rounded-lg border border-border bg-bg-base p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
+                  <Key className="h-4 w-4 text-accent" strokeWidth={1.75} />
+                  Submit the flag
+                </h3>
+                <Badge variant={flagStatus?.solved ? "success" : "muted"} size="sm">
+                  {flagStatus?.solved ? "Solved" : "In progress"}
+                </Badge>
+              </div>
+
+              <p className="mt-2 text-sm leading-relaxed text-fg-muted">
+                Compromise the target from the workstation on the right, retrieve the flag, and
+                submit it below to record your progress.
+              </p>
+
+              {hostUrl && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-border bg-bg-raised px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs text-fg-muted">
+                    <Info className="h-3.5 w-3.5 text-fg-subtle" strokeWidth={1.75} />
+                    Target is served from the Browser app
                   </span>
-                  <button
-                    onClick={() => setIframeKey((k) => k + 1)}
-                    className="text-accent underline shrink-0 hover:text-ink ml-2 font-bold"
+                  <a
+                    href={hostUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex shrink-0 items-center gap-1 text-xs font-medium text-accent hover:underline"
                   >
-                    Refresh View
-                  </button>
+                    <span className="max-w-[16rem] truncate">{hostUrl}</span>
+                    <ExternalLink className="h-3 w-3" strokeWidth={1.75} />
+                  </a>
                 </div>
+              )}
 
-                <div className="flex-1 bg-white relative">
-                  {hostUrl ? (
-                    <iframe
-                      key={iframeKey}
-                      src={hostUrl}
-                      title="Lab Web Application"
-                      className="w-full h-full border-0"
-                      sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"
-                    />
+              {flagStatus && (
+                <div
+                  className={
+                    "mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-sm " +
+                    (flagStatus.solved
+                      ? "border-success/30 bg-success/10 text-success"
+                      : "border-danger/30 bg-danger/10 text-danger")
+                  }
+                >
+                  {flagStatus.solved ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-6 bg-paper text-muted font-mono">
-                      <Loader2 className="w-8 h-8 animate-spin text-accent mb-3" />
-                      <p className="text-xs font-bold uppercase tracking-widest text-ink">STARTING WEB APP TARGET...</p>
-                      <p className="text-[11px] mt-1 text-muted max-w-sm">
-                        Services auto-start with lab execution. Complex targets (Spring Boot, Tomcat, MariaDB) may take up to 2–5 minutes to initialize.
-                      </p>
-                    </div>
+                    <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                   )}
+                  <span>
+                    {flagStatus.message}
+                    {flagStatus.points ? ` (+${flagStatus.points} pts)` : ""}
+                  </span>
                 </div>
+              )}
+
+              <form onSubmit={(e) => { void handleFlagSubmit(e); }} className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  value={flagInput}
+                  onChange={(e) => setFlagInput(e.target.value)}
+                  placeholder="FLAG{…}"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="flex-1 rounded-md border border-border bg-bg-raised px-3 py-2 font-mono text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingFlag || !flagInput.trim()}
+                  className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                >
+                  {submittingFlag ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                  ) : (
+                    <Send className="h-4 w-4" strokeWidth={1.75} />
+                  )}
+                  Submit
+                </button>
+              </form>
+            </div>
+
+            {lab?.hints && lab.hints.length > 0 && (
+              <div className="mt-8">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  <Lightbulb className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Hints
+                </h3>
+                <ul className="mt-3 space-y-2.5">
+                  {lab.hints.map((hint, index) => (
+                    <li key={index} className="border-l-2 border-warn/40 pl-4 text-sm text-fg-muted">
+                      {hint}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {lab?.resources && lab.resources.length > 0 && (
+              <div className="mt-8">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Resources
+                </h3>
+                <ul className="mt-3 space-y-2">
+                  {lab.resources.map((resource, index) => (
+                    <li key={index}>
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-info transition-colors hover:text-accent"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                        <span>{resource.title || resource.url}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Right Panel - Guide */}
-        <div className={`${activeTab === "guide" ? "block" : "hidden"
-          } lg:block lg:w-1/2 xl:w-2/5 h-full flex flex-col border-l border-border bg-surface`}>
-          <div className={`${activeTab === "guide" ? "block" : "hidden"
-            } lg:flex lg:flex-col h-full overflow-y-auto`}>
-            <div className="bg-paper border-b border-border p-3 flex items-center gap-2 sticky top-0 z-10">
-              <BookOpen className="w-4 h-4 text-accent" />
-              <h2 className="text-ink font-mono text-xs font-bold uppercase tracking-widest">LAB_DOCUMENTATION</h2>
-            </div>
-            <div className="p-6 overflow-y-auto">
-              {/* Lab Description */}
-              <div className="prose prose-invert prose-sm max-w-none font-mono">
-                <p className="text-muted leading-relaxed mb-8">{lab?.description}</p>
-
-                {/* Objectives */}
-                {lab?.objectives && lab.objectives.length > 0 && (
-                  <div className="mb-8 border border-border p-4 bg-surface">
-                    <h3 className="text-ink font-bold font-mono uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
-                      <span className="text-accent">#</span> PRIMARY_OBJECTIVES
-                    </h3>
-                    <ul className="space-y-3">
-                      {lab.objectives.map((objective, index) => (
-                        <li key={index} className="flex items-start gap-3 text-muted text-sm">
-                          <ChevronRight className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                          <span>{objective}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Instructions */}
-                {lab?.instructions && (
-                  <div className="mb-8">
-                    <h3 className="text-ink font-bold font-mono uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
-                      <span className="text-accent">#</span> EXECUTION_STEPS
-                    </h3>
-                    <div className="text-muted text-sm whitespace-pre-wrap leading-relaxed border-l-2 border-border pl-4 py-2">
-                      {lab.instructions}
-                    </div>
-                  </div>
-                )}
-
-                {/* Dedicated Target Web Application Access Card */}
-                <div className="mb-8 border-2 border-accent bg-paper p-5 relative overflow-hidden shadow-lg">
-                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                      <h3 className="text-ink font-bold font-mono uppercase tracking-widest text-xs flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-accent" /> TARGET_APPLICATION // BROWSER_ACCESS
-                      </h3>
-                    </div>
-                    <TacticalBadge variant={hostUrl ? "success" : "warning"} size="sm">
-                      {hostUrl ? "ONLINE" : "INITIALIZING"}
-                    </TacticalBadge>
-                  </div>
-
-                  <p className="text-xs text-muted mb-3 font-mono leading-relaxed">
-                    This lab hosts an interactive web application target. You can access and interact with it directly in your browser or through the built-in live web viewer.
-                  </p>
-
-                  {/* URL Box & Action Buttons */}
-                  <div className="bg-surface border border-border p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 overflow-hidden flex-1">
-                      <span className="text-[10px] font-mono uppercase font-bold text-muted shrink-0">TARGET URL:</span>
-                      <code className="text-xs font-mono font-bold text-accent truncate select-all">
-                        {hostUrl || "Detecting host port..."}
-                      </code>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {hostUrl && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleCopyUrl}
-                            className="px-2.5 py-1.5 bg-paper hover:bg-surface border border-border text-muted hover:text-ink font-mono text-xs font-bold flex items-center gap-1.5 transition-colors"
-                            title="Copy Target URL"
-                          >
-                            {copiedUrl ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copiedUrl ? "COPIED" : "COPY"}</span>
-                          </button>
-
-                          <a
-                            href={hostUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-accent hover:bg-accent/90 text-paper font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-sm"
-                          >
-                            <span>OPEN IN BROWSER</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setViewMode("webapp");
-                          setActiveTab("webapp");
-                        }}
-                        className="px-2.5 py-1.5 bg-paper hover:bg-surface border border-border text-muted hover:text-ink font-mono text-xs font-bold transition-colors"
-                      >
-                        VIEW IN APP
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 5-minute Auto-Start / Service Initialization Notice */}
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 font-mono text-xs flex items-start gap-2.5">
-                    <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold uppercase tracking-wider text-amber-400 text-[11px]">
-                          ⚡ SERVICE AUTO-START NOTICE
-                        </span>
-                        <span className="text-[10px] text-amber-300/80 px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40">
-                          WAIT UP TO 5 MINUTES
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                        Web services auto-start automatically with lab execution. Complex application stacks (e.g. Spring Boot, Tomcat, MariaDB, Django) take <strong>2 to 5 minutes</strong> to fully initialize their runtime environments.
-                      </p>
-                      <p className="text-[11px] text-amber-200/70">
-                        If the page shows <em>Connection Refused</em>, <em>502</em>, or continues loading, please allow up to 5 minutes for all background services to complete startup, then reload.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Challenge Tasks & Flag Submission (TryHackMe / HTB Style) */}
-                <div className="mb-8 border-2 border-accent/40 bg-paper p-5 relative overflow-hidden shadow-md">
-                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-border">
-                    <h3 className="text-accent font-bold font-mono uppercase tracking-widest text-xs flex items-center gap-2">
-                      <Key className="w-4 h-4 text-accent" /> TASK_QUESTIONS // SUBMIT_FLAG
-                    </h3>
-                    <TacticalBadge variant={flagStatus?.solved ? "success" : "warning"} size="sm">
-                      {flagStatus?.solved ? "SOLVED" : "IN_PROGRESS"}
-                    </TacticalBadge>
-                  </div>
-
-                  <p className="text-xs text-muted mb-4 font-mono leading-relaxed">
-                    Question: Exploit the vulnerable target system using the live shell on the left or the target web application. Extract the security flag and submit it below to earn points.
-                  </p>
-
-                  <div className="mb-4 p-3 bg-surface border border-border text-xs font-mono text-muted space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <span className="text-ink font-bold">BROWSER TARGET:</span>
-                      {hostUrl ? (
-                        <a
-                          href={hostUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-accent hover:underline flex items-center gap-1 font-bold"
-                        >
-                          <span>{hostUrl}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span className="text-warning font-bold">STARTING SERVICES (WAIT UP TO 5 MIN)...</span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted border-t border-border pt-1.5">
-                      <span>Internal Host IP: <strong className="text-ink">{session?.publicIp || "127.0.0.1"}</strong></span>
-                      <span>Target Ports: <strong className="text-accent">{lab?.exposedPorts?.join(", ") || "80, 9090"}</strong></span>
-                    </div>
-                  </div>
-
-                  {flagStatus && (
-                    <div className={`mb-4 p-3 border text-xs font-mono flex items-center gap-2 ${flagStatus.solved ? 'bg-success/15 border-success text-success font-bold' : 'bg-error/15 border-error text-error'}`}>
-                      {flagStatus.solved ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-                      <span>{flagStatus.message} {flagStatus.points ? `(+${flagStatus.points} PTS)` : ""}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={(e) => { void handleFlagSubmit(e); }} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={flagInput}
-                      onChange={(e) => setFlagInput(e.target.value)}
-                      placeholder="FLAG{...} or XPLOIT{...}"
-                      autoComplete="off"
-                      className="flex-1 bg-surface border border-border px-3 py-2 text-xs font-mono text-ink placeholder:text-muted focus:outline-none focus:border-accent"
-                    />
-                    <button
-                      type="submit"
-                      disabled={submittingFlag || !flagInput.trim()}
-                      className="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 text-paper font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
-                    >
-                      {submittingFlag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                      <span>SUBMIT</span>
-                    </button>
-                  </form>
-                </div>
-
-                {/* Hints */}
-                {lab?.hints && lab.hints.length > 0 && (
-                  <div className="mb-8">
-                    <h3 className="text-warning font-bold font-mono uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
-                      <span className="text-warning">?</span> TACTICAL_HINTS
-                    </h3>
-                    <ul className="space-y-3">
-                      {lab.hints.map((hint, index) => (
-                        <li key={index} className="text-muted text-sm pl-4 border-l-2 border-warning/40">
-                          {hint}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Resources */}
-                {lab?.resources && lab.resources.length > 0 && (
-                  <div className="mb-8">
-                    <h3 className="text-info font-bold font-mono uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
-                      <span className="text-info">@</span> AUX_RESOURCES
-                    </h3>
-                    <ul className="space-y-2 font-mono text-sm">
-                      {lab.resources.map((resource, index) => (
-                        <li key={index}>
-                          <a
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-info hover:text-ink hover:underline decoration-dashed transition-colors"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                            <span>{resource.title || resource.url}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        </div>
+        {/* Right: unified environment workstation */}
+        <section
+          className={
+            "min-h-0 w-full flex-1 flex-col bg-bg-base p-3 lg:flex " +
+            (mobileView === "env" ? "flex" : "hidden")
+          }
+        >
+          <EnvironmentWindow
+            logs={logs}
+            onCommand={handleTerminalCommand}
+            isConnected={connected}
+            onClear={() => setLogs([])}
+            hostUrl={hostUrl}
+            terminalTitle={`${lab?.title || "Lab"} · shell`}
+          />
+        </section>
       </main>
     </div>
   );

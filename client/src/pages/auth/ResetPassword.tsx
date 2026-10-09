@@ -2,15 +2,8 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button, Input } from '../../components/ui';
-import {
-  SpotlightCard,
-  BorderBeam,
-  DecryptedText,
-  TacticalBadge,
-  FadeIn,
-  ScalePress,
-} from '../../components/ui/motion';
-import { ShieldCheck, AlertTriangle } from 'lucide-react';
+import { FadeIn } from '../../components/ui/motion';
+import { AlertTriangle, ArrowRight, Shield } from 'lucide-react';
 import { authService } from '../../services';
 
 const ResetPassword = () => {
@@ -36,15 +29,15 @@ const ResetPassword = () => {
     const newErrors: { password?: string; confirmPassword?: string } = {};
 
     if (!formData.password) {
-      newErrors.password = 'New access key required';
+      newErrors.password = 'New passkey is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Min. 8 characters required';
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Confirmation key required';
+      newErrors.confirmPassword = 'Confirmation passkey required';
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Access key mismatch';
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -71,7 +64,7 @@ const ResetPassword = () => {
 
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Key reset failed. Token may have expired.';
+      const message = err instanceof Error ? err.message : 'Passkey reset failed. Token may have expired.';
       setErrors({ form: message });
     } finally {
       setIsLoading(false);
@@ -83,100 +76,85 @@ const ResetPassword = () => {
   };
 
   return (
-    <div
-      className="min-h-screen bg-paper flex items-center justify-center p-4 font-mono relative overflow-hidden"
-      style={{
-        backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-      }}
-    >
-      <FadeIn className="w-full max-w-md">
-        <SpotlightCard
-          spotlightColor="rgba(0, 230, 153, 0.15)"
-          className="bg-surface border border-border p-6 sm:p-8 shadow-[8px_8px_0px_rgba(0,0,0,0.2)] relative overflow-hidden"
-        >
-          <BorderBeam size={180} duration={12} colorFrom="#00E699" colorTo="#00F0FF" />
-          <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-          <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-
-          {/* System Badge */}
-          <div className="flex items-center justify-between border-b border-dashed border-border pb-4 mb-6">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-accent" />
-              <span className="text-[10px] font-bold text-accent tracking-widest uppercase">
-                [ SYS_RESET // CIPHER ]
+    <div className="flex min-h-[100dvh] items-center justify-center bg-bg-base p-4">
+      <FadeIn className="w-full max-w-[420px]">
+        {/* Brand header */}
+        <div className="mb-6 text-center">
+          <Link to="/" className="group mb-4 inline-flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-fg">
+              <Shield className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <span className="text-left">
+              <span className="block text-lg font-semibold leading-none tracking-tight text-fg">
+                XploitVerse
               </span>
-            </div>
-            <TacticalBadge variant="neutral" size="sm">
-              CIPHER_AUTH
-            </TacticalBadge>
-          </div>
+              <span className="mt-1 block text-[11px] font-medium uppercase tracking-widest text-fg-subtle">
+                Cipher Reset
+              </span>
+            </span>
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg">Reset Passkey</h1>
+          <p className="mt-1 text-sm text-fg-muted">Update your security cipher</p>
+        </div>
 
-          <div className="mb-6">
-            <h1 className="text-2xl sm:text-3xl font-display font-black text-ink uppercase tracking-wider mb-1">
-              <DecryptedText text="RESET_ACCESS_KEY" animateOn="view" speed={25} />
-            </h1>
-            <p className="text-xs text-muted font-mono tracking-wide">
-              {'>'} Provision replacement passkey for XPLOITVERSE clearance
-            </p>
-          </div>
-
-          <form className="space-y-5" onSubmit={handleSubmitVoid} noValidate>
+        {/* Card */}
+        <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
+          <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
             {errors.form && (
-              <div className="p-3 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-error" />
-                <span>[!] {errors.form}</span>
+              <div
+                className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                role="alert"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span>{errors.form}</span>
               </div>
             )}
 
-            <div className="space-y-4">
-              <Input
-                label="New Access Key"
-                type="password"
-                name="password"
-                placeholder="Min. 8 Characters"
-                value={formData.password}
-                onChange={handleChange}
-                error={errors.password}
-                required
-              />
+            <Input
+              label="New Passkey"
+              type="password"
+              name="password"
+              placeholder="Min. 8 characters"
+              value={formData.password}
+              onChange={handleChange}
+              error={errors.password}
+              required
+            />
 
-              <Input
-                label="Verify Access Key"
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Access Key"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={errors.confirmPassword}
-                required
-              />
-            </div>
+            <Input
+              label="Confirm New Passkey"
+              type="password"
+              name="confirmPassword"
+              placeholder="Re-enter passkey"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              error={errors.confirmPassword}
+              required
+            />
 
-            <ScalePress scale={0.98}>
+            <div className="pt-2">
               <Button
                 type="submit"
                 variant="primary"
                 className="w-full"
                 isLoading={isLoading}
               >
-                EXECUTE KEY RESET
+                Update Passkey
+                <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
               </Button>
-            </ScalePress>
+            </div>
           </form>
 
-          <div className="mt-8 pt-5 border-t border-dashed border-border text-center text-xs text-muted">
-            <span>ABORT RECOVERY? </span>
+          <div className="mt-6 border-t border-border pt-4 text-center text-xs text-fg-muted">
+            Remember old credentials?{' '}
             <Link
               to="/login"
-              className="text-accent font-bold uppercase tracking-wider hover:underline underline-offset-4 decoration-dashed ml-1"
+              className="ml-1 font-semibold text-accent transition-colors hover:text-accent/80 hover:underline"
             >
-              [ AUTHENTICATE ]
+              Sign In
             </Link>
           </div>
-        </SpotlightCard>
+        </div>
       </FadeIn>
     </div>
   );

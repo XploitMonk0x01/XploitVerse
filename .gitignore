@@ -23,6 +23,8 @@ backend/.env
 dist/
 build/
 .next/
+backend/bin/
+bin/
 
 # Logs
 logs/

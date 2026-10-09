@@ -1,15 +1,22 @@
-import { useEffect, useState, useCallback } from "react";
-import { Trophy, RefreshCw } from "lucide-react";
-import { LoadingSpinner, EmptyState, Button } from "../components/ui";
+import { useCallback, useEffect, useState } from "react";
+import { RefreshCw, Trophy, Users } from "lucide-react";
 import {
-  SpotlightCard,
-  BorderBeam,
-  DecryptedText,
-  TacticalBadge,
-  StaggerContainer,
-  FadeIn,
-  ScalePress,
-} from "../components/ui/motion";
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SkeletonTable,
+  Stat,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui";
+import { FadeIn, StaggerContainer } from "../components/ui/motion";
 import { leaderboardService } from "../services";
 import { useAuth } from "../context/AuthContext";
 import type { LeaderboardEntry, MyRank } from "../types";
@@ -36,7 +43,7 @@ export const Leaderboard = () => {
         setEntries(lbRes.value.leaderboard || []);
         setLastUpdated(new Date());
       } else {
-        setError(lbRes.reason instanceof Error ? lbRes.reason.message : "Failed to load operative rankings");
+        setError(lbRes.reason instanceof Error ? lbRes.reason.message : "Failed to load rankings");
       }
 
       if (myRes.status === "fulfilled") {
@@ -57,180 +64,125 @@ export const Leaderboard = () => {
     void load();
   };
 
-  const getRankPill = (rank: number) => {
-    if (rank === 1)
+  const renderRank = (rank: number) => {
+    if (rank >= 1 && rank <= 3) {
+      const variant = rank === 1 ? "warning" : rank === 2 ? "neutral" : "info";
       return (
-        <TacticalBadge variant="warning" size="sm" pulse>
-          #01
-        </TacticalBadge>
+        <Badge variant={variant} size="sm">
+          #{rank}
+        </Badge>
       );
-    if (rank === 2)
-      return (
-        <TacticalBadge variant="neutral" size="sm">
-          #02
-        </TacticalBadge>
-      );
-    if (rank === 3)
-      return (
-        <TacticalBadge variant="info" size="sm">
-          #03
-        </TacticalBadge>
-      );
-    return (
-      <span className="font-mono text-dim font-bold text-xs">
-        #{String(rank).padStart(2, "0")}
-      </span>
-    );
+    }
+    return <span className="font-mono text-xs tabular-nums text-fg-subtle">#{rank}</span>;
   };
 
   return (
-    <StaggerContainer className="max-w-4xl mx-auto space-y-8 font-mono">
-      {/* Header */}
+    <StaggerContainer className="mx-auto max-w-content space-y-6">
       <FadeIn>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-display font-black text-ink tracking-tight uppercase leading-none mb-2">
-              <DecryptedText text="Leaderboard" animateOn="view" speed={20} />
-            </h1>
-            <p className="text-xs text-muted">
-              Global operative rankings by points and completed challenges
-            </p>
-          </div>
-          <ScalePress scale={0.98}>
-            <Button variant="secondary" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="w-3 h-3" />
+        <PageHeader
+          title="Leaderboard"
+          subtitle="Rankings by points and completed challenges."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              iconLeft={<RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            >
               Refresh
             </Button>
-          </ScalePress>
-        </div>
+          }
+        />
       </FadeIn>
 
-      {/* User's Operative Dossier Rank Card */}
       {myRank && (
-        <FadeIn delay={0.05}>
-          <SpotlightCard
-            spotlightColor="rgba(0, 230, 153, 0.15)"
-            className="bg-surface border border-accent/60 p-5 sm:p-6 shadow-sm relative overflow-hidden"
-          >
-            <BorderBeam size={160} duration={10} colorFrom="#00E699" colorTo="#00F0FF" />
-            <span className="absolute top-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-            <span className="absolute top-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-            <span className="absolute bottom-1 left-1 text-[8px] text-border pointer-events-none">+</span>
-            <span className="absolute bottom-1 right-1 text-[8px] text-border pointer-events-none">+</span>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-paper border border-accent flex items-center justify-center text-accent font-bold shadow-[2px_2px_0px_var(--color-accent)]">
-                  <Trophy className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted font-bold tracking-widest uppercase mb-1">
-                    YOUR_CURRENT_STANDING
-                  </p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-ink tracking-tight">
-                      {myRank.rank === -1 ? "UNRANKED" : `RANK #${myRank.rank}`}
-                    </span>
-                    <TacticalBadge variant="accent" size="sm">
-                      {currentUser?.role || "OPERATIVE"}
-                    </TacticalBadge>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-8 text-xs uppercase border-t sm:border-t-0 border-border pt-3 sm:pt-0">
-                <div>
-                  <span className="text-muted block text-[10px] tracking-widest mb-0.5">CURRENT_POINTS</span>
-                  <span className="text-lg font-black text-cyan font-mono">
-                    {Number(myRank.points || 0).toLocaleString()} PTS
-                  </span>
-                </div>
-              </div>
+        <FadeIn>
+          <Card padding="lg">
+            <div className="mb-4 flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-accent" strokeWidth={1.75} />
+              <h2 className="text-sm font-semibold text-fg">
+                {currentUser?.username ? `${currentUser.username} · ${currentUser.role}` : "Your standing"}
+              </h2>
             </div>
-          </SpotlightCard>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Stat
+                label="Your rank"
+                value={myRank.rank === -1 ? "Unranked" : `#${myRank.rank}`}
+                icon={<Trophy className="h-4 w-4" strokeWidth={1.75} />}
+                tone="accent"
+              />
+              <Stat
+                label="Points"
+                value={Number(myRank.points || 0).toLocaleString()}
+                icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
+              />
+            </div>
+          </Card>
         </FadeIn>
       )}
 
       {error && (
         <FadeIn>
-          <div className="p-4 bg-error/10 border border-error text-error text-xs font-bold uppercase tracking-widest">
-            [ERR]: {error}
-          </div>
+          <ErrorState error={error} title="Could not load rankings" />
         </FadeIn>
       )}
 
-      {/* Leaderboard Matrix Table */}
-      <FadeIn delay={0.1}>
+      <FadeIn>
         {loading ? (
-          <div className="py-24">
-            <LoadingSpinner message="SYNCING_GLOBAL_STANDINGS" />
-          </div>
+          <Card padding="none" className="overflow-hidden">
+            <SkeletonTable rows={10} columns={3} />
+          </Card>
         ) : entries.length === 0 ? (
           <EmptyState
-            title="STANDINGS_EMPTY"
-            description="Zero operative flags recorded. Execute a challenge task to claim first blood rank."
+            title="No standings yet"
+            description="No points have been recorded. Complete a challenge to appear here."
           />
         ) : (
-          <div className="bg-surface border border-border shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs font-mono">
-                <thead>
-                  <tr className="border-b border-border bg-paper/80 text-[10px] text-muted tracking-[0.12em] uppercase">
-                    <th className="px-5 py-3 text-left w-20">Rank</th>
-                    <th className="px-5 py-3 text-left">Operative</th>
-                    <th className="px-5 py-3 text-right">Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {entries.map((e, idx) => {
-                    const isMe =
-                      currentUser &&
-                      (e.userId === currentUser.id);
-
-                    return (
-                      <tr
-                        key={e.userId || idx}
-                        className={`transition-colors duration-150 ${isMe
-                          ? "bg-accent/10 hover:bg-accent/15 border-l-2 border-l-accent"
-                          : "hover:bg-paper/50"
-                          }`}
-                      >
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          {getRankPill(e.rank)}
-                        </td>
-
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`font-bold uppercase tracking-wider ${isMe ? "text-accent" : "text-ink"
-                                }`}
-                            >
-                              {e.username || "ANONYMOUS_OPERATIVE"}
-                            </span>
-                            {isMe && (
-                              <TacticalBadge variant="accent" size="sm">
-                                YOU
-                              </TacticalBadge>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-3.5 text-right font-bold text-cyan font-mono">
-                          +{Number(e.points || 0).toLocaleString()} PTS
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <Card padding="none" className="overflow-hidden">
+            <Table size="sm">
+              <TableHeader>
+                <TableRow hover={false}>
+                  <TableHead className="w-24">Rank</TableHead>
+                  <TableHead>Player</TableHead>
+                  <TableHead align="right">Points</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map((e, idx) => {
+                  const isMe = currentUser && e.userId === currentUser.id;
+                  return (
+                    <TableRow
+                      key={e.userId || idx}
+                      className={isMe ? "bg-accent/5" : undefined}
+                    >
+                      <TableCell className="whitespace-nowrap">{renderRank(e.rank)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className={isMe ? "font-medium text-accent" : "text-fg"}>
+                            {e.username || "Anonymous"}
+                          </span>
+                          {isMe && (
+                            <Badge variant="accent" size="sm">
+                              You
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell align="right" className="font-medium">
+                        +{Number(e.points || 0).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
 
             {lastUpdated && (
-              <div className="px-5 py-2.5 border-t border-border text-[10px] text-dim text-right tracking-wider uppercase bg-paper/40">
-                LAST_POLL: {lastUpdated.toLocaleTimeString()} // AUTO_REFRESH: 30S
-              </div>
+              <p className="border-t border-border-subtle px-4 py-2.5 text-right text-xs text-fg-subtle">
+                Updated {lastUpdated.toLocaleTimeString()} · refreshes every 30 s
+              </p>
             )}
-          </div>
+          </Card>
         )}
       </FadeIn>
     </StaggerContainer>

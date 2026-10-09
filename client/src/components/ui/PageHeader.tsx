@@ -1,14 +1,15 @@
 import React, { type HTMLAttributes } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { DecryptedText } from '../ui/motion/DecryptedText';
-import { TacticalBadge } from '../ui/motion/TacticalBadge';
+import { Badge, type BadgeVariant } from './Badge';
 
 export interface PageHeaderProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   subtitle?: string;
   badge?: {
     label: string;
-    variant?: 'success' | 'warning' | 'error' | 'info' | 'cyan' | 'accent' | 'neutral' | 'muted';
+    variant?: BadgeVariant;
     pulse?: boolean;
   };
   action?: React.ReactNode;
@@ -29,41 +30,34 @@ export const PageHeader = ({
   ...props
 }: PageHeaderProps) => {
   return (
-    <div className={cn('flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6', className)} {...props}>
+    <div
+      className={cn(
+        'flex flex-col justify-between gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-center',
+        className,
+      )}
+      {...props}
+    >
       <div className="flex flex-col gap-2">
         {backLink && (
-          <a
-            href={backLink.href}
-            className="inline-flex items-center gap-2 text-xs font-bold text-muted hover:text-accent uppercase tracking-wider transition-colors"
+          <Link
+            to={backLink.href}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-accent"
           >
-            <span className="w-3.5 h-3.5">←</span>
-            <span>{backLink.label || '[ // BACK ]'}</span>
-          </a>
+            <ArrowLeft className="h-4 w-4" />
+            <span>{backLink.label || 'Back'}</span>
+          </Link>
         )}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-display font-black text-ink tracking-tight uppercase leading-none">
-            <DecryptedText text={title} speed={20} />
-          </h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <h1 className="text-2xl font-semibold leading-none tracking-tight text-fg">{title}</h1>
           {badge && (
-            <TacticalBadge
-              label={badge.label}
-              variant={badge.variant || 'neutral'}
-              size="sm"
-              pulse={badge.pulse}
-            />
+            <Badge variant={badge.variant || 'neutral'} size="sm" pulse={badge.pulse}>
+              {badge.label}
+            </Badge>
           )}
         </div>
-        {subtitle && (
-          <p className="text-xs text-muted">
-            {subtitle}
-          </p>
-        )}
+        {subtitle && <p className="text-sm text-fg-muted">{subtitle}</p>}
       </div>
-      {action && (
-        <div className="flex-shrink-0 sm:self-end">
-          {action}
-        </div>
-      )}
+      {action && <div className="flex-shrink-0 sm:self-end">{action}</div>}
       {children}
     </div>
   );

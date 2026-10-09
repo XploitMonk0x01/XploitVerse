@@ -179,6 +179,10 @@ func (a *API) StartLab(c *gin.Context) {
 		SELECT room_id, id FROM tasks WHERE asset_id=$1 LIMIT 1
 	`, body.LabID).Scan(&roomID, &taskID)
 
+	if roomID.Valid && !a.requirePremiumAccess(c, roomID.Int64) {
+		return
+	}
+
 	var sessionID int64
 	now := time.Now()
 	err = a.DB.QueryRow(c.Request.Context(), `
@@ -256,7 +260,14 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 	}
 
 	now := time.Now()
-	expiresAt := now.Add(240 * time.Minute)
+	// Student accounts are capped at a 60-minute session; instructors and
+	// admins keep the longer allowance. The auto-termination service tears the
+	// container down once expires_at passes.
+	sessionDuration := 240 * time.Minute
+	if u.Role == roleStudent {
+		sessionDuration = 60 * time.Minute
+	}
+	expiresAt := now.Add(sessionDuration)
 	hostPort := a.DockerSvc.GetWebPort(c.Request.Context(), containerID)
 	contextPath := ""
 	if strings.Contains(strings.ToLower(image), "vulnerable-app") {

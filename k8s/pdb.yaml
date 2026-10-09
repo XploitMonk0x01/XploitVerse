@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xploitverse-client
+  namespace: xploitverse
+  labels:
+    app.kubernetes.io/name: xploitverse-client
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xploitverse-client
+      app.kubernetes.io/component: frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xploitverse-backend
+  namespace: xploitverse
+  labels:
+    app.kubernetes.io/name: xploitverse-backend
+    app.kubernetes.io/component: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xploitverse-backend
+      app.kubernetes.io/component: backend

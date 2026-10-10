@@ -11,8 +11,10 @@ import (
 )
 
 // RazorpayClient is a thin, dependency-free client over the Razorpay REST API
-// (Subscriptions + Plans). The key secret never leaves the server; only the
-// key id and a created subscription id are ever returned to the browser.
+// (Orders + Payments). XploitVerse bills lab time per-use, so the client only
+// creates one-time Orders and reads them back — there is no recurring plan or
+// subscription surface. The key secret never leaves the server; only the key id
+// and a created order id are ever returned to the browser.
 type RazorpayClient struct {
 	BaseURL    string
 	KeyID      string
@@ -71,62 +73,39 @@ func (r *RazorpayClient) do(ctx context.Context, method, path string, body map[s
 	return out, nil
 }
 
-// CreatePlan registers a recurring plan and returns its Razorpay id.
-// amount is in the smallest currency unit (paise for INR).
-func (r *RazorpayClient) CreatePlan(ctx context.Context, name string, amountPaise int64, period string) (string, error) {
-	res, err := r.do(ctx, http.MethodPost, "/plans", map[string]interface{}{
-		"period":   period,
-		"interval": 1,
-		"item": map[string]interface{}{
-			"name":     name,
-			"amount":   amountPaise,
-			"currency": "INR",
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-	id, _ := res["id"].(string)
-	if id == "" {
-		return "", fmt.Errorf("razorpay plan create returned no id")
-	}
-	return id, nil
-}
-
-// CreateSubscription starts a recurring subscription against a plan id.
-func (r *RazorpayClient) CreateSubscription(ctx context.Context, planID string, notes map[string]string) (map[string]interface{}, error) {
+// CreateOrder registers a one-time order for a lab extension and returns the
+// created entity. amount is in the smallest currency unit (paise for INR).
+func (r *RazorpayClient) CreateOrder(ctx context.Context, amountPaise int64, currency, receipt string, notes map[string]string) (map[string]interface{}, error) {
 	payload := map[string]interface{}{
-		"plan_id":         planID,
-		"customer_notify": 1,
-		"total_count":     12,
-		"quantity":        1,
+		"amount":   amountPaise,
+		"currency": currency,
+		"receipt":  receipt,
 	}
 	if len(notes) > 0 {
 		payload["notes"] = notes
 	}
-	res, err := r.do(ctx, http.MethodPost, "/subscriptions", payload)
+	res, err := r.do(ctx, http.MethodPost, "/orders", payload)
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := res["id"].(string); !ok {
-		return nil, fmt.Errorf("razorpay subscription create returned no id")
+		return nil, fmt.Errorf("razorpay order create returned no id")
 	}
 	return res, nil
 }
 
-// FetchSubscription reads authoritative subscription state from Razorpay.
-func (r *RazorpayClient) FetchSubscription(ctx context.Context, subscriptionID string) (map[string]interface{}, error) {
-	if subscriptionID == "" {
-		return nil, fmt.Errorf("empty subscription id")
+// FetchOrder reads authoritative order state from Razorpay.
+func (r *RazorpayClient) FetchOrder(ctx context.Context, orderID string) (map[string]interface{}, error) {
+	if orderID == "" {
+		return nil, fmt.Errorf("empty order id")
 	}
-	return r.do(ctx, http.MethodGet, "/subscriptions/"+subscriptionID, nil)
+	return r.do(ctx, http.MethodGet, "/orders/"+orderID, nil)
 }
 
-// CancelSubscription cancels an active subscription at the provider.
-func (r *RazorpayClient) CancelSubscription(ctx context.Context, subscriptionID string) error {
-	if subscriptionID == "" {
-		return fmt.Errorf("empty subscription id")
+// FetchPayment reads a payment entity (used to confirm capture state).
+func (r *RazorpayClient) FetchPayment(ctx context.Context, paymentID string) (map[string]interface{}, error) {
+	if paymentID == "" {
+		return nil, fmt.Errorf("empty payment id")
 	}
-	_, err := r.do(ctx, http.MethodPost, "/subscriptions/"+subscriptionID+"/cancel", nil)
-	return err
+	return r.do(ctx, http.MethodGet, "/payments/"+paymentID, nil)
 }

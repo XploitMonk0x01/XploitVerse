@@ -2,7 +2,7 @@ import type { FormEvent } from 'react';
 import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, OTPVerification } from '../../components/ui';
 import { FadeIn } from '../../components/ui/motion';
 import { AlertTriangle, ArrowRight, Shield } from 'lucide-react';
 
@@ -21,6 +21,7 @@ interface FormErrors {
   confirmPassword?: string;
   agree?: string;
   form?: string;
+  error?: string;
 }
 
 interface TouchedFields {
@@ -42,8 +43,10 @@ export function Register() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<TouchedFields>({});
   const [loading, setLoading] = useState(false);
+  const [verifyMode, setVerifyMode] = useState<'none' | 'otp' | 'resend'>('none');
+  const [otpSent, setOTPSent] = useState(false);
 
-  const { register } = useAuth();
+  const { register, sendOTP: userSendOTP, verifyOTP: userVerifyOTP } = useAuth();
   const navigate = useNavigate();
 
   const set = (k: keyof FormData, v: string | boolean) => {
@@ -89,14 +92,37 @@ export function Register() {
     setLoading(false);
 
     if (result.success) {
-      navigate('/dashboard');
+      setVerifyMode('otp');
+      setOTPSent(true);
     } else {
       setErrors({ form: result.error });
     }
   };
 
-  const handleSubmitVoid = (e: FormEvent) => {
-    void handleSubmit(e);
+  const handleOTPSubmit = async (enteredOTP: string) => {
+    setVerifyMode('resend');
+    setOTPSent(true);
+
+    try {
+      const result = await userVerifyOTP(form.email, enteredOTP);
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setErrors({ error: result.message || 'Invalid OTP. Please try again.' });
+        setVerifyMode('otp');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Verification failed. Please try again.';
+      setErrors({ error: message });
+      setVerifyMode('otp');
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (form.email) {
+      await userSendOTP(form.email);
+    }
+    setErrors({ error: '' });
   };
 
   return (
@@ -123,98 +149,114 @@ export function Register() {
 
         {/* Card */}
         <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
-          <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
-            {errors.form && (
-              <div
-                className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
-                role="alert"
-              >
-                <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                <span>{errors.form}</span>
-              </div>
-            )}
-
-            <Input
-              label="Operative Handle"
-              type="text"
-              name="username"
-              placeholder="e.g. cyberwarrior"
-              value={form.username}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('username', e.target.value)}
-              onBlur={() => touch('username')}
-              error={touched.username && errors.username ? errors.username : undefined}
-              required
+          {verifyMode === 'otp' && otpSent ? (
+            <OTPVerification
+              onVerified={handleOTPSubmit}
+              onResend={handleResendOTP}
+              mode="register"
             />
-
-            <Input
-              label="Communication Email"
-              type="email"
-              name="email"
-              placeholder="operative@xploitverse.io"
-              value={form.email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
-              onBlur={() => touch('email')}
-              error={touched.email && errors.email ? errors.email : undefined}
-              required
-            />
-
-            <div className="grid gap-3.5 sm:grid-cols-2">
-              <Input
-                label="Passkey"
-                type="password"
-                name="password"
-                placeholder="Min. 8 characters"
-                value={form.password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
-                onBlur={() => touch('password')}
-                error={touched.password && errors.password ? errors.password : undefined}
-                required
-              />
-
-              <Input
-                label="Verify Passkey"
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm passkey"
-                value={form.confirmPassword}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
-                onBlur={() => touch('confirmPassword')}
-                error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
-                required
-              />
-            </div>
-
-            <div className="pt-1">
-              <label className="flex cursor-pointer select-none items-start gap-2.5 text-xs text-fg-muted transition-colors hover:text-fg">
-                <input
-                  type="checkbox"
-                  checked={form.agree}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('agree', e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
-                />
-                <span className="text-[11px] leading-relaxed text-fg-muted">
-                  I agree to follow operational rules and ethics policy. Intrusions outside designated challenge targets are strictly prohibited.
-                </span>
-              </label>
-              {touched.agree && errors.agree && (
-                <span className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger" role="alert">
-                  <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.75} /> {errors.agree}
-                </span>
+          ) : (
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} noValidate>
+              {errors.form && (
+                <div
+                  className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                  role="alert"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  <span>{errors.form}</span>
+                </div>
               )}
-            </div>
 
-            <div className="pt-2">
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full"
-                isLoading={loading}
-              >
-                Create Operative Account
-                <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
-              </Button>
-            </div>
-          </form>
+              <Input
+                label="Operative Handle"
+                type="text"
+                name="username"
+                placeholder="e.g. cyberwarrior"
+                value={form.username}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('username', e.target.value)}
+                onBlur={() => touch('username')}
+                error={touched.username && errors.username ? errors.username : undefined}
+                required
+              />
+
+              <Input
+                label="Communication Email"
+                type="email"
+                name="email"
+                placeholder="operative@xploitverse.io"
+                value={form.email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
+                onBlur={() => touch('email')}
+                error={touched.email && errors.email ? errors.email : undefined}
+                required
+              />
+
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <Input
+                  label="Passkey"
+                  type="password"
+                  name="password"
+                  placeholder="Min. 8 characters"
+                  value={form.password}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('password', e.target.value)}
+                  onBlur={() => touch('password')}
+                  error={touched.password && errors.password ? errors.password : undefined}
+                  required
+                />
+
+                <Input
+                  label="Verify Passkey"
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm passkey"
+                  value={form.confirmPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
+                  onBlur={() => touch('confirmPassword')}
+                  error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
+                  required
+                />
+              </div>
+
+              <div className="pt-1">
+                <label className="flex cursor-pointer select-none items-start gap-2.5 text-xs text-fg-muted transition-colors hover:text-fg">
+                  <input
+                    type="checkbox"
+                    checked={form.agree}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('agree', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
+                  />
+                  <span className="text-[11px] leading-relaxed text-fg-muted">
+                    I agree to follow operational rules and ethics policy. Intrusions outside designated challenge targets are strictly prohibited.
+                  </span>
+                </label>
+                {touched.agree && errors.agree && (
+                  <span className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger" role="alert">
+                    <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.75} /> {errors.agree}
+                  </span>
+                )}
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full"
+                  isLoading={loading}
+                >
+                  Create Operative Account
+                  <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {verifyMode === 'otp' && otpSent && (
+            <OTPVerification
+              onVerified={handleOTPSubmit}
+              onResend={handleResendOTP}
+              mode="register"
+            />
+          )}
 
           <div className="mt-6 border-t border-border pt-4 text-center text-xs text-fg-muted">
             Existing credentials?{' '}

@@ -42,8 +42,10 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 		authGroup.GET("/me", auth, api.GetMe)
 		authGroup.PUT("/update-password", auth, api.UpdatePassword)
 		authGroup.POST("/refresh-token", auth, api.RefreshToken)
-		authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
-		authGroup.POST("/reset-password/:token", authLimiter.Middleware(), api.ResetPassword)
+authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
+	authGroup.POST("/send-otp", authLimiter.Middleware(), api.SendOTP)
+	authGroup.POST("/verify-otp", authLimiter.Middleware(), api.VerifyOTP)
+	authGroup.POST("/reset-password/:token", authLimiter.Middleware(), api.ResetPassword)
 	}
 
 	usersGroup := v1.Group("/users")
@@ -112,15 +114,13 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 		labsGroup.POST("/session/:sessionId/provision", api.CompleteProvisioning)
 	}
 
-	// Billing / subscriptions (Razorpay).
+	// Per-lab usage billing (Razorpay one-time orders, no subscriptions).
 	billingGroup := v1.Group("/billing")
 	{
-		billingGroup.GET("/plans", api.GetPlans)
+		billingGroup.GET("/pricing", api.GetPricing)
 		billingGroup.POST("/webhook", api.RazorpayWebhook)
-		billingGroup.GET("/status", auth, api.GetSubscriptionStatus)
-		billingGroup.POST("/subscribe", auth, api.CreateSubscription)
-		billingGroup.POST("/verify", auth, api.VerifySubscriptionPayment)
-		billingGroup.POST("/cancel", auth, api.CancelSubscription)
-		billingGroup.POST("/rooms/:roomId/premium", auth, api.SetRoomPremium)
+		billingGroup.POST("/lab-sessions/:id/order", auth, api.CreateLabOrder)
+		billingGroup.POST("/verify", auth, api.VerifyLabPayment)
+		billingGroup.GET("/payments", auth, api.GetMyPayments)
 	}
 }

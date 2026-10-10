@@ -4,7 +4,6 @@ export interface Course {
   title: string;
   description: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
-  isPremium: boolean;
   isPublished: boolean;
   tags: string[];
   createdAt: string;

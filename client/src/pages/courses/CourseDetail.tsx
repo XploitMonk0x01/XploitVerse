@@ -13,7 +13,6 @@ import {
 import { StaggerContainer, FadeIn } from "../../components/ui/motion";
 import { courseService } from "../../services";
 import {
-  Lock,
   ChevronRight,
   Layers,
   Award,
@@ -68,11 +67,6 @@ export const CourseDetail = () => {
           title={course?.title || "Course"}
           subtitle={course?.description}
           backLink={{ href: "/courses", label: "Back to catalog" }}
-          badge={
-            course?.isPremium
-              ? { label: "Premium", variant: "warning" }
-              : undefined
-          }
         />
       </FadeIn>
 
@@ -107,15 +101,9 @@ export const CourseDetail = () => {
               />
               <Stat
                 label="Access"
-                value={course.isPremium ? "Subscription" : "Free"}
-                icon={
-                  course.isPremium ? (
-                    <Lock className="h-4 w-4" strokeWidth={1.75} />
-                  ) : (
-                    <Award className="h-4 w-4" strokeWidth={1.75} />
-                  )
-                }
-                tone={course.isPremium ? "warn" : "neutral"}
+                value="Pay as you go"
+                icon={<Award className="h-4 w-4" strokeWidth={1.75} />}
+                tone="neutral"
               />
             </div>
           </FadeIn>

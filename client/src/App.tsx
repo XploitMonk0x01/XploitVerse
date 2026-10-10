@@ -13,7 +13,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/dashboard/Dashboard';
 import Profile from './pages/dashboard/Profile';
-import Pricing from './pages/dashboard/Pricing';
+import Billing from './pages/dashboard/Billing';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import LabWorkspace from './pages/LabWorkspace';
 import CourseCatalog from './pages/courses/CourseCatalog';
@@ -71,7 +71,7 @@ function App() {
               {/* Student Dashboard */}
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/billing" element={<Billing />} />
 
               {/* Course Content */}
               <Route path="/courses" element={<CourseCatalog />} />

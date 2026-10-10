@@ -1,3 +1,14 @@
+export interface SessionBilling {
+  status: string;
+  startedAt?: string;
+  expiresAt?: string;
+  remainingSeconds: number;
+  paidMinutes: number;
+  freeMinutes: number;
+  maxSessionMinutes: number;
+  warnMinutes: number;
+}
+
 export interface LabSession {
   id: number;
   userId: number;
@@ -14,6 +25,7 @@ export interface LabSession {
   publicIp?: string;
   hostUrl?: string;
   hostPort?: number;
+  billing?: SessionBilling;
 }
 
 export interface LabSessionSummary {

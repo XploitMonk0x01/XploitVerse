@@ -179,10 +179,6 @@ func (a *API) StartLab(c *gin.Context) {
 		SELECT room_id, id FROM tasks WHERE asset_id=$1 LIMIT 1
 	`, body.LabID).Scan(&roomID, &taskID)
 
-	if roomID.Valid && !a.requirePremiumAccess(c, roomID.Int64) {
-		return
-	}
-
 	var sessionID int64
 	now := time.Now()
 	err = a.DB.QueryRow(c.Request.Context(), `
@@ -260,14 +256,10 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 	}
 
 	now := time.Now()
-	// Student accounts are capped at a 60-minute session; instructors and
-	// admins keep the longer allowance. The auto-termination service tears the
+	// Students open on the free tier and pay to extend; instructors and admins
+	// keep the full session allowance. The auto-termination service tears the
 	// container down once expires_at passes.
-	sessionDuration := 240 * time.Minute
-	if u.Role == roleStudent {
-		sessionDuration = 60 * time.Minute
-	}
-	expiresAt := now.Add(sessionDuration)
+	expiresAt := now.Add(time.Duration(a.initialSessionMinutes(u.Role)) * time.Minute)
 	hostPort := a.DockerSvc.GetWebPort(c.Request.Context(), containerID)
 	contextPath := ""
 	if strings.Contains(strings.ToLower(image), "vulnerable-app") {
@@ -307,6 +299,7 @@ func (a *API) CompleteProvisioning(c *gin.Context) {
 				"expiresAt":      expiresAt,
 				"containerId":    containerID,
 				"connectionInfo": conn,
+				"remainingSeconds": int(time.Until(expiresAt).Seconds()),
 			},
 		},
 	})
@@ -430,6 +423,9 @@ func (a *API) GetActiveSession(c *gin.Context) {
 		"hostPort":       hostPort,
 		"publicIp":       connectionHost(connInfo),
 	}
+	if billing, err := a.sessionBilling(c.Request.Context(), id); err == nil {
+		sessionObj["billing"] = billing
+	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
 		"session":        sessionObj,
@@ -535,6 +531,9 @@ func (a *API) GetActiveLabSession(c *gin.Context) {
 		"connectionInfo":    session.ConnectionInfo,
 		"hostUrl":           hostURL,
 		"hostPort":          hostPort,
+	}
+	if billing, err := a.sessionBilling(c.Request.Context(), session.ID); err == nil {
+		sessionPayload["billing"] = billing
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"session": sessionPayload}})

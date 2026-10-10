@@ -1,54 +1,79 @@
 import { apiClient } from './api';
+import type { SessionBilling } from '../types';
 
-export interface BillingPlan {
+export type { SessionBilling };
+
+/**
+ * XploitVerse is pay-as-you-go: every lab session runs on a free tier, then the
+ * user buys time extensions with one-time payments. There are no subscriptions.
+ */
+
+export interface PricingBlock {
   key: string;
   name: string;
-  currency: string;
-  amount: number;
+  hours: number;
+  minutes: number;
+  amount: number; // smallest currency unit (paise)
   amountRupee: number;
-  period: string;
-  features: string[];
 }
 
-export interface PlansResponse {
-  plans: BillingPlan[];
+export interface PricingResponse {
+  currency: string;
+  freeMinutes: number;
+  hourlyRateRupee: number;
+  maxSessionMinutes: number;
+  warnMinutes: number;
+  blocks: PricingBlock[];
   configured: boolean;
 }
 
-export interface SubscriptionStatus {
-  plan: string;
-  status: string;
-  active: boolean;
-  subscriptionId?: string;
-  currentEnd?: number;
-}
-
-interface CheckoutTicket {
+export interface LabOrderTicket {
   keyId: string;
-  subscriptionId: string;
-  plan: string;
+  orderId: string;
   amount: number;
   currency: string;
+  block: string;
+  minutes: number;
+  sessionId: number;
+}
+
+export interface ExtendResult {
+  sessionId: number;
+  grantedMinutes: number;
+  billing: SessionBilling;
+}
+
+export interface PaymentRecord {
+  id: number;
+  sessionId: number;
+  block: string;
+  minutes: number;
+  amount: number;
+  currency: string;
+  paymentId: string;
   status: string;
+  createdAt: string;
 }
 
 export const billingService = {
-  getPlans: () => apiClient.get<PlansResponse>('/billing/plans'),
-  getStatus: () => apiClient.get<SubscriptionStatus>('/billing/status'),
-  subscribe: (plan: string) => apiClient.post<CheckoutTicket>('/billing/subscribe', { plan }),
+  getPricing: () => apiClient.get<PricingResponse>('/billing/pricing'),
+  createLabOrder: (sessionId: number, block: string) =>
+    apiClient.post<LabOrderTicket>(`/billing/lab-sessions/${sessionId}/order`, { block }),
   verify: (payload: Record<string, string>) =>
-    apiClient.post<SubscriptionStatus>('/billing/verify', payload),
-  cancel: () => apiClient.post<SubscriptionStatus>('/billing/cancel'),
+    apiClient.post<ExtendResult>('/billing/verify', payload),
+  getPayments: () =>
+    apiClient.get<{ payments: PaymentRecord[] }>('/billing/payments'),
 };
 
 /* ── Razorpay Checkout.js integration ── */
 
 interface RazorpayOptions {
   key: string;
-  subscription_id?: string;
+  order_id?: string;
   name: string;
   description?: string;
   currency?: string;
+  amount?: number;
   image?: string;
   prefill?: { name?: string; email?: string; contact?: string };
   theme?: { color?: string };
@@ -97,24 +122,26 @@ export interface CheckoutUser {
 }
 
 /**
- * Creates a server-side subscription, opens Razorpay Checkout for the mandate /
- * first payment, verifies the callback signature on the server, and resolves
- * with the confirmed subscription status.
+ * Buys an extension block for a running lab session. Creates a one-time order on
+ * the server, opens Razorpay Checkout, verifies the callback signature on the
+ * server, and resolves with the extended session billing state.
  */
-export async function startRazorpaySubscription(
-  planKey: string,
+export async function startLabExtension(
+  sessionId: number,
+  block: string,
   user: CheckoutUser,
-): Promise<SubscriptionStatus> {
-  const ticket = await billingService.subscribe(planKey);
+): Promise<ExtendResult> {
+  const ticket = await billingService.createLabOrder(sessionId, block);
   const Razorpay = await loadCheckout();
 
-  return new Promise<SubscriptionStatus>((resolve, reject) => {
+  return new Promise<ExtendResult>((resolve, reject) => {
     const rzp = new Razorpay({
       key: ticket.keyId,
-      subscription_id: ticket.subscriptionId,
+      order_id: ticket.orderId,
       name: 'XploitVerse',
-      description: `${ticket.plan} subscription`,
-      currency: 'INR',
+      description: `Lab time extension · ${block}`,
+      currency: ticket.currency,
+      amount: ticket.amount,
       prefill: {
         name: user.fullName || user.username,
         email: user.email,

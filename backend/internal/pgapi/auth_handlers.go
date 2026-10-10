@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -260,6 +262,14 @@ func (a *API) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Token refreshed successfully", "data": gin.H{"token": token}})
 }
 
+func generateOTP()(string, error) {
+	raw := make([]byte, 3)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", 100000+binary.BigEndian.Uint32(raw)%900000), nil
+}
+
 func (a *API) ForgotPassword(c *gin.Context) {
 	var body struct {
 		Email string `json:"email" binding:"required,email"`
@@ -276,32 +286,37 @@ func (a *API) ForgotPassword(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "If an account with that email exists, a password reset link has been sent.",
+			"message": "If an account with that email exists, a password reset OTP has been sent.",
 		})
 		return
 	}
 
-	rawTokenBytes := make([]byte, 32)
-	if _, err := rand.Read(rawTokenBytes); err != nil {
-		writeErr(c, http.StatusInternalServerError, "Failed to generate reset token")
+	otp, err := generateOTP()
+	if err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to generate OTP")
 		return
 	}
-	plainToken := hex.EncodeToString(rawTokenBytes)
-	hash := sha256.Sum256([]byte(plainToken))
-	hashedToken := hex.EncodeToString(hash[:])
+
 	expiresAt := time.Now().Add(10 * time.Minute)
 
 	if _, err := a.DB.Exec(c.Request.Context(), `
 		UPDATE users SET password_reset_token=$1, password_reset_expires=$2, updated_at=now()
 		WHERE id=$3
-	`, hashedToken, expiresAt, userID); err != nil {
-		writeErr(c, http.StatusInternalServerError, "Failed to persist reset token")
+	`, "", expiresAt, userID); err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to persist reset data")
 		return
 	}
 
+	if err := a.RedisSvc.Set(c.Request.Context(), fmt.Sprintf("xv:otp:%d", userID), otp, 10*time.Minute); err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to store OTP")
+		return
+	}
+
+	// TODO: Send OTP via email/SMS
+	// For now, respond successfully
 	response := gin.H{
 		"success": true,
-		"message": "If an account with that email exists, a password reset link has been sent.",
+		"message": "If an account with that email exists, an OTP has been sent.",
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -374,4 +389,88 @@ func (a *API) ResetPassword(c *gin.Context) {
 		"message": "Password reset successful",
 		"data":    gin.H{"token": jwtToken},
 	})
+}
+
+func (a *API) SendOTP(c *gin.Context) {
+	var body struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		writeErr(c, http.StatusBadRequest, "Please provide a valid email address")
+		return
+	}
+
+	var userID int64
+	err := a.DB.QueryRow(c.Request.Context(), `
+		SELECT id FROM users WHERE email=$1
+	`, strings.ToLower(strings.TrimSpace(body.Email))).Scan(&userID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "If an account with that email exists, an OTP has been sent.",
+		})
+		return
+	}
+
+	otp, err := generateOTP()
+	if err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to generate OTP")
+		return
+	}
+
+	if err := a.RedisSvc.Set(c.Request.Context(), fmt.Sprintf("xv:otp:%d", userID), otp, 5*time.Minute); err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to store OTP")
+		return
+	}
+
+	response := gin.H{
+		"success": true,
+		"message": "OTP sent successfully. Verify using /verify-otp.",
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (a *API) VerifyOTP(c *gin.Context) {
+	var body struct {
+		Email    string `json:"email" binding:"required,email"`
+		OTP      string `json:"otp" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		writeErr(c, http.StatusBadRequest, "Email and OTP are required")
+		return
+	}
+
+	// First, we need to get the user ID from the email
+	var userID int64
+	err := a.DB.QueryRow(c.Request.Context(), `
+		SELECT id FROM users WHERE email=$1
+	`, strings.ToLower(strings.TrimSpace(body.Email))).Scan(&userID)
+	if err != nil {
+		writeErr(c, http.StatusBadRequest, "Invalid email or OTP")
+		return
+	}
+
+	// Check OTP in Redis
+	cachedOTP := ""
+	err = a.RedisSvc.Client().Get(c.Request.Context(), fmt.Sprintf("xv:otp:%d", userID)).Scan(&cachedOTP)
+	if err != nil {
+		writeErr(c, http.StatusBadRequest, "Invalid or expired OTP")
+		return
+	}
+
+	if cachedOTP == "" || cachedOTP != body.OTP {
+		writeErr(c, http.StatusBadRequest, "Invalid or expired OTP")
+		return
+	}
+
+	// OTP verified - clear it from Redis
+	a.RedisSvc.Client().Del(c.Request.Context(), fmt.Sprintf("xv:otp:%d", userID))
+
+	response := gin.H{
+		"success": true,
+		"message": "OTP verified successfully",
+	}
+
+	c.JSON(http.StatusOK, response)
 }

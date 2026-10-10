@@ -68,6 +68,7 @@ XploitVerse is an enterprise-ready offensive cybersecurity education platform de
 
 - **On-Demand Ephemeral Labs**: Seamlessly spins up isolated target containers (e.g. AWS Capital One SSRF replica, SQL injection playgrounds, multi-stage privilege escalation boxes) on an isolated internal Docker bridge network (`172.30.0.0/16`).
 - **Interactive Web Terminal**: Full bidirectional in-browser terminal connected over Gorilla WebSockets directly to the target container's SSH daemon or bash shell.
+- **Pay-As-You-Go Lab Billing**: No subscriptions. Every lab runs on a free 59-minute tier, then the user buys time extensions for that session only via Razorpay one-time orders. Pricing is derived from AWS run cost — see [`docs/PRICING.md`](docs/PRICING.md).
 - **Cryptographic Flag Verification**: Canonical flags validated via SHA-256 hash checks with automated hint-penalty calculations and real-time score auditing.
 - **Curated Mission Tracks & Rooms**: Structured rooms, modules, and step-by-step tasks designed for progressive offensive skill development.
 - **Real-Time Leaderboards**: Points and achievement tracking with millisecond-grade rankings backed by PostgreSQL aggregations.
@@ -519,6 +520,13 @@ Database Matches: 7b3d9c... (tasks.flag_hash)
 | `SMTP_USERNAME` | No | *(None)* | Mail server authentication username |
 | `SMTP_PASSWORD` | No | *(None)* | Mail server authentication password/app key |
 | `SMTP_FROM` | No | `noreply@xploitverse.io` | Default sender email address |
+| `RAZORPAY_KEY_ID` | No | *(None)* | Razorpay key id (enables lab-time checkout) |
+| `RAZORPAY_KEY_SECRET` | No | *(None)* | Razorpay key secret |
+| `RAZORPAY_WEBHOOK_SECRET` | No | *(None)* | Enables HMAC verification of payment webhooks |
+| `LAB_FREE_MINUTES` | No | `59` | Free lab time before an extension is required |
+| `LAB_HOURLY_RATE_INR` | No | `9` | Pay-as-you-go rate per lab hour (INR) |
+| `LAB_MAX_SESSION_MINUTES` | No | `480` | Hard cap on a single session's lifetime |
+| `LAB_WARN_MINUTES` | No | `10` | Warning threshold before session expiry |
 
 ### Frontend Environment Variables (`client/.env`)
 

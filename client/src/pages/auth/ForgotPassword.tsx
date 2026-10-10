@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, OTPVerification } from '../../components/ui';
 import { FadeIn } from '../../components/ui/motion';
 import { AlertTriangle, CheckCircle2, ArrowRight, RotateCcw, Shield } from 'lucide-react';
 import { authService } from '../../services';
@@ -11,6 +11,8 @@ const ForgotPassword = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [verifyMode, setVerifyMode] = useState<'none' | 'otp' | 'resend'>('none');
+  const [otpSent, setOTPSent] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,21 +28,61 @@ const ForgotPassword = () => {
 
     setIsLoading(true);
     setError('');
+    setVerifyMode('otp');
+    setOTPSent(false);
 
     try {
-      await authService.forgotPassword(email);
+      await authService.sendOTP(email);
       setIsSubmitted(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Transmission error. Please try again.';
       setError(message);
+      setVerifyMode('none');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmitVoid = (e: FormEvent) => {
-    void handleSubmit(e);
+  const handleOTPSubmit = async (enteredOTP: string) => {
+    setVerifyMode('resend');
+    setOTPSent(true);
+
+    try {
+      const result = await authService.verifyOTP(email, enteredOTP);
+      if (result.success) {
+        setIsSubmitted(false);
+        setEmail('');
+        setError('OTP verified successfully. You can now set a new passkey.');
+      } else {
+        setError(result.message || 'Invalid OTP. Please try again.');
+        setVerifyMode('otp');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Verification failed. Please try again.';
+      setError(message);
+      setVerifyMode('otp');
+    }
   };
+
+  const handleResendOTP = async () => {
+    await authService.sendOTP(email);
+    setError('');
+  };
+
+  useEffect(() => {
+    const inputs = document.querySelectorAll('.otp-input');
+    const elements = Array.from(inputs) as HTMLInputElement[];
+    elements.forEach((el, idx) => {
+      el.addEventListener('input', (e) => {
+        const value = (e.target as HTMLInputElement).value;
+        if (value && idx < 5) {
+          elements[idx + 1]?.focus();
+        } else if (!value && idx > 0) {
+          elements[idx - 1]?.focus();
+        }
+      });
+    });
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-bg-base p-4">
@@ -66,8 +108,8 @@ const ForgotPassword = () => {
 
         {/* Card */}
         <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
-          {!isSubmitted ? (
-            <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
+          {!isSubmitted && !verifyMode && (
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} noValidate>
               {error && (
                 <div
                   className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
@@ -99,38 +141,58 @@ const ForgotPassword = () => {
                   className="w-full"
                   isLoading={isLoading}
                 >
-                  Transmit Recovery Token
+                  Send OTP
                   <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
                 </Button>
               </div>
             </form>
+          )}
+
+          {verifyMode === 'otp' && !otpSent ? (
+            <OTPVerification
+              onVerified={handleOTPSubmit}
+              onResend={handleResendOTP}
+              mode="forgot-password"
+            />
           ) : (
             <div className="space-y-4">
               <div className="space-y-2 rounded-md border border-accent/30 bg-accent/10 p-4 text-xs">
                 <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-accent">
                   <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  <span>Token Transmitted</span>
+                  <span>OTP Verified</span>
                 </div>
                 <p className="leading-relaxed text-fg">
-                  Reset instructions dispatched to <span className="font-semibold text-accent">{email}</span>.
+                  OTP verified successfully. You can now set a new passkey.
                 </p>
                 <p className="text-[11px] text-fg-muted">
-                  Verify spam filters if unreceived within 60 seconds.
+                  If you didn't receive the OTP, check spam filters.
                 </p>
               </div>
 
               <Button
                 type="button"
                 variant="secondary"
+                onClick={handleResendOTP}
                 className="w-full"
-                onClick={() => {
-                  setIsSubmitted(false);
-                  setEmail('');
-                }}
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
-                Re-send token
+                Resend OTP
               </Button>
+            </div>
+          )}
+
+          {isSubmitted && !verifyMode && (
+            <div className="space-y-2 rounded-md border border-accent/30 bg-accent/10 p-4 text-xs">
+              <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-accent">
+                <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span>Token Transmitted</span>
+              </div>
+              <p className="leading-relaxed text-fg">
+                Reset instructions dispatched to <span className="font-semibold text-accent">{email}</span>.
+              </p>
+              <p className="text-[11px] text-fg-muted">
+                Verify spam filters if unreceived within 60 seconds.
+              </p>
             </div>
           )}
 

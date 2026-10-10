@@ -48,6 +48,8 @@ export interface AuthState {
   updateUser: (userData: Partial<User>) => void;
   hasRole: (roles: string | string[]) => boolean;
   checkAuth: () => Promise<void>;
+  sendOTP: (email: string) => Promise<{ success: boolean; message: string }>;
+  verifyOTP: (email: string, otp: string) => Promise<{ success: boolean; message: string }>;
 }
 
 export interface RegisterData {

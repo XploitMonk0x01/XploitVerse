@@ -67,10 +67,6 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 		return
 	}
 
-	if !a.requirePremiumAccess(c, roomID) {
-		return
-	}
-
 	status := "pending"
 	var sessionID int64
 	now := time.Now()
@@ -122,12 +118,10 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 		containerIP = "127.0.0.1"
 	}
 
-	maxDurationMin := a.Cfg.Lab.MaxSessionDuration * 60
-	if maxDurationMin <= 0 {
-		maxDurationMin = 240
-	}
+	// Every session opens on the free tier. Paid extensions lengthen
+	// expires_at (capped at the session's maximum lifetime).
 	startedAt := time.Now()
-	expiresAt := startedAt.Add(time.Duration(maxDurationMin) * time.Minute)
+	expiresAt := startedAt.Add(time.Duration(a.initialSessionMinutes(u.Role)) * time.Minute)
 	hostPort := a.DockerSvc.GetWebPort(c.Request.Context(), containerID)
 	contextPath := ""
 	if strings.Contains(strings.ToLower(image), "vulnerable-app") {
@@ -178,6 +172,10 @@ func (a *API) StartTaskLabSession(c *gin.Context) {
 				"hostUrl":           hostURL,
 				"hostPort":          hostPort,
 				"connectionInfo":    connInfo,
+				"remainingSeconds":  int(time.Until(expiresAt).Seconds()),
+				"freeMinutes":       a.freeSessionMinutes(),
+				"maxSessionMinutes": a.maxSessionMinutes(),
+				"warnMinutes":       a.Cfg.Lab.WarningMinutes,
 			},
 		},
 	})
@@ -280,6 +278,9 @@ func (a *API) GetLabSessionByID(c *gin.Context) {
 	}
 	if assetID.Valid {
 		sessionPayload["lab"] = assetID.Int64
+	}
+	if billing, err := a.sessionBilling(c.Request.Context(), session.ID); err == nil {
+		sessionPayload["billing"] = billing
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"session": sessionPayload}})

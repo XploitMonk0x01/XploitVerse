@@ -37,12 +37,7 @@ RUN echo "Hash: 5f4dcc3b5aa765d61d8327deb882cf99" > /home/hacker/challenges/05_h
     echo "# Hint: It's one of the most common passwords in the world." > /home/hacker/challenges/05_README.txt
 
 # ---------- Challenge 6: XOR cipher ----------
-RUN python3 -c "
-key = 0x42
-plaintext = 'FLAG{xv_crypto_xor_decrypted}'
-encrypted = ' '.join(format(ord(c) ^ key, '02x') for c in plaintext)
-print(f'Encrypted (XOR key=0x42): {encrypted}')
-" > /home/hacker/challenges/06_xor.txt && \
+RUN python3 -c "key=0x42; pt='FLAG{xv_crypto_xor_decrypted}'; print('Encrypted (XOR key=0x42): ' + ' '.join(format(ord(c)^key,'02x') for c in pt))" > /home/hacker/challenges/06_xor.txt && \
     echo "# Challenge 6: XOR encrypted with a single-byte key 0x42" > /home/hacker/challenges/06_README.txt
 
 # ---------- Challenge 7: JWT token ----------

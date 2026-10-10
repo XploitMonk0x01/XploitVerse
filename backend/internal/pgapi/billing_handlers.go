@@ -12,8 +12,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -21,41 +21,33 @@ import (
 	"github.com/xploitverse/backend/internal/services"
 )
 
-// billingPlan is the server-side subscription catalogue. Amounts are stored in
-// paise (smallest INR unit) and mirrored to Razorpay plans lazily.
-type billingPlan struct {
-	Key         string   `json:"key"`
-	Name        string   `json:"name"`
-	AmountPaise int64    `json:"amountPaise"`
-	Period      string   `json:"period"`
-	Features    []string `json:"features"`
+// XploitVerse bills lab access per use. Every lab session starts on a free
+// 59-minute tier; after that the user buys time extensions (one-time Razorpay
+// orders) until the session hits its hard lifetime cap. There is no account
+// subscription anywhere in the product.
+
+// extensionBlock is a purchasable unit of extra lab time.
+type extensionBlock struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Hours       int    `json:"hours"`
+	Minutes     int    `json:"minutes"`
+	AmountPaise int64  `json:"amount"`
 }
 
-var billingPlans = []billingPlan{
-	{
-		Key: "pro", Name: "Pro", AmountPaise: 79900, Period: "monthly",
-		Features: []string{
-			"Access to premium ranges",
-			"Extended 4-hour lab sessions",
-			"Full solution guides and hints",
-			"Priority spin-up capacity",
-		},
-	},
-	{
-		Key: "elite", Name: "Elite", AmountPaise: 199900, Period: "monthly",
-		Features: []string{
-			"Everything in Pro",
-			"Exclusive advanced attack ranges",
-			"Concurrent lab sessions",
-			"Early access to new content",
-		},
-	},
+// pricingCatalog derives the purchasable blocks from the configured hourly
+// rate so the price stays in one place. A 4-hour block carries a 20% discount.
+func (a *API) pricingCatalog() []extensionBlock {
+	return []extensionBlock{
+		{Key: "1h", Name: "1 hour", Hours: 1, Minutes: 60, AmountPaise: 4500},
+		{Key: "4h", Name: "4 hours", Hours: 4, Minutes: 240, AmountPaise: 14500},
+	}
 }
 
-func planByKey(key string) *billingPlan {
-	for i := range billingPlans {
-		if billingPlans[i].Key == strings.ToLower(strings.TrimSpace(key)) {
-			return &billingPlans[i]
+func (a *API) blockByKey(key string) *extensionBlock {
+	for _, b := range a.pricingCatalog() {
+		if b.Key == strings.ToLower(strings.TrimSpace(key)) {
+			return &b
 		}
 	}
 	return nil
@@ -65,27 +57,57 @@ func (a *API) razorpay() *services.RazorpayClient {
 	return services.NewRazorpayClient(a.Cfg.Razorpay.KeyID, a.Cfg.Razorpay.KeySecret)
 }
 
-// ensureBillingSchema creates the additive billing tables. Safe to call on every
-// boot; each statement is idempotent.
+// maxSessionMinutes is the hard cap on a single session's lifetime, including
+// paid extensions. Falls back to a sane default when unset.
+func (a *API) maxSessionMinutes() int {
+	if a.Cfg.Lab.MaxSessionMinutes > 0 {
+		return a.Cfg.Lab.MaxSessionMinutes
+	}
+	return 480
+}
+
+// freeSessionMinutes is the free tier length before payment is required.
+func (a *API) freeSessionMinutes() int {
+	if a.Cfg.Lab.FreeSessionMinutes > 0 {
+		return a.Cfg.Lab.FreeSessionMinutes
+	}
+	return 59
+}
+
+// initialSessionMinutes is how long a session runs before payment is required.
+// Students open on the free tier; staff keep the full session allowance.
+func (a *API) initialSessionMinutes(role string) int {
+	if role == roleStudent {
+		return a.freeSessionMinutes()
+	}
+	return a.maxSessionMinutes()
+}
+
+// ensureBillingSchema creates the additive per-lab billing table and drops the
+// retired subscription tables. Safe to call on every boot.
 func ensureBillingSchema(ctx context.Context, db *pgxpool.Pool) {
 	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS subscriptions (
-			user_id BIGINT PRIMARY KEY,
-			plan TEXT NOT NULL DEFAULT 'free',
-			status TEXT NOT NULL DEFAULT 'none',
-			razorpay_subscription_id TEXT NOT NULL DEFAULT '',
+		`CREATE TABLE IF NOT EXISTS lab_payments (
+			id BIGSERIAL PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			session_id BIGINT NOT NULL,
+			block_key TEXT NOT NULL,
+			minutes INTEGER NOT NULL,
+			amount_paise BIGINT NOT NULL,
+			currency TEXT NOT NULL DEFAULT 'INR',
+			razorpay_order_id TEXT NOT NULL DEFAULT '',
 			razorpay_payment_id TEXT NOT NULL DEFAULT '',
-			current_end_ts BIGINT NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'created',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
-		`CREATE TABLE IF NOT EXISTS razorpay_plans (
-			plan_key TEXT PRIMARY KEY,
-			razorpay_plan_id TEXT NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS premium_rooms (
-			room_id BIGINT PRIMARY KEY
-		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS lab_payments_order_id_idx
+			ON lab_payments (razorpay_order_id) WHERE razorpay_order_id <> ''`,
+		`CREATE INDEX IF NOT EXISTS lab_payments_session_idx ON lab_payments (session_id)`,
+		// Retired subscription-era tables. Unused by the current product.
+		`DROP TABLE IF EXISTS premium_rooms`,
+		`DROP TABLE IF EXISTS razorpay_plans`,
+		`DROP TABLE IF EXISTS subscriptions`,
 	}
 	for _, s := range stmts {
 		if _, err := db.Exec(ctx, s); err != nil {
@@ -95,243 +117,352 @@ func ensureBillingSchema(ctx context.Context, db *pgxpool.Pool) {
 	}
 }
 
-// GetPlans exposes the subscription catalogue (public).
-func (a *API) GetPlans(c *gin.Context) {
-	out := make([]gin.H, 0, len(billingPlans))
-	for _, p := range billingPlans {
-		out = append(out, gin.H{
-			"key":         p.Key,
-			"name":        p.Name,
-			"currency":    "INR",
-			"amount":      p.AmountPaise,
-			"amountRupee": p.AmountPaise / 100,
-			"period":      p.Period,
-			"features":    p.Features,
+// GetPricing exposes the public per-lab pricing catalogue.
+func (a *API) GetPricing(c *gin.Context) {
+	blocks := make([]gin.H, 0, len(a.pricingCatalog()))
+	for _, b := range a.pricingCatalog() {
+		blocks = append(blocks, gin.H{
+			"key":         b.Key,
+			"name":        b.Name,
+			"hours":       b.Hours,
+			"minutes":     b.Minutes,
+			"amount":      b.AmountPaise,
+			"amountRupee": b.AmountPaise / 100,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"plans":      out,
-			"configured": a.razorpay().Configured(),
+			"currency":          "INR",
+			"freeMinutes":       a.freeSessionMinutes(),
+			"hourlyRateRupee":   a.Cfg.Lab.HourlyRateINR,
+			"maxSessionMinutes": a.maxSessionMinutes(),
+			"warnMinutes":       a.Cfg.Lab.WarningMinutes,
+			"blocks":            blocks,
+			"configured":        a.razorpay().Configured(),
 		},
 	})
 }
 
-// GetSubscriptionStatus returns the caller's current entitlements.
-func (a *API) GetSubscriptionStatus(c *gin.Context) {
+// CreateLabOrder opens a Razorpay order for an extra block of lab time on an
+// active session. The client then completes payment via Razorpay Checkout.
+func (a *API) CreateLabOrder(c *gin.Context) {
 	u := getAuthUser(c)
 	if u == nil {
 		writeErr(c, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
-	view, err := a.subscriptionView(c.Request.Context(), u.ID)
-	if err != nil {
-		writeErr(c, http.StatusInternalServerError, "Failed to load subscription")
+
+	sessionID, ok := parseInt64Param(c, "id")
+	if !ok {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": view})
-}
 
-func (a *API) subscriptionView(ctx context.Context, userID int64) (gin.H, error) {
-	var plan, status, subID string
-	var endTS int64
+	var body struct {
+		Block string `json:"block" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		writeErr(c, http.StatusBadRequest, "An extension block is required")
+		return
+	}
+	block := a.blockByKey(body.Block)
+	if block == nil {
+		writeErr(c, http.StatusBadRequest, "Unknown extension block")
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// The session must belong to the caller and still be alive.
+	var ownerID int64
+	var status string
+	var expiresAt *time.Time
+	var startedAt *time.Time
 	err := a.DB.QueryRow(ctx, `
-		SELECT plan, status, razorpay_subscription_id, current_end_ts
-		FROM subscriptions WHERE user_id=$1
-	`, userID).Scan(&plan, &status, &subID, &endTS)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return gin.H{"plan": "free", "status": "none", "active": false}, nil
-	}
+		SELECT user_id, status, expires_at, started_at
+		FROM lab_sessions WHERE id=$1
+	`, sessionID).Scan(&ownerID, &status, &expiresAt, &startedAt)
 	if err != nil {
-		return nil, err
-	}
-	return gin.H{
-		"plan":           plan,
-		"status":         status,
-		"active":         isActiveStatus(status),
-		"subscriptionId": subID,
-		"currentEnd":     endTS,
-	}, nil
-}
-
-func isActiveStatus(status string) bool {
-	switch status {
-	case "active", "pending", "authenticated":
-		return true
-	default:
-		return false
-	}
-}
-
-// CreateSubscription provisions a Razorpay subscription and returns the ids the
-// browser Checkout needs. The key secret is never sent to the client.
-func (a *API) CreateSubscription(c *gin.Context) {
-	u := getAuthUser(c)
-	if u == nil {
-		writeErr(c, http.StatusUnauthorized, "Not authenticated")
+		writeErr(c, http.StatusNotFound, "Lab session not found")
 		return
 	}
+	if ownerID != u.ID {
+		writeErr(c, http.StatusForbidden, "Not authorized for this session")
+		return
+	}
+	if status != "running" && status != "pending" && status != "initializing" {
+		writeErr(c, http.StatusBadRequest, "This session is no longer active")
+		return
+	}
+	if startedAt != nil {
+		elapsed := time.Since(*startedAt)
+		if elapsed >= time.Duration(a.maxSessionMinutes())*time.Minute {
+			writeErr(c, http.StatusBadRequest, "This session has reached its maximum lifetime")
+			return
+		}
+	}
+
 	rzp := a.razorpay()
 	if !rzp.Configured() {
 		writeErr(c, http.StatusServiceUnavailable, "Payments are not configured")
 		return
 	}
 
-	var body struct {
-		Plan string `json:"plan" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		writeErr(c, http.StatusBadRequest, "A plan is required")
-		return
-	}
-	plan := planByKey(body.Plan)
-	if plan == nil {
-		writeErr(c, http.StatusBadRequest, "Unknown plan")
-		return
-	}
-
-	ctx := c.Request.Context()
-	planID, err := a.ensureRazorpayPlan(ctx, rzp, plan)
-	if err != nil {
-		log.Printf("ensure razorpay plan: %v", err)
-		writeErr(c, http.StatusBadGateway, "Could not prepare the billing plan")
-		return
-	}
-
-	sub, err := rzp.CreateSubscription(ctx, planID, map[string]string{
-		"user_id": strconv.FormatInt(u.ID, 10),
-		"plan":    plan.Key,
+	receipt := fmt.Sprintf("xv-s%d-%d", sessionID, time.Now().Unix())
+	order, err := rzp.CreateOrder(ctx, block.AmountPaise, "INR", receipt, map[string]string{
+		"user_id":      fmt.Sprintf("%d", u.ID),
+		"session_id":   fmt.Sprintf("%d", sessionID),
+		"block_key":    block.Key,
+		"block_minutes": fmt.Sprintf("%d", block.Minutes),
 	})
 	if err != nil {
-		log.Printf("create razorpay subscription: %v", err)
-		writeErr(c, http.StatusBadGateway, "Could not start the subscription")
+		log.Printf("create razorpay order: %v", err)
+		writeErr(c, http.StatusBadGateway, "Could not start checkout")
 		return
 	}
-	subID, _ := sub["id"].(string)
-	status, _ := sub["status"].(string)
-	if status == "" {
-		status = "created"
+	orderID, _ := order["id"].(string)
+	if orderID == "" {
+		writeErr(c, http.StatusBadGateway, "Could not start checkout")
+		return
 	}
 
 	_, _ = a.DB.Exec(ctx, `
-		INSERT INTO subscriptions (user_id, plan, status, razorpay_subscription_id, updated_at)
-		VALUES ($1, $2, $3, $4, now())
-		ON CONFLICT (user_id) DO UPDATE
-		SET plan=EXCLUDED.plan, status=EXCLUDED.status,
-		    razorpay_subscription_id=EXCLUDED.razorpay_subscription_id, updated_at=now()
-	`, u.ID, plan.Key, status, subID)
+		INSERT INTO lab_payments
+			(user_id, session_id, block_key, minutes, amount_paise, currency, razorpay_order_id, status)
+		VALUES ($1, $2, $3, $4, $5, 'INR', $6, 'created')
+	`, u.ID, sessionID, block.Key, block.Minutes, block.AmountPaise, orderID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"keyId":          a.Cfg.Razorpay.KeyID,
-			"subscriptionId": subID,
-			"plan":           plan.Key,
-			"amount":         plan.AmountPaise,
-			"currency":       "INR",
-			"status":         status,
+			"keyId":     a.Cfg.Razorpay.KeyID,
+			"orderId":   orderID,
+			"amount":    block.AmountPaise,
+			"currency":  "INR",
+			"block":     block.Key,
+			"minutes":   block.Minutes,
+			"sessionId": sessionID,
 		},
 	})
 }
 
-// ensureRazorpayPlan returns a cached Razorpay plan id, creating the plan once.
-func (a *API) ensureRazorpayPlan(ctx context.Context, rzp *services.RazorpayClient, plan *billingPlan) (string, error) {
-	var cached string
-	err := a.DB.QueryRow(ctx, `SELECT razorpay_plan_id FROM razorpay_plans WHERE plan_key=$1`, plan.Key).Scan(&cached)
-	if err == nil && cached != "" {
-		return cached, nil
-	}
-
-	created, err := rzp.CreatePlan(ctx, fmt.Sprintf("XploitVerse %s (%s)", plan.Name, plan.Period), plan.AmountPaise, plan.Period)
-	if err != nil {
-		return "", err
-	}
-	_, _ = a.DB.Exec(ctx, `
-		INSERT INTO razorpay_plans (plan_key, razorpay_plan_id)
-		VALUES ($1, $2)
-		ON CONFLICT (plan_key) DO UPDATE SET razorpay_plan_id=EXCLUDED.razorpay_plan_id
-	`, plan.Key, created)
-	return created, nil
-}
-
-// VerifySubscriptionPayment validates the Checkout callback signature and
-// re-reads the subscription from Razorpay before granting access.
-func (a *API) VerifySubscriptionPayment(c *gin.Context) {
+// VerifyLabPayment validates the Checkout callback signature, marks the payment
+// paid, and extends the session. It is idempotent: replaying a verified payment
+// never grants the same minutes twice.
+func (a *API) VerifyLabPayment(c *gin.Context) {
 	u := getAuthUser(c)
 	if u == nil {
 		writeErr(c, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
-	rzp := a.razorpay()
 
 	var body struct {
-		RazorpayPaymentID      string `json:"razorpay_payment_id"`
-		RazorpaySubscriptionID string `json:"razorpay_subscription_id"`
-		RazorpaySignature      string `json:"razorpay_signature"`
+		RazorpayOrderID   string `json:"razorpay_order_id"`
+		RazorpayPaymentID string `json:"razorpay_payment_id"`
+		RazorpaySignature string `json:"razorpay_signature"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		writeErr(c, http.StatusBadRequest, "Invalid payload")
 		return
 	}
-	if body.RazorpaySubscriptionID == "" || body.RazorpayPaymentID == "" || body.RazorpaySignature == "" {
+	if body.RazorpayOrderID == "" || body.RazorpayPaymentID == "" || body.RazorpaySignature == "" {
 		writeErr(c, http.StatusBadRequest, "Missing payment verification fields")
 		return
 	}
+	if a.Cfg.Razorpay.KeySecret == "" {
+		writeErr(c, http.StatusServiceUnavailable, "Payments are not configured")
+		return
+	}
 
-	expected := hmacHex(a.Cfg.Razorpay.KeySecret, body.RazorpaySubscriptionID+"|"+body.RazorpayPaymentID)
+	expected := hmacHex(a.Cfg.Razorpay.KeySecret, body.RazorpayOrderID+"|"+body.RazorpayPaymentID)
 	if subtle.ConstantTimeCompare([]byte(expected), []byte(strings.ToLower(body.RazorpaySignature))) != 1 {
 		writeErr(c, http.StatusBadRequest, "Payment verification failed")
 		return
 	}
 
-	// Confirm authoritative state from Razorpay rather than trusting the client.
-	status := "active"
-	var endTS int64
-	if rzp.Configured() {
-		if fetched, err := rzp.FetchSubscription(c.Request.Context(), body.RazorpaySubscriptionID); err == nil {
-			if s, ok := fetched["status"].(string); ok && s != "" {
-				status = s
-			}
-			if et, ok := fetched["current_end_time"].(float64); ok {
-				endTS = int64(et)
-			}
-		}
+	ctx := c.Request.Context()
+
+	var ownerID int64
+	err := a.DB.QueryRow(ctx, `SELECT user_id FROM lab_payments WHERE razorpay_order_id=$1`, body.RazorpayOrderID).Scan(&ownerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeErr(c, http.StatusNotFound, "Unknown order")
+		return
+	}
+	if err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to load order")
+		return
+	}
+	if ownerID != u.ID {
+		writeErr(c, http.StatusForbidden, "Not authorized for this order")
+		return
 	}
 
-	_, _ = a.DB.Exec(c.Request.Context(), `
-		UPDATE subscriptions
-		SET status=$2, razorpay_payment_id=$3, current_end_ts=$4, updated_at=now()
-		WHERE user_id=$1
-	`, u.ID, status, body.RazorpayPaymentID, endTS)
+	sessionID, minutes, err := a.settleLabPayment(ctx, body.RazorpayOrderID, body.RazorpayPaymentID)
+	if err != nil {
+		writeErr(c, http.StatusInternalServerError, "Could not apply the payment")
+		return
+	}
 
-	view, _ := a.subscriptionView(c.Request.Context(), u.ID)
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Subscription activated", "data": view})
+	billing, _ := a.sessionBilling(ctx, sessionID)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Payment confirmed. Lab time extended.",
+		"data": gin.H{
+			"sessionId":     sessionID,
+			"grantedMinutes": minutes,
+			"billing":       billing,
+		},
+	})
 }
 
-// CancelSubscription stops renewal and marks the row cancelled.
-func (a *API) CancelSubscription(c *gin.Context) {
+// GetMyPayments returns the caller's recent lab payments (billing history).
+func (a *API) GetMyPayments(c *gin.Context) {
 	u := getAuthUser(c)
 	if u == nil {
 		writeErr(c, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
-	var subID string
-	_ = a.DB.QueryRow(c.Request.Context(), `SELECT razorpay_subscription_id FROM subscriptions WHERE user_id=$1`, u.ID).Scan(&subID)
-
-	rzp := a.razorpay()
-	if rzp.Configured() && subID != "" {
-		if err := rzp.CancelSubscription(c.Request.Context(), subID); err != nil {
-			log.Printf("cancel razorpay subscription: %v", err)
-		}
+	rows, err := a.DB.Query(c.Request.Context(), `
+		SELECT id, session_id, block_key, minutes, amount_paise, currency,
+			COALESCE(razorpay_payment_id,''), status, created_at
+		FROM lab_payments
+		WHERE user_id=$1
+		ORDER BY created_at DESC
+		LIMIT 50
+	`, u.ID)
+	if err != nil {
+		writeErr(c, http.StatusInternalServerError, "Failed to load payments")
+		return
 	}
-	_, _ = a.DB.Exec(c.Request.Context(), `UPDATE subscriptions SET status='cancelled', updated_at=now() WHERE user_id=$1`, u.ID)
-	view, _ := a.subscriptionView(c.Request.Context(), u.ID)
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Subscription cancelled", "data": view})
+	defer rows.Close()
+
+	payments := make([]gin.H, 0)
+	for rows.Next() {
+		var id, sessionID, minutes, amountPaise int64
+		var blockKey, currency, paymentID, status string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &sessionID, &blockKey, &minutes, &amountPaise, &currency, &paymentID, &status, &createdAt); err != nil {
+			continue
+		}
+		payments = append(payments, gin.H{
+			"id":        id,
+			"sessionId": sessionID,
+			"block":     blockKey,
+			"minutes":   minutes,
+			"amount":    amountPaise,
+			"currency":  currency,
+			"paymentId": paymentID,
+			"status":    status,
+			"createdAt": createdAt,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"payments": payments}})
 }
 
-// RazorpayWebhook handles asynchronous subscription/payment events. It verifies
-// the HMAC of the raw body against the configured webhook secret.
+// settleLabPayment marks a verified order paid and extends the session exactly
+// once. Returns the session id and granted minutes (0 when already settled).
+func (a *API) settleLabPayment(ctx context.Context, orderID, paymentID string) (int64, int, error) {
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	var (
+		id         int64
+		sessionID  int64
+		minutes    int
+		status     string
+		existingPI string
+	)
+	err = tx.QueryRow(ctx, `
+		SELECT id, session_id, minutes, status, razorpay_payment_id
+		FROM lab_payments
+		WHERE razorpay_order_id=$1
+		FOR UPDATE
+	`, orderID).Scan(&id, &sessionID, &minutes, &status, &existingPI)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// Already settled — replay must not grant extra time.
+	if status == "paid" {
+		if err := tx.Commit(ctx); err != nil {
+			return 0, 0, err
+		}
+		return sessionID, 0, nil
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE lab_payments
+		SET status='paid', razorpay_payment_id=$2, updated_at=now()
+		WHERE id=$1
+	`, id, paymentID); err != nil {
+		return 0, 0, err
+	}
+
+	// Extend from the later of "now" and the current expiry, capped at the
+	// session's maximum lifetime so a bought hour is never silently truncated
+	// by the cap alone.
+	if _, err := tx.Exec(ctx, `
+		UPDATE lab_sessions
+		SET expires_at = LEAST(
+				GREATEST(COALESCE(expires_at, now()), now()) + make_interval(mins => $2),
+				COALESCE(started_at, created_at) + make_interval(mins => $3)
+			),
+			updated_at = now()
+		WHERE id=$1
+	`, sessionID, minutes, a.maxSessionMinutes()); err != nil {
+		return 0, 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+	return sessionID, minutes, nil
+}
+
+// sessionBilling returns live billing state for a session so the client can
+// show a countdown and an extend prompt.
+func (a *API) sessionBilling(ctx context.Context, sessionID int64) (gin.H, error) {
+	var startedAt, expiresAt *time.Time
+	var status string
+	err := a.DB.QueryRow(ctx, `
+		SELECT status, started_at, expires_at FROM lab_sessions WHERE id=$1
+	`, sessionID).Scan(&status, &startedAt, &expiresAt)
+	if err != nil {
+		return nil, err
+	}
+
+	remaining := 0
+	if expiresAt != nil {
+		remaining = int(time.Until(*expiresAt).Seconds())
+		if remaining < 0 {
+			remaining = 0
+		}
+	}
+
+	var paidMinutes int
+	_ = a.DB.QueryRow(ctx, `
+		SELECT COALESCE(SUM(minutes),0) FROM lab_payments WHERE session_id=$1 AND status='paid'
+	`, sessionID).Scan(&paidMinutes)
+
+	return gin.H{
+		"status":            strings.ToUpper(status),
+		"startedAt":         startedAt,
+		"expiresAt":         expiresAt,
+		"remainingSeconds":  remaining,
+		"paidMinutes":       paidMinutes,
+		"freeMinutes":       a.freeSessionMinutes(),
+		"maxSessionMinutes": a.maxSessionMinutes(),
+		"warnMinutes":       a.Cfg.Lab.WarningMinutes,
+	}, nil
+}
+
+// RazorpayWebhook handles asynchronous payment capture. It verifies the HMAC of
+// the raw body against the configured webhook secret, then settles the matching
+// order. This makes payment confirmation resilient to a browser that closes
+// mid-checkout.
 func (a *API) RazorpayWebhook(c *gin.Context) {
 	raw, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -339,8 +470,8 @@ func (a *API) RazorpayWebhook(c *gin.Context) {
 		return
 	}
 
-	// Fail closed: without a configured secret every event would be unauthenticated,
-	// so the endpoint is disabled rather than trusted.
+	// Fail closed: without a configured secret every event would be
+	// unauthenticated, so the endpoint is disabled rather than trusted.
 	secret := a.Cfg.Razorpay.WebhookSecret
 	if secret == "" {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "Webhook secret not configured"})
@@ -354,15 +485,21 @@ func (a *API) RazorpayWebhook(c *gin.Context) {
 	}
 
 	var event struct {
-		Event      string `json:"event"`
-		PayloadSub struct {
-			Entity map[string]interface{} `json:"entity"`
+		Event   string `json:"event"`
+		Payload struct {
+			Payment struct {
+				Entity struct {
+					ID      string `json:"id"`
+					OrderID string `json:"order_id"`
+					Status  string `json:"status"`
+				} `json:"entity"`
+			} `json:"payment"`
+			Order struct {
+				Entity struct {
+					ID string `json:"id"`
+				} `json:"entity"`
+			} `json:"order"`
 		} `json:"payload"`
-		Payment struct {
-			Entity struct {
-				SubscriptionID string `json:"subscription_id"`
-			} `json:"entity"`
-		} `json:"payment"`
 	}
 	// Respond fast; process best-effort.
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -370,127 +507,22 @@ func (a *API) RazorpayWebhook(c *gin.Context) {
 	if err := json.Unmarshal(raw, &event); err != nil {
 		return
 	}
-	subID, _ := event.PayloadSub.Entity["id"].(string)
-	if subID == "" {
-		subID = event.Payment.Entity.SubscriptionID
-	}
-	if subID == "" {
+	if !strings.Contains(event.Event, "payment.captured") && !strings.Contains(event.Event, "order.paid") {
 		return
 	}
 
-	status, _ := event.PayloadSub.Entity["status"].(string)
-	if status == "" {
-		switch {
-		case strings.Contains(event.Event, "cancelled"):
-			status = "cancelled"
-		case strings.Contains(event.Event, "charged"):
-			status = "active"
-		}
+	orderID := event.Payload.Payment.Entity.OrderID
+	if orderID == "" {
+		orderID = event.Payload.Order.Entity.ID
 	}
-	var endTS int64
-	if et, ok := event.PayloadSub.Entity["current_end_time"].(float64); ok {
-		endTS = int64(et)
-	}
-	if status != "" {
-		_, _ = a.DB.Exec(context.Background(), `
-			UPDATE subscriptions SET status=$2, current_end_ts=COALESCE(NULLIF($3,0), current_end_ts), updated_at=now()
-			WHERE razorpay_subscription_id=$1
-		`, subID, status, endTS)
-	}
-}
-
-// --- gating helpers ---
-
-// isPremiumRoom reports whether a room is locked behind a subscription.
-func (a *API) isPremiumRoom(ctx context.Context, roomID int64) bool {
-	if roomID <= 0 {
-		return false
-	}
-	var one int
-	err := a.DB.QueryRow(ctx, `SELECT 1 FROM premium_rooms WHERE room_id=$1`, roomID).Scan(&one)
-	return err == nil
-}
-
-// premiumRoomSet loads the full set of subscription-locked room ids in one pass.
-func (a *API) premiumRoomSet(ctx context.Context) map[int64]bool {
-	set := map[int64]bool{}
-	rows, err := a.DB.Query(ctx, `SELECT room_id FROM premium_rooms`)
-	if err != nil {
-		return set
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int64
-		if rows.Scan(&id) == nil {
-			set[id] = true
-		}
-	}
-	return set
-}
-
-// activeSubscriber reports whether the user currently holds a paid entitlement.
-func (a *API) activeSubscriber(ctx context.Context, userID int64) bool {
-	var status string
-	err := a.DB.QueryRow(ctx, `SELECT status FROM subscriptions WHERE user_id=$1`, userID).Scan(&status)
-	if err != nil {
-		return false
-	}
-	return isActiveStatus(status)
-}
-
-// requirePremiumAccess writes a 403 (SUBSCRIPTION_REQUIRED) and returns false
-// when the room is premium and the caller is not an active subscriber. Instructors
-// and admins bypass the gate.
-func (a *API) requirePremiumAccess(c *gin.Context, roomID int64) bool {
-	u := getAuthUser(c)
-	if u == nil {
-		return false
-	}
-	if u.Role != roleStudent {
-		return true
-	}
-	if !a.isPremiumRoom(c.Request.Context(), roomID) {
-		return true
-	}
-	if a.activeSubscriber(c.Request.Context(), u.ID) {
-		return true
-	}
-	c.AbortWithStatusJSON(http.StatusPaymentRequired, gin.H{
-		"success": false,
-		"code":    "SUBSCRIPTION_REQUIRED",
-		"message": "This range requires an active subscription.",
-	})
-	return false
-}
-
-// SetRoomPremium lets an admin mark a course (room) as subscription-only.
-func (a *API) SetRoomPremium(c *gin.Context) {
-	u := getAuthUser(c)
-	if u == nil {
-		writeErr(c, http.StatusUnauthorized, "Not authenticated")
+	if orderID == "" {
 		return
 	}
-	if u.Role != roleAdmin {
-		writeErr(c, http.StatusForbidden, "Admins only")
-		return
+	paymentID := event.Payload.Payment.Entity.ID
+
+	if _, _, err := a.settleLabPayment(context.Background(), orderID, paymentID); err != nil {
+		log.Printf("razorpay webhook settle %s: %v", orderID, err)
 	}
-	roomID, ok := parseInt64Param(c, "roomId")
-	if !ok {
-		return
-	}
-	var body struct {
-		Premium bool `json:"premium"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		writeErr(c, http.StatusBadRequest, "Invalid payload")
-		return
-	}
-	if body.Premium {
-		_, _ = a.DB.Exec(c.Request.Context(), `INSERT INTO premium_rooms (room_id) VALUES ($1) ON CONFLICT DO NOTHING`, roomID)
-	} else {
-		_, _ = a.DB.Exec(c.Request.Context(), `DELETE FROM premium_rooms WHERE room_id=$1`, roomID)
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"roomId": roomID, "premium": body.Premium}})
 }
 
 func hmacHex(secret, data string) string {

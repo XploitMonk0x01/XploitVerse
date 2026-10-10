@@ -27,7 +27,7 @@ type Config struct {
 	Razorpay RazorpayConfig
 }
 
-// RazorpayConfig holds payment-provider credentials for subscriptions.
+// RazorpayConfig holds payment-provider credentials for per-lab usage billing.
 type RazorpayConfig struct {
 	KeyID         string
 	KeySecret     string
@@ -48,11 +48,18 @@ type AWSConfig struct {
 	Region          string
 }
 
-// LabConfig holds lab-related configuration.
+// LabConfig holds lab billing and lifecycle configuration.
+//
+// Pricing is derived from AWS run cost (see docs/PRICING.md): a lab container
+// requests 0.5 vCPU / 512 MB, which packs ~4 containers onto a t3.medium
+// (~$0.0416/hr on-demand) plus EBS and NAT/ALB overhead, landing near
+// $0.022/lab-hour (~₹2). HourlyRateINR applies a ~4.5x margin so the free
+// 59-minute tier and idle capacity stay funded.
 type LabConfig struct {
-	HourlyRate           float64
-	MaxSessionDuration   int // hours
-	AutoTerminateWarning int // minutes before auto-terminate
+	FreeSessionMinutes int     // free tier length before payment is required
+	HourlyRateINR      float64 // base pay-as-you-go rate per lab hour
+	MaxSessionMinutes  int     // hard cap on total lifetime of one session
+	WarningMinutes     int     // minutes before expiry when the UI warns the user
 }
 
 // SMTPConfig holds email SMTP configuration.
@@ -87,9 +94,10 @@ func Load() *Config {
 			Region:          getEnv("AWS_REGION", "us-east-1"),
 		},
 		Lab: LabConfig{
-			HourlyRate:           0.5,
-			MaxSessionDuration:   4,
-			AutoTerminateWarning: 15,
+			FreeSessionMinutes: getEnvInt("LAB_FREE_MINUTES", 59),
+			HourlyRateINR:      getEnvFloat("LAB_HOURLY_RATE_INR", 9.0),
+			MaxSessionMinutes:  getEnvInt("LAB_MAX_SESSION_MINUTES", 480),
+			WarningMinutes:     getEnvInt("LAB_WARN_MINUTES", 10),
 		},
 		SMTP: SMTPConfig{
 			Host:     getEnv("SMTP_HOST", ""),
@@ -129,6 +137,16 @@ func getEnvInt(key string, fallback int) int {
 			return i
 		}
 		log.Printf("Warning: invalid integer for %s, using default %d", key, fallback)
+	}
+	return fallback
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	if val := os.Getenv(key); val != "" {
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			return f
+		}
+		log.Printf("Warning: invalid number for %s, using default %v", key, fallback)
 	}
 	return fallback
 }

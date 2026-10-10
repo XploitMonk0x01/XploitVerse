@@ -12,8 +12,7 @@ import {
   LogOut,
   UserCircle,
   ChevronDown,
-  Activity,
-  Sparkles,
+  Receipt,
 } from 'lucide-react';
 
 interface NavLink {
@@ -56,7 +55,7 @@ export const Navbar = () => {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
     { to: '/courses', label: 'Courses', icon: BookOpen, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
     { to: '/leaderboard', label: 'Leaderboard', icon: Trophy, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
-    { to: '/pricing', label: 'Pricing', icon: Sparkles, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
+    { to: '/billing', label: 'Billing', icon: Receipt, roles: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
     { to: '/admin', label: 'Admin', icon: Shield, roles: ['INSTRUCTOR', 'ADMIN'] },
   ];
 
@@ -146,13 +145,6 @@ export const Navbar = () => {
                       >
                         <UserCircle className="h-4 w-4" strokeWidth={1.75} />
                         Profile & Settings
-                      </Link>
-                      <Link
-                        to="/dashboard"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-overlay hover:text-fg"
-                      >
-                        <Activity className="h-4 w-4" strokeWidth={1.75} />
-                        Dashboard
                       </Link>
                       <div className="my-1 border-t border-border-subtle" />
                       <button

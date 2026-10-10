@@ -18,15 +18,26 @@ import {
   Info,
   Lightbulb,
   Link2,
+  Timer,
+  Plus,
+  CreditCard,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import EnvironmentWindow from "../components/workspace/EnvironmentWindow";
 import { Badge, difficultyVariant } from "../components/ui";
 import { labSessionService, labService, flagService } from "../services";
+import {
+  billingService,
+  startLabExtension,
+  type PricingResponse,
+} from "../services/billing";
+import { useAuth } from "../context/AuthContext";
 import type { Lab, LabSession } from "../types";
 
 const LabWorkspace = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [session, setSession] = useState<LabSession | null>(null);
   const [lab, setLab] = useState<Lab | null>(null);
@@ -41,6 +52,10 @@ const LabWorkspace = () => {
   const [flagInput, setFlagInput] = useState("");
   const [submittingFlag, setSubmittingFlag] = useState(false);
   const [flagStatus, setFlagStatus] = useState<{ solved: boolean; message: string; points?: number } | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [pricing, setPricing] = useState<PricingResponse | null>(null);
+  const [showExtend, setShowExtend] = useState(false);
+  const [extendingBlock, setExtendingBlock] = useState<string | null>(null);
 
   const isVulnApp = Boolean(
     lab?.title?.toLowerCase().includes("vulnerableapp") ||
@@ -252,6 +267,60 @@ const LabWorkspace = () => {
     };
   }, [session?.startedAt]);
 
+  // Load the per-lab pricing catalogue once so the extend action is ready.
+  useEffect(() => {
+    billingService
+      .getPricing()
+      .then(setPricing)
+      .catch(() => setPricing(null));
+  }, []);
+
+  // Countdown against the session expiry (which paid extensions push forward).
+  useEffect(() => {
+    const expires = session?.billing?.expiresAt || session?.expiresAt;
+    if (!expires) {
+      setRemainingSeconds(null);
+      return;
+    }
+    const calc = () =>
+      Math.max(0, Math.floor((new Date(expires).getTime() - Date.now()) / 1000));
+    setRemainingSeconds(calc());
+    const t = setInterval(() => setRemainingSeconds(calc()), 1000);
+    return () => clearInterval(t);
+  }, [session?.billing?.expiresAt, session?.expiresAt]);
+
+  const warnSeconds = (session?.billing?.warnMinutes ?? 10) * 60;
+  const timeLow = remainingSeconds !== null && remainingSeconds <= warnSeconds;
+  const timeExpired = remainingSeconds !== null && remainingSeconds <= 0;
+
+  const handleExtend = async (block: string) => {
+    if (!user) {
+      toast.error("Please sign in to extend this session.");
+      return;
+    }
+    const sid = Number(effectiveSessionId);
+    if (!sid || Number.isNaN(sid)) return;
+    setExtendingBlock(block);
+    try {
+      const res = await startLabExtension(sid, block, {
+        fullName: user.fullName,
+        username: user.username,
+        email: user.email,
+      });
+      setSession((prev) =>
+        prev
+          ? { ...prev, billing: res.billing, expiresAt: res.billing.expiresAt ?? prev.expiresAt }
+          : prev,
+      );
+      toast.success(`Session extended by ${res.grantedMinutes} minutes.`);
+      setShowExtend(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not complete the payment.");
+    } finally {
+      setExtendingBlock(null);
+    }
+  };
+
   // Handle terminal commands
   const handleTerminalCommand = useCallback((command: string) => {
     setLogs((prev) => [...prev, { type: "input", message: command }]);
@@ -444,10 +513,42 @@ const LabWorkspace = () => {
             <span className="hidden sm:inline">{connected ? "Connected" : "Connecting"}</span>
           </span>
 
-          <span className="flex items-center gap-1.5 rounded-full border border-border bg-bg-base px-2.5 py-1 font-mono text-xs text-fg-muted">
+          <span className="hidden items-center gap-1.5 rounded-full border border-border bg-bg-base px-2.5 py-1 font-mono text-xs text-fg-muted sm:flex">
             <Clock className="h-3.5 w-3.5 text-fg-subtle" strokeWidth={1.75} />
             {formatTime(elapsedTime)}
           </span>
+
+          {remainingSeconds !== null && (
+            <span
+              className={
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs font-medium " +
+                (timeExpired
+                  ? "border-danger/40 bg-danger/10 text-danger"
+                  : timeLow
+                    ? "border-warn/40 bg-warn/10 text-warn"
+                    : "border-border bg-bg-base text-fg-muted")
+              }
+              title="Time remaining in this session"
+            >
+              <Timer className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {formatTime(remainingSeconds)}
+            </span>
+          )}
+
+          {pricing?.configured && !timeExpired && (
+            <button
+              onClick={() => setShowExtend(true)}
+              className={
+                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors " +
+                (timeLow
+                  ? "border-accent bg-accent text-accent-fg hover:bg-accent-hover"
+                  : "border-border text-fg-muted hover:border-border-strong hover:text-fg")
+              }
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Extend</span>
+            </button>
+          )}
 
           <button
             onClick={handleTerminateVoid}
@@ -495,6 +596,34 @@ const LabWorkspace = () => {
         >
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" strokeWidth={1.75} />
           Provisioning target — building the image and starting the container. This can take a few minutes.
+        </div>
+      )}
+
+      {timeLow && !provisioning && (
+        <div
+          className={
+            "flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-xs " +
+            (timeExpired
+              ? "border-danger/30 bg-danger/10 text-danger"
+              : "border-warn/30 bg-warn/10 text-warn")
+          }
+          role="status"
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            {timeExpired
+              ? "Free lab time is over. Keep going by adding time, or this session will close."
+              : `Only ${formatTime(remainingSeconds ?? 0)} left on this session. Extend to keep hacking.`}
+          </span>
+          {pricing?.configured && !timeExpired && (
+            <button
+              type="button"
+              onClick={() => setShowExtend(true)}
+              className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+            >
+              Add time
+            </button>
+          )}
         </div>
       )}
 
@@ -682,6 +811,66 @@ const LabWorkspace = () => {
           />
         </section>
       </main>
+
+      {/* Extend-session checkout */}
+      {showExtend && pricing && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            if (!extendingBlock) setShowExtend(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-border bg-bg-raised p-6 shadow-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <Timer className="h-5 w-5 text-accent" strokeWidth={1.75} />
+              <h2 className="text-base font-semibold text-fg">Extend lab time</h2>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-fg-muted">
+              {timeExpired
+                ? "This session has ended. Add time to spin the container back up, or start a fresh lab."
+                : `Keep this container running past the ${pricing.freeMinutes}-minute free tier. You pay only for the time you add.`}
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {pricing.blocks.map((block) => (
+                <button
+                  key={block.key}
+                  type="button"
+                  disabled={Boolean(extendingBlock)}
+                  onClick={() => void handleExtend(block.key)}
+                  className="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-bg-base px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-50"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-fg">{block.name}</span>
+                    <span className="block text-xs text-fg-subtle">
+                      ₹{block.amountRupee.toFixed(0)} · adds {formatTime(block.minutes * 60)}
+                    </span>
+                  </span>
+                  {extendingBlock === block.key ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" strokeWidth={1.75} />
+                  ) : (
+                    <CreditCard className="h-4 w-4 shrink-0 text-fg-subtle" strokeWidth={1.75} />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowExtend(false)}
+              disabled={Boolean(extendingBlock)}
+              className="mt-4 w-full rounded-md border border-border px-4 py-2 text-sm font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
+            >
+              {timeExpired ? "Start a new session instead" : "Not now"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

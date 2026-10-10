@@ -11,7 +11,7 @@ import {
   difficultyVariant,
 } from "../../components/ui";
 import { courseService } from "../../services";
-import { Search, Lock, ChevronRight, Terminal } from "lucide-react";
+import { Search, ChevronRight, Terminal } from "lucide-react";
 import type { Course } from "../../types";
 import { StaggerContainer, FadeIn } from "../../components/ui/motion/MotionWrappers";
 
@@ -130,11 +130,7 @@ export const CourseCatalog = () => {
                   <Badge variant={difficultyVariant(course.difficulty)} size="sm">
                     {course.difficulty || 'Easy'}
                   </Badge>
-                  {course.isPremium ? (
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-warn" strokeWidth={1.75} />
-                  ) : (
-                    <Terminal className="h-3.5 w-3.5 shrink-0 text-fg-subtle" strokeWidth={1.75} />
-                  )}
+                  <Terminal className="h-3.5 w-3.5 shrink-0 text-fg-subtle" strokeWidth={1.75} />
                 </div>
 
                 {/* Title */}

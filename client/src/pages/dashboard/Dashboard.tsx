@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { labService, labSessionService } from "../../services";
 import { LabCard } from "../../components/labs/LabCard";
@@ -248,12 +247,6 @@ export const Dashboard = () => {
         await provisionAndOpen(newSession.id);
       }
     } catch (err: unknown) {
-      const status = (err as { status?: number })?.status;
-      if (status === 402) {
-        toast("This range needs a subscription.", { icon: "🔒" });
-        navigate("/pricing");
-        return;
-      }
       const message = getServerMessage(err, "Failed to initialize lab container.");
       if (/already have an active lab session/i.test(message)) {
         const blockerId = await resumeActiveSession();

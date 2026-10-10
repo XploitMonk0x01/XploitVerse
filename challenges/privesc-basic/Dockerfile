@@ -30,7 +30,7 @@ RUN echo "FLAG{xv_privesc_suid_escalation_2024}" > /root/flag.txt && \
 # ── Vulnerability 1: SUID binary ──────────────────────────
 # A custom SUID binary that spawns a shell
 COPY suid_helper.c /tmp/suid_helper.c
-RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && \
     gcc -o /usr/local/bin/suid_helper /tmp/suid_helper.c && \
     chmod u+s /usr/local/bin/suid_helper && \
     rm /tmp/suid_helper.c && \

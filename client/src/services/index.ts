@@ -44,8 +44,9 @@ export const authService = {
   updatePassword: (passwords: { currentPassword: string; newPassword: string }) =>
     apiClient.put<{ success: boolean; message: string; data: { token: string } }>('/auth/update-password', passwords),
   refreshToken: () => apiClient.post<RefreshTokenResponse>('/auth/refresh-token'),
-  forgotPassword: (email: string) =>
-    apiClient.post<{ success: boolean; message: string }>('/auth/forgot-password', { email }),
+  forgotPassword: (email: string) => apiClient.post<{ success: boolean; message: string }>('/auth/forgot-password', { email }),
+  sendOTP: (email: string) => apiClient.post<{ success: boolean; message: string }>('/auth/send-otp', { email }),
+  verifyOTP: (email: string, otp: string) => apiClient.post<{ success: boolean; message: string }>('/auth/verify-otp', { email, otp }),
   resetPassword: (token: string, password: string, confirmPassword: string) =>
     apiClient.post<{ success: boolean; message: string; data: { token: string } }>(`/auth/reset-password/${token}`, { password, confirmPassword }),
 };

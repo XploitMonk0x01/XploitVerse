@@ -2,7 +2,7 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, OTPVerification } from '../../components/ui';
 import { FadeIn } from '../../components/ui/motion';
 import { AlertTriangle, ArrowRight, Shield } from 'lucide-react';
 
@@ -15,6 +15,7 @@ interface FormErrors {
   email?: string;
   password?: string;
   form?: string;
+  error?: string;
 }
 
 const Login = () => {
@@ -28,8 +29,10 @@ const Login = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(wasRemembered);
+  const [verifyMode, setVerifyMode] = useState<'none' | 'otp' | 'resend'>('none');
+  const [otpSent, setOTPSent] = useState(false);
 
-  const { login } = useAuth();
+  const { login, sendOTP: userSendOTP, verifyOTP: userVerifyOTP } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -78,13 +81,39 @@ const Login = () => {
         localStorage.removeItem('rememberedEmail');
       }
       navigate(from, { replace: true });
+    } else if (result.error?.includes('OTP') || result.error?.includes('verify')) {
+      setVerifyMode('otp');
+      setOTPSent(false);
     } else {
       setErrors((prev) => ({ ...prev, form: result.error }));
     }
   };
 
-  const handleSubmitVoid = (e: FormEvent) => {
-    void handleSubmit(e);
+  const handleOTPSubmit = async (enteredOTP: string) => {
+    setVerifyMode('resend');
+    setOTPSent(true);
+
+    try {
+      const result = await userVerifyOTP(formData.email ?? '', enteredOTP);
+      if (result.success) {
+        localStorage.setItem('token', '');
+        navigate(from, { replace: true });
+      } else {
+        setErrors({ error: result.message || 'Invalid OTP. Please try again.' });
+        setVerifyMode('otp');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Verification failed. Please try again.';
+      setErrors({ error: message });
+      setVerifyMode('otp');
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (formData.email) {
+      await userSendOTP(formData.email);
+    }
+    setErrors({ error: '' });
   };
 
   return (
@@ -113,69 +142,84 @@ const Login = () => {
 
         {/* Card */}
         <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
-          <form className="space-y-4" onSubmit={handleSubmitVoid} noValidate>
-            {errors.form && (
-              <div
-                className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
-                role="alert"
-              >
-                <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                <span>{errors.form}</span>
+          {verifyMode === 'otp' && otpSent ? (
+            <OTPVerification
+              onVerified={handleOTPSubmit}
+              onResend={handleResendOTP}
+              mode="login"
+            />
+          ) : (
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} noValidate>
+              {errors.form && (
+                <div
+                  className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                  role="alert"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  <span>{errors.form}</span>
+                </div>
+              )}
+
+              <Input
+                label="Operative Email"
+                type="email"
+                name="email"
+                placeholder="operative@xploitverse.io"
+                value={formData.email}
+                onChange={handleChange}
+                error={errors.email}
+                required
+              />
+
+              <Input
+                label="Passkey"
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                required
+              />
+
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-muted transition-colors hover:text-fg">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
+                  />
+                  <span>Remember session</span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-accent transition-colors hover:text-accent/80 hover:underline"
+                >
+                  Forgot password?
+                </Link>
               </div>
-            )}
 
-            <Input
-              label="Operative Email"
-              type="email"
-              name="email"
-              placeholder="operative@xploitverse.io"
-              value={formData.email}
-              onChange={handleChange}
-              error={errors.email}
-              required
-            />
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full"
+                  isLoading={isLoading}
+                >
+                  Sign In
+                  <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
+                </Button>
+              </div>
 
-            <Input
-              label="Passkey"
-              type="password"
-              name="password"
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={handleChange}
-              error={errors.password}
-              required
-            />
-
-            <div className="flex items-center justify-between pt-0.5">
-              <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-muted transition-colors hover:text-fg">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer rounded border-border-strong bg-bg-base text-accent focus:ring-accent/30"
-                />
-                <span>Remember session</span>
-              </label>
-              <Link
-                to="/forgot-password"
-                className="text-xs font-medium text-accent transition-colors hover:text-accent/80 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            <div className="pt-2">
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full"
-                isLoading={isLoading}
-              >
-                Sign In
-                <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={1.75} />
-              </Button>
-            </div>
-          </form>
+              {verifyMode === 'otp' && !otpSent && (
+                <div className="mt-4 text-center text-sm text-fg-muted">
+                  <p>Account requires OTP verification.</p>
+                  <p>An OTP has been sent to <strong>{formData.email ?? 'your email'}</strong></p>
+                </div>
+              )}
+            </form>
+          )}
 
           <div className="mt-6 border-t border-border pt-4 text-center text-xs text-fg-muted">
             New operative?{' '}

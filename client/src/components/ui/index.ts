@@ -20,3 +20,4 @@ export { default as Textarea } from './Textarea';
 export { default as PasswordInput } from './PasswordInput';
 export { default as ProgressBar } from './ProgressBar';
 export { default as Stat } from './Stat';
+export { default as OTPVerification } from './OTPVerification';

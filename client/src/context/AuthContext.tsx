@@ -99,6 +99,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const sendOTP = async (email: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await authService.sendOTP(email);
+      return response;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send OTP';
+      setError(message);
+      return { success: false, message };
+    }
+  };
+
+  const verifyOTP = async (email: string, otp: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await authService.verifyOTP(email, otp);
+      return response;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to verify OTP';
+      setError(message);
+      return { success: false, message };
+    }
+  };
+
   const updateUser = (userData: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...userData } : null));
   };
@@ -122,6 +144,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updateUser,
     hasRole,
     checkAuth,
+    sendOTP,
+    verifyOTP,
   };
 
   return (

@@ -27,6 +27,7 @@ import type {
   AdminLabsListResponse,
   AdminLabCreateResponse,
   DockerfileValidationResponse,
+  AdminOverview,
 } from '../types';
 
 export const flagService = {
@@ -96,6 +97,7 @@ export const leaderboardService = {
 };
 
 export const adminService = {
+  getOverview: () => apiClient.get<AdminOverview>('/admin/overview'),
   listLabs: () => apiClient.get<AdminLabsListResponse>('/admin/labs'),
   createLab: (formData: FormData) => apiClient.upload<AdminLabCreateResponse>('/admin/labs', formData),
   buildLab: (id: number) =>

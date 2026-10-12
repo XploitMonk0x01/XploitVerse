@@ -42,10 +42,10 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, dockerS
 		authGroup.GET("/me", auth, api.GetMe)
 		authGroup.PUT("/update-password", auth, api.UpdatePassword)
 		authGroup.POST("/refresh-token", auth, api.RefreshToken)
-authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
-	authGroup.POST("/send-otp", authLimiter.Middleware(), api.SendOTP)
-	authGroup.POST("/verify-otp", authLimiter.Middleware(), api.VerifyOTP)
-	authGroup.POST("/reset-password/:token", authLimiter.Middleware(), api.ResetPassword)
+		authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
+		authGroup.POST("/send-otp", authLimiter.Middleware(), api.SendOTP)
+		authGroup.POST("/verify-otp", authLimiter.Middleware(), api.VerifyOTP)
+		authGroup.POST("/reset-password/:token", authLimiter.Middleware(), api.ResetPassword)
 	}
 
 	usersGroup := v1.Group("/users")
@@ -114,15 +114,26 @@ authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
 		labsGroup.POST("/session/:sessionId/provision", api.CompleteProvisioning)
 	}
 
-	// Admin lab authoring: upload/paste Dockerfiles and register live challenges.
+	// Admin command center + lab authoring. Reads are available to instructors,
+	// while every mutation is restricted to administrators.
 	adminGroup := v1.Group("/admin")
-	adminGroup.Use(auth, requireRole(roleAdmin))
+	adminGroup.Use(auth)
 	{
-		adminGroup.GET("/labs", api.AdminListLabs)
-		adminGroup.POST("/labs", api.AdminCreateLab)
-		adminGroup.POST("/labs/validate-dockerfile", api.AdminValidateDockerfile)
-		adminGroup.POST("/labs/:id/build", api.AdminBuildLab)
-		adminGroup.DELETE("/labs/:id", api.AdminDeleteLab)
+		adminRead := adminGroup.Group("")
+		adminRead.Use(requireRole(roleAdmin, roleInstructor))
+		{
+			adminRead.GET("/overview", api.AdminOverview)
+			adminRead.GET("/labs", api.AdminListLabs)
+		}
+
+		adminWrite := adminGroup.Group("")
+		adminWrite.Use(requireRole(roleAdmin))
+		{
+			adminWrite.POST("/labs", api.AdminCreateLab)
+			adminWrite.POST("/labs/validate-dockerfile", api.AdminValidateDockerfile)
+			adminWrite.POST("/labs/:id/build", api.AdminBuildLab)
+			adminWrite.DELETE("/labs/:id", api.AdminDeleteLab)
+		}
 	}
 
 	// Per-lab usage billing (Razorpay one-time orders, no subscriptions).

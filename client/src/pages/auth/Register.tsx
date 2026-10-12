@@ -151,12 +151,12 @@ export function Register() {
         <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
           {verifyMode === 'otp' && otpSent ? (
             <OTPVerification
-              onVerified={handleOTPSubmit}
-              onResend={handleResendOTP}
+              onVerified={(otp) => { void handleOTPSubmit(otp); }}
+              onResend={() => { void handleResendOTP(); }}
               mode="register"
             />
           ) : (
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} noValidate>
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} noValidate>
               {errors.form && (
                 <div
                   className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
@@ -252,8 +252,8 @@ export function Register() {
 
           {verifyMode === 'otp' && otpSent && (
             <OTPVerification
-              onVerified={handleOTPSubmit}
-              onResend={handleResendOTP}
+              onVerified={(otp) => { void handleOTPSubmit(otp); }}
+              onResend={() => { void handleResendOTP(); }}
               mode="register"
             />
           )}

@@ -109,7 +109,7 @@ const ForgotPassword = () => {
         {/* Card */}
         <div className="rounded-lg border border-border bg-bg-raised p-6 shadow-sm sm:p-7">
           {!isSubmitted && !verifyMode && (
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} noValidate>
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} noValidate>
               {error && (
                 <div
                   className="flex items-center gap-2.5 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
@@ -150,8 +150,8 @@ const ForgotPassword = () => {
 
           {verifyMode === 'otp' && !otpSent ? (
             <OTPVerification
-              onVerified={handleOTPSubmit}
-              onResend={handleResendOTP}
+              onVerified={(otp) => { void handleOTPSubmit(otp); }}
+              onResend={() => { void handleResendOTP(); }}
               mode="forgot-password"
             />
           ) : (
@@ -172,7 +172,7 @@ const ForgotPassword = () => {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={handleResendOTP}
+                onClick={() => { void handleResendOTP(); }}
                 className="w-full"
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Badge } from '../../components/ui';
 import { FadeIn } from '../../components/ui/motion';
@@ -16,6 +17,7 @@ import {
   Radio,
   ExternalLink,
   Layers,
+  Boxes,
 } from 'lucide-react';
 
 interface OverviewStat {
@@ -39,6 +41,7 @@ interface SystemNode {
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const overviewStats: OverviewStat[] = [
     {
@@ -179,9 +182,13 @@ const AdminDashboard = () => {
               <Download className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
               Audit Logs
             </Button>
-            <Button variant="primary" size="sm">
+            <Button variant="secondary" size="sm">
               <Settings className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
               Cluster Settings
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => navigate('/admin/labs')}>
+              <Boxes className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+              Manage Labs
             </Button>
           </div>
         </div>

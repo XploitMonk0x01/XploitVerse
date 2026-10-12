@@ -15,6 +15,7 @@ import Dashboard from './pages/dashboard/Dashboard';
 import Profile from './pages/dashboard/Profile';
 import Billing from './pages/dashboard/Billing';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminLabs from './pages/admin/AdminLabs';
 import LabWorkspace from './pages/LabWorkspace';
 import CourseCatalog from './pages/courses/CourseCatalog';
 import CourseDetail from './pages/courses/CourseDetail';
@@ -85,6 +86,11 @@ function App() {
               {/* Admin/Instructor Routes */}
               <Route element={<RoleRoute allowedRoles={['ADMIN', 'INSTRUCTOR']} />}>
                 <Route path="/admin" element={<AdminDashboard />} />
+              </Route>
+
+              {/* Admin-only Routes */}
+              <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>
+                <Route path="/admin/labs" element={<AdminLabs />} />
               </Route>
             </Route>
 

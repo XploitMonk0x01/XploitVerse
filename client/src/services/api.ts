@@ -94,6 +94,12 @@ export const apiClient = {
   patch: <T>(url: string, data?: unknown) =>
     api.patch<ApiEnvelope<T>>(url, data).then(unwrap),
 
+  // Multipart upload. The explicit content type stops the instance default
+  // (application/json) from making axios JSON-stringify the FormData; axios
+  // clears it again in the browser so the boundary is set correctly.
+  upload: <T>(url: string, formData: FormData) =>
+    api.post<ApiEnvelope<T>>(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(unwrap),
+
   delete: <T>(url: string) =>
     api.delete<ApiEnvelope<T>>(url).then(unwrap),
 

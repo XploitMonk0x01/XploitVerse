@@ -114,6 +114,17 @@ authGroup.POST("/forgot-password", authLimiter.Middleware(), api.ForgotPassword)
 		labsGroup.POST("/session/:sessionId/provision", api.CompleteProvisioning)
 	}
 
+	// Admin lab authoring: upload/paste Dockerfiles and register live challenges.
+	adminGroup := v1.Group("/admin")
+	adminGroup.Use(auth, requireRole(roleAdmin))
+	{
+		adminGroup.GET("/labs", api.AdminListLabs)
+		adminGroup.POST("/labs", api.AdminCreateLab)
+		adminGroup.POST("/labs/validate-dockerfile", api.AdminValidateDockerfile)
+		adminGroup.POST("/labs/:id/build", api.AdminBuildLab)
+		adminGroup.DELETE("/labs/:id", api.AdminDeleteLab)
+	}
+
 	// Per-lab usage billing (Razorpay one-time orders, no subscriptions).
 	billingGroup := v1.Group("/billing")
 	{

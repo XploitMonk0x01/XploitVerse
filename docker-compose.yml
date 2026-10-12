@@ -98,6 +98,8 @@ services:
     volumes:
       # Allows backend container to orchestrate challenge containers
       - //var/run/docker.sock:/var/run/docker.sock
+      # Admin-authored lab sources are written here and built at runtime.
+      - ./challenges:/app/challenges
     depends_on:
       postgres:
         condition: service_healthy

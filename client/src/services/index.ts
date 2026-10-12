@@ -23,6 +23,10 @@ import type {
   LoginResponse,
   MeResponse,
   RefreshTokenResponse,
+  AdminLab,
+  AdminLabsListResponse,
+  AdminLabCreateResponse,
+  DockerfileValidationResponse,
 } from '../types';
 
 export const flagService = {
@@ -91,6 +95,18 @@ export const leaderboardService = {
   getMyRank: () => apiClient.get<MyRankResponse>('/leaderboard/me'),
 };
 
+export const adminService = {
+  listLabs: () => apiClient.get<AdminLabsListResponse>('/admin/labs'),
+  createLab: (formData: FormData) => apiClient.upload<AdminLabCreateResponse>('/admin/labs', formData),
+  buildLab: (id: number) =>
+    apiClient.post<{ id: number; dockerImage: string; buildContextPath: string; buildStatus: string }>(`/admin/labs/${id}/build`),
+  deleteLab: (id: number) => apiClient.delete<{ id: number }>(`/admin/labs/${id}`),
+  validateDockerfile: (dockerfile: string) =>
+    apiClient.post<DockerfileValidationResponse>('/admin/labs/validate-dockerfile', { dockerfile }),
+};
+
+export type { AdminLab };
+
 export default {
   auth: authService,
   users: userService,
@@ -101,4 +117,5 @@ export default {
   tasks: taskService,
   flags: flagService,
   leaderboard: leaderboardService,
+  admin: adminService,
 };
